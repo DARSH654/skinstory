@@ -10,8 +10,25 @@ const outfit = Outfit({
 });
 
 export const metadata = {
-  title: "Skin Story - Get Real Insights",
-  description: "Personalized skincare routine and progress tracking.",
+  metadataBase: new URL("https://getskinstory.com"),
+  title: "Skin Story - Stop Guessing. See Real Insights.",
+  description: "Skin Story uses AI and clinical-grade scanning to filter background noise and isolate skin-level metrics with pinpoint accuracy.",
+  keywords: ["Skin Story", "Skin Story AI", "Skin Story App", "getskinstory", "skincare analysis", "skin health tracker"],
+  alternates: {
+    canonical: "https://getskinstory.com",
+  },
+  openGraph: {
+    title: "Skin Story - Stop Guessing. See Real Insights.",
+    description: "Pinpoint-accurate skin analysis without the guesswork.",
+    url: "https://getskinstory.com",
+    siteName: "Skin Story",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Skin Story - Stop Guessing. See Real Insights.",
+    description: "Pinpoint-accurate skin analysis without the guesswork.",
+  },
   icons: {
     icon: "/icon.svg",
   },
