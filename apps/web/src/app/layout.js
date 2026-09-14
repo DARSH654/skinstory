@@ -30,7 +30,14 @@ export const metadata = {
     description: "Pinpoint-accurate skin analysis without the guesswork.",
   },
   icons: {
-    icon: "/icon.svg",
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 
