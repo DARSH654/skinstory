@@ -10,17 +10,21 @@ import { Platform } from 'react-native';
 export const Colors = {
   light: {
     text: '#000000',
-    background: '#ffffff',
+    background: '#f5f5f7',
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    primary: '#937abd',
+    secondary: '#d6cbe8',
   },
   dark: {
     text: '#ffffff',
-    background: '#000000',
+    background: '#121212',
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    primary: '#937abd',
+    secondary: '#d6cbe8',
   },
 } as const;
 
@@ -63,3 +67,14 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+// Responsive Scaling Rules
+import { Dimensions } from 'react-native';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+export const getResponsiveValue = <T,>(small: T, medium: T, large: T, xlarge: T): T => {
+  if (SCREEN_WIDTH < 340) return small;  // Small Screen (e.g. 320 dp)
+  if (SCREEN_WIDTH < 390) return medium; // Medium Screen (e.g. 360-375 dp)
+  if (SCREEN_WIDTH < 440) return large;  // Large Screen (e.g. 411-433 dp)
+  return xlarge;                         // Extra Large Screen (e.g. 440+ dp)
+};

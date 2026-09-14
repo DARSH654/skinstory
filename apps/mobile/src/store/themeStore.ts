@@ -3,23 +3,26 @@ import { Appearance, ColorSchemeName } from 'react-native';
 
 interface ThemeState {
   colorScheme: ColorSchemeName;
+  selectedOption: 'light' | 'dark' | 'system';
   setColorScheme: (scheme: 'light' | 'dark' | 'system') => void;
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
-  colorScheme: Appearance.getColorScheme() || 'light',
+  colorScheme: (Appearance.getColorScheme() as ColorSchemeName) ?? 'light',
+  selectedOption: 'system',
   setColorScheme: (scheme) => {
     const resolvedScheme = scheme === 'system' ? Appearance.getColorScheme() : scheme;
     
-    // 1. Update global store instantly for snappy UI updates
-    set({ colorScheme: resolvedScheme });
-    
-    // 2. Sync with React Native's Appearance API in the background
-    Appearance.setColorScheme((scheme === 'system' ? 'unspecified' : scheme) as any);
+    set({
+      colorScheme: resolvedScheme ?? 'light',
+      selectedOption: scheme,
+    });
   },
 }));
 
-// Listen for system-level theme changes (e.g., user changes iOS settings)
+// Listen for system-level theme changes when in system mode
 Appearance.addChangeListener(({ colorScheme }) => {
-  useThemeStore.setState({ colorScheme });
+  if (useThemeStore.getState().selectedOption === 'system') {
+    useThemeStore.setState({ colorScheme });
+  }
 });

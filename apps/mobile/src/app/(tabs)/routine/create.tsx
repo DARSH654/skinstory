@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, 
-  Text, 
   StyleSheet, 
   TextInput, 
   Pressable, 
@@ -11,20 +10,24 @@ import {
   Platform,
   Animated,
   PanResponder,
-  Dimensions,
+  useWindowDimensions,
   Image,
   Linking,
   DeviceEventEmitter,
+  BackHandler,
 } from 'react-native';
+import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { Plus, Trash2, Pencil, X, List, AlignLeft, Eye, ExternalLink, AlertCircle, Package } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors } from '@/constants/theme';
 import Header from '@/components/layout/Header';
 import * as ImagePicker from 'expo-image-picker';
 import { DraggableScrollDownCircle, useDraggableScroll } from '@/components/ui/draggable-scroll-down-circle';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput, BottomSheetBackdrop, BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
 
 export default function CreateRoutineScreen() {
@@ -39,6 +42,7 @@ export default function CreateRoutineScreen() {
   const editId = params.edit as string;
 
   const [title, setTitle] = useState("");
+  const [coverImage, setCoverImage] = useState("");
   const [steps, setSteps] = useState([1]);
   const [stepData, setStepData] = useState<Record<number, any>>({});
   const [drafts, setDrafts] = useState<Record<number, any>>({});
@@ -95,6 +99,78 @@ export default function CreateRoutineScreen() {
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const discardAnim = useRef(new Animated.Value(0.9)).current;
 
+  // Top Toast State for Add Action Bottom Sheet
+  const [sheetTopToastMessage, setSheetTopToastMessage] = useState("");
+  const sheetTopToastSlideAnim = useRef(new Animated.Value(-80)).current;
+  const sheetTopToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showSheetTopToast = (msg: string) => {
+    if (sheetTopToastTimerRef.current) {
+      clearTimeout(sheetTopToastTimerRef.current);
+      sheetTopToastTimerRef.current = null;
+    }
+    sheetTopToastSlideAnim.stopAnimation();
+    sheetTopToastSlideAnim.setValue(-80);
+    setSheetTopToastMessage(msg);
+    Animated.spring(sheetTopToastSlideAnim, {
+      toValue: 0,
+      damping: 20,
+      stiffness: 200,
+      mass: 0.8,
+      useNativeDriver: true,
+    }).start(() => {
+      sheetTopToastTimerRef.current = setTimeout(() => {
+        Animated.timing(sheetTopToastSlideAnim, {
+          toValue: -80,
+          duration: 250,
+          useNativeDriver: true,
+        }).start(() => {
+          setSheetTopToastMessage("");
+          sheetTopToastTimerRef.current = null;
+        });
+      }, 2000); // 2 seconds
+    });
+  };
+
+  const dismissSheetTopToast = () => {
+    if (sheetTopToastTimerRef.current) {
+      clearTimeout(sheetTopToastTimerRef.current);
+      sheetTopToastTimerRef.current = null;
+    }
+    Animated.timing(sheetTopToastSlideAnim, {
+      toValue: -80,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setSheetTopToastMessage("");
+    });
+  };
+
+  const sheetTopToastPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
+      onPanResponderMove: (_, g) => {
+        if (g.dy < 0) {
+          sheetTopToastSlideAnim.setValue(g.dy);
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy < -20) {
+          dismissSheetTopToast();
+        } else {
+          Animated.spring(sheetTopToastSlideAnim, {
+            toValue: 0,
+            damping: 20,
+            stiffness: 200,
+            mass: 0.8,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
   useEffect(() => {
     if (discardConfirmOpen) {
       discardAnim.setValue(0.9);
@@ -115,6 +191,7 @@ export default function CreateRoutineScreen() {
     useCallback(() => {
       if (!editId) {
         setTitle("");
+        setCoverImage("");
         setStepData({});
         setSteps([1]);
         setOriginalData({ title: "", stepData: {} });
@@ -135,10 +212,27 @@ export default function CreateRoutineScreen() {
     }, [editId])
   );
 
+  const hasDraftContent = Object.keys(drafts).some(k => {
+    const d = drafts[parseInt(k)];
+    return d && (
+      (d.actionTitle && d.actionTitle.trim().length > 0) ||
+      (d.actionDesc && d.actionDesc.trim().length > 0) ||
+      (d.productName && d.productName.trim().length > 0) ||
+      (d.dos && d.dos.length > 0) ||
+      (d.donts && d.donts.length > 0)
+    );
+  });
+
+  const canSaveDirectly = title.trim().length > 0 && Object.keys(stepData).length > 0;
+
+  const isDirty = (
+    JSON.stringify({ title: title.trim(), stepData }) !== JSON.stringify(originalData) ||
+    hasDraftContent
+  );
+
   // Focus effect for tab interception
   useFocusEffect(
     useCallback(() => {
-      const isDirty = JSON.stringify({ title: title.trim(), stepData }) !== JSON.stringify(originalData);
       DeviceEventEmitter.emit('createRoutineDirtyState', isDirty);
       
       const sub = DeviceEventEmitter.addListener('showUnsavedWarning', (targetRoute) => {
@@ -150,13 +244,11 @@ export default function CreateRoutineScreen() {
         DeviceEventEmitter.emit('createRoutineDirtyState', false);
         sub.remove();
       };
-    }, [title, stepData, originalData])
+    }, [isDirty])
   );
 
   // Global navigation guard for unsaved changes (stack/back button)
   useEffect(() => {
-    const isDirty = JSON.stringify({ title: title.trim(), stepData }) !== JSON.stringify(originalData);
-    
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
       if (!isDirty || isDiscarding.current) {
         return;
@@ -167,13 +259,11 @@ export default function CreateRoutineScreen() {
     });
 
     return unsubscribe;
-  }, [navigation, title, stepData, originalData]);
+  }, [navigation, isDirty]);
 
   // --- Drag-to-dismiss UX for Action Sheet ---
-  const SCREEN_HEIGHT = Dimensions.get('window').height;
-  const SCREEN_WIDTH = Dimensions.get('window').width;
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
   const scrollWidth = SCREEN_WIDTH * 0.85;
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const viewerScrollRef = useRef<ScrollView>(null);
   const viewerTouchStartX = useRef(0);
 
@@ -221,6 +311,7 @@ export default function CreateRoutineScreen() {
           const routineToEdit = existingRoutines.find((r: any) => r.id === editId);
           if (routineToEdit) {
             setTitle(routineToEdit.title || "");
+            setCoverImage(routineToEdit.coverImage || "");
             setStepData(routineToEdit.stepData || {});
             setOriginalData({ title: routineToEdit.title || "", stepData: routineToEdit.stepData || {} });
             const loadedSteps = Object.keys(routineToEdit.stepData || {}).map(k => parseInt(k));
@@ -242,27 +333,55 @@ export default function CreateRoutineScreen() {
     }
   }, [editId]);
 
-  // Reset & spring-enter when action modal opens
+  const actionSheetRef = useRef<BottomSheetModal>(null);
+
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <BottomSheetBackdrop
+          {...props}
+          appearsOnIndex={0}
+          disappearsOnIndex={-1}
+          pressBehavior="close"
+        />
+        {sheetTopToastMessage ? (
+          <Animated.View
+            {...sheetTopToastPanResponder.panHandlers}
+            style={[
+              styles.sheetTopToastContainer,
+              isDark ? styles.sheetTopToastDark : styles.sheetTopToastLight,
+              {
+                transform: [{ translateY: sheetTopToastSlideAnim }],
+                top: Math.max(insets.top, 16) + 10,
+              }
+            ]}
+          >
+            <Text style={isDark ? styles.sheetTopToastTextDark : styles.sheetTopToastTextLight}>
+              {sheetTopToastMessage}
+            </Text>
+          </Animated.View>
+        ) : null}
+      </View>
+    ),
+    [sheetTopToastMessage, isDark, insets.top]
+  );
+
   useEffect(() => {
-    if (modalOpen) {
-      translateY.setValue(SCREEN_HEIGHT);
-      Animated.spring(translateY, {
-        toValue: 0,
-        damping: 28,
-        stiffness: 250,
-        mass: 0.8,
-        useNativeDriver: true,
-      } as any).start();
-    }
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (modalOpen) {
+        actionSheetRef.current?.dismiss();
+        return true;
+      }
+      return false;
+    });
+    return () => backHandler.remove();
   }, [modalOpen]);
 
   const showToast = (msg: string) => {
-    // Cancel any running dismiss timer so re-triggers reset the 3s window (same as web app)
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
       toastTimerRef.current = null;
     }
-    // Stop any in-progress animations and snap to visible
     fadeAnim.stopAnimation();
     slideAnim.stopAnimation();
     fadeAnim.setValue(0);
@@ -270,14 +389,11 @@ export default function CreateRoutineScreen() {
 
     setToastMessage(msg);
 
-    // Animate IN
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
     ]).start(() => {
-      // Hold for 3000ms — same as web app setTimeout 3000
       toastTimerRef.current = setTimeout(() => {
-        // Animate OUT
         Animated.parallel([
           Animated.timing(fadeAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
           Animated.timing(slideAnim, { toValue: 20, duration: 220, useNativeDriver: true }),
@@ -289,7 +405,6 @@ export default function CreateRoutineScreen() {
     });
   };
 
-  // Swipe-down-to-dismiss for toast (toast comes from bottom, so dismiss = swipe down)
   const dismissToast = () => {
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
@@ -308,10 +423,8 @@ export default function CreateRoutineScreen() {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
       onPanResponderMove: (_, g) => {
-        // Only allow downward drag (positive dy = toward bottom)
         if (g.dy > 0) {
           slideAnim.setValue(g.dy);
-          // Fade out proportionally
           const opacity = Math.max(0, 1 - (g.dy / 60));
           fadeAnim.setValue(opacity);
         }
@@ -320,7 +433,6 @@ export default function CreateRoutineScreen() {
         if (g.dy > 20) {
           dismissToast();
         } else {
-          // Snap back
           Animated.parallel([
             Animated.spring(slideAnim, {
               toValue: 0,
@@ -342,9 +454,8 @@ export default function CreateRoutineScreen() {
     })
   ).current;
 
-  const closeWithAnimation = (callback?: () => void) => {
+  const saveCurrentDraft = () => {
     if (activeStep !== null) {
-      // Save state to drafts upon close
       const currentDraft = {
         actionTitle,
         actionDesc,
@@ -364,43 +475,14 @@ export default function CreateRoutineScreen() {
         return newDrafts;
       });
     }
-
-    Animated.timing(translateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 280,
-      useNativeDriver: true,
-    }).start(() => {
-      setModalOpen(false);
-      translateY.setValue(SCREEN_HEIGHT);
-      callback?.();
-    });
   };
 
-  // PanResponder — only on the drag handle
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, g) => g.dy > 2,
-      onPanResponderMove: (_, g) => {
-        if (g.dy > 0) {
-          translateY.setValue(g.dy);
-        }
-      },
-      onPanResponderRelease: (_, g) => {
-        if (g.dy > 100 || g.vy > 0.3) {
-          closeWithAnimation();
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            damping: 28,
-            stiffness: 250,
-            mass: 0.8,
-            useNativeDriver: true,
-          } as any).start();
-        }
-      },
-    })
-  ).current;
+  const closeWithAnimation = (callback?: () => void) => {
+    saveCurrentDraft();
+    actionSheetRef.current?.dismiss();
+    callback?.();
+  };
+
 
   const openModal = (step: number) => {
     setActiveStep(step);
@@ -442,6 +524,7 @@ export default function CreateRoutineScreen() {
       setDonts([""]);
     }
     setModalOpen(true);
+    actionSheetRef.current?.present();
   };
 
   const LIST_LIMITS = { actionPointers: 20, dos: 20, donts: 20 };
@@ -468,7 +551,7 @@ export default function CreateRoutineScreen() {
   const handleImagePicker = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      showToast("Access to photo library is required");
+      showSheetTopToast("Access to photo library is required");
       return;
     }
 
@@ -476,16 +559,43 @@ export default function CreateRoutineScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.6,
+      quality: 0.15, // Aggressively compressed to keep size under 50KB
     });
 
     if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
       const asset = pickerResult.assets[0];
-      if (asset.fileSize && asset.fileSize > 500 * 1024) {
-        showToast("Image size must be less than 500KB");
+      
+      // Maximum 1MB limit check
+      if (asset.fileSize && asset.fileSize > 1024 * 1024) {
+        showSheetTopToast("File size is too large. Make it under 1MB");
         return;
       }
+
       setProductImage(asset.uri);
+    }
+  };
+
+  const handleCoverImagePicker = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      showToast("Access to photo library is required");
+      return;
+    }
+
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.7,
+    });
+
+    if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+      const asset = pickerResult.assets[0];
+      if (asset.fileSize && asset.fileSize > 2 * 1024 * 1024) {
+        showToast("Cover image must be less than 2MB");
+        return;
+      }
+      setCoverImage(asset.uri);
     }
   };
 
@@ -516,15 +626,8 @@ export default function CreateRoutineScreen() {
       });
     }
 
-    Animated.timing(translateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 280,
-      useNativeDriver: true,
-    }).start(() => {
-      setModalOpen(false);
-      translateY.setValue(SCREEN_HEIGHT);
-      setActiveStep(null);
-    });
+    actionSheetRef.current?.dismiss();
+    setActiveStep(null);
   };
 
   const executeDelete = (step: number) => {
@@ -588,6 +691,7 @@ export default function CreateRoutineScreen() {
             return {
               ...r,
               title: title.trim(),
+              coverImage: coverImage || r.coverImage || "",
               stepsCount: Object.keys(stepData).length,
               stepData: stepData,
               updatedAt: new Date().toISOString()
@@ -600,6 +704,7 @@ export default function CreateRoutineScreen() {
         const newRoutine = {
           id: Date.now().toString(),
           title: title.trim(),
+          coverImage: coverImage || "",
           stepsCount: Object.keys(stepData).length,
           stepData: stepData,
           createdAt: new Date().toISOString()
@@ -646,6 +751,48 @@ export default function CreateRoutineScreen() {
         contentContainerStyle={styles.content}
         {...mainScrollHandlers}
       >
+        {/* Cover Image Card */}
+        <Pressable
+          onPress={handleCoverImagePicker}
+          style={({ pressed }) => [
+            styles.coverCard,
+            isDark ? styles.coverCardDark : styles.coverCardLight,
+            pressed && { opacity: 0.85 },
+          ]}
+        >
+          {coverImage ? (
+            <View style={styles.coverImageWrapper}>
+              <Image source={{ uri: coverImage }} style={styles.coverImage} resizeMode="cover" />
+              {/* Change overlay */}
+              <Pressable
+                onPress={handleCoverImagePicker}
+                style={styles.coverChangeBtn}
+              >
+                <Text style={styles.coverChangeBtnText}>Change Cover</Text>
+              </Pressable>
+              {/* Remove button */}
+              <Pressable
+                onPress={() => setCoverImage("")}
+                style={styles.coverRemoveBtn}
+              >
+                <X size={14} color="#ffffff" strokeWidth={2.5} />
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.coverPlaceholder}>
+              <View style={[styles.coverIconCircle, isDark ? styles.coverIconCircleDark : styles.coverIconCircleLight]}>
+                <Plus size={22} color={isDark ? "#a1a1aa" : "#6b7280"} />
+              </View>
+              <Text style={[styles.coverPlaceholderTitle, isDark ? styles.textDark : styles.textLight]}>
+                Add Cover Image
+              </Text>
+              <Text style={[styles.coverPlaceholderSub, isDark ? styles.textSubDark : styles.textSubLight]}>
+                Tap to choose from your gallery
+              </Text>
+            </View>
+          )}
+        </Pressable>
+
         <Text style={[styles.label, isDark ? styles.textSubDark : styles.textSubLight]}>
           New Routine Name
         </Text>
@@ -965,25 +1112,50 @@ export default function CreateRoutineScreen() {
               <View style={[styles.warningIconContainer, isDark ? styles.warningIconContainerDark : styles.warningIconContainerLight]}>
                 <AlertCircle size={28} color={isDark ? "#fbbf24" : "#b45309"} />
               </View>
-              <Text style={[styles.dialogTitle, isDark ? styles.textDark : styles.textLight]}>Unsaved Routine</Text>
-              <Text style={[styles.dialogDesc, isDark ? styles.textSubDark : styles.textSubLight, { textAlign: 'center' }]}>
-                You have unsaved changes. Do you want to save this routine before leaving?
-              </Text>
-              <View style={styles.dialogActions}>
-                <Pressable onPress={() => { 
-                  setUnsavedWarningOpen(false); 
-                  setDiscardConfirmOpen(true);
-                }} style={[styles.dialogBtn, styles.dialogBtnCancel, isDark ? styles.dialogBtnCancelDark : styles.dialogBtnCancelLight]}>
-                  <Text style={[styles.dialogBtnText, isDark ? styles.textSubDark : styles.textSubLight]}>Discard</Text>
-                </Pressable>
-                <Pressable onPress={() => { 
-                  setUnsavedWarningOpen(false); 
-                  isDiscarding.current = true;
-                  handleCreateRoutine(); 
-                }} style={[styles.dialogBtn, styles.dialogBtnSave]}>
-                  <Text style={[styles.dialogBtnText, { color: '#fff' }]}>Save Now</Text>
-                </Pressable>
-              </View>
+
+              {canSaveDirectly ? (
+                <>
+                  <Text style={[styles.dialogTitle, isDark ? styles.textDark : styles.textLight]}>Unsaved Routine</Text>
+                  <Text style={[styles.dialogDesc, isDark ? styles.textSubDark : styles.textSubLight, { textAlign: 'center' }]}>
+                    You have unsaved changes. Do you want to save this routine before leaving?
+                  </Text>
+                  <View style={styles.dialogActions}>
+                    <Pressable onPress={() => { 
+                      setUnsavedWarningOpen(false); 
+                      setDiscardConfirmOpen(true);
+                    }} style={[styles.dialogBtn, styles.dialogBtnCancel, isDark ? styles.dialogBtnCancelDark : styles.dialogBtnCancelLight]}>
+                      <Text style={[styles.dialogBtnText, isDark ? styles.textSubDark : styles.textSubLight]}>Discard</Text>
+                    </Pressable>
+                    <Pressable onPress={() => { 
+                      setUnsavedWarningOpen(false); 
+                      isDiscarding.current = true;
+                      handleCreateRoutine(); 
+                    }} style={[styles.dialogBtn, styles.dialogBtnSave]}>
+                      <Text style={[styles.dialogBtnText, { color: '#fff' }]}>Save Now</Text>
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.dialogTitle, isDark ? styles.textDark : styles.textLight]}>Unsaved Step</Text>
+                  <Text style={[styles.dialogDesc, isDark ? styles.textSubDark : styles.textSubLight, { textAlign: 'center' }]}>
+                    You have unsaved changes. Do you want to complete the routine before leaving?
+                  </Text>
+                  <View style={styles.dialogActions}>
+                    <Pressable onPress={() => { 
+                      setUnsavedWarningOpen(false); 
+                      setDiscardConfirmOpen(true);
+                    }} style={[styles.dialogBtn, styles.dialogBtnCancel, isDark ? styles.dialogBtnCancelDark : styles.dialogBtnCancelLight]}>
+                      <Text style={[styles.dialogBtnText, isDark ? styles.textSubDark : styles.textSubLight]}>No, Discard</Text>
+                    </Pressable>
+                    <Pressable onPress={() => { 
+                      setUnsavedWarningOpen(false); 
+                    }} style={[styles.dialogBtn, styles.dialogBtnSave]}>
+                      <Text style={[styles.dialogBtnText, { color: '#fff' }]}>Yes, Complete</Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
             </View>
           )}
 
@@ -1006,7 +1178,17 @@ export default function CreateRoutineScreen() {
                 <Pressable onPress={() => {
                   setDiscardConfirmOpen(false);
                   isDiscarding.current = true;
-                  router.push('/routine');
+                  if (typeof pendingAction === 'string') {
+                    router.push(pendingAction as any);
+                  } else if (pendingAction && typeof pendingAction === 'object') {
+                    if (pendingAction.name) {
+                      router.push(`/(tabs)/${pendingAction.name === 'index' ? '' : pendingAction.name}` as any);
+                    } else {
+                      navigation.dispatch(pendingAction);
+                    }
+                  } else {
+                    router.push('/routine');
+                  }
                 }} style={[styles.dialogBtn, styles.dialogBtnDelete]}>
                   <Text style={[styles.dialogBtnText, { color: '#fff' }]}>Continue</Text>
                 </Pressable>
@@ -1016,307 +1198,354 @@ export default function CreateRoutineScreen() {
         </View>
       </Modal>
 
-      {/* Add Action Modal */}
-      <Modal visible={modalOpen} animationType="none" transparent onRequestClose={() => closeWithAnimation()}>
-        <View style={styles.modalOverlay}>
-          <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
-
-          <Pressable style={{ flex: 1 }} onPress={() => closeWithAnimation()} />
-
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalKeyboard}>
-            <Animated.View 
-              style={[styles.modalContent, isDark ? styles.bgDark : styles.bgLight, { transform: [{ translateY }], maxHeight: SCREEN_HEIGHT - (64 + insets.top) }]}
+      {/* Add Action Sheet */}
+      <BottomSheetModal
+        ref={actionSheetRef}
+        enableDynamicSizing={true}
+        maxDynamicContentSize={SCREEN_HEIGHT * 0.92}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        bottomInset={insets.bottom}
+        onDismiss={() => {
+          saveCurrentDraft();
+          setModalOpen(false);
+        }}
+        handleStyle={styles.handleContainer}
+        handleIndicatorStyle={[styles.dragHandle, isDark ? styles.dragHandleDark : styles.dragHandleLight]}
+        backgroundStyle={[isDark ? styles.bgDark : styles.bgLight, { borderTopLeftRadius: 32, borderTopRightRadius: 32 }]}
+      >
+        <BottomSheetScrollView 
+          ref={modalScrollViewRef as any}
+          style={styles.modalScroll} 
+          contentContainerStyle={{ paddingBottom: 20 }}
+          showsVerticalScrollIndicator={true}
+          indicatorStyle={isDark ? 'white' : 'black'}
+          {...scrollHandlers}
+        >
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight]}>
+              Step {activeStep} — Add Action
+            </Text>
+            <Pressable 
+              onPress={() => closeWithAnimation()} 
+              style={({ pressed }) => [
+                styles.closeBtn, 
+                isDark ? styles.closeBtnDark : styles.closeBtnLight,
+                pressed && (isDark ? { backgroundColor: '#3f3f46' } : { backgroundColor: '#e5e7eb' }),
+              ]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <View style={styles.dragHandleContainer} {...panResponder.panHandlers}>
-                <View style={[styles.dragHandle, isDark ? styles.dragHandleDark : styles.dragHandleLight]} />
-              </View>
-              
-              <ScrollView 
-                ref={modalScrollViewRef}
-                style={styles.modalScroll} 
-                contentContainerStyle={{ paddingBottom: 20 + insets.bottom }}
-                showsVerticalScrollIndicator={true}
-                indicatorStyle={isDark ? 'white' : 'black'}
-                {...scrollHandlers}
-              >
-                <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight]}>
-                    Step {activeStep} — Add Action
+              <X size={16} color={isDark ? "#a1a1aa" : "#6b7280"} strokeWidth={2.5} />
+            </Pressable>
+          </View>
+
+          {/* Action Title */}
+          <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight]}>
+            Action Title
+          </Text>
+          <BottomSheetTextInput
+            style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
+            placeholder="e.g. Apply Vitamin C"
+            placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
+            value={actionTitle}
+            onChangeText={setActionTitle}
+            maxLength={99}
+            onFocus={() => {
+              setTimeout(() => {
+                modalScrollViewRef.current?.scrollTo({ y: 0, animated: true });
+              }, 350);
+            }}
+          />
+
+          {/* Action Description Header with format toggle */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight, { marginBottom: 0 }]}>
+              Action Description
+            </Text>
+            <Pressable 
+              onPress={() => {
+                if (actionFormat === "paragraph") {
+                  if (actionDesc.trim() !== "") {
+                    setActionPointers([actionDesc.trim(), ""]);
+                  } else {
+                    setActionPointers([""]);
+                  }
+                  setActionFormat("pointers");
+                } else {
+                  const filtered = actionPointers.filter(p => p.trim() !== "");
+                  if (filtered.length > 0) {
+                    setActionDesc(filtered.join("\n"));
+                  }
+                  setActionFormat("paragraph");
+                }
+              }}
+              style={{ padding: 4 }}
+            >
+              {actionFormat === "paragraph" ? (
+                <List size={18} color={isDark ? "#a1a1aa" : "#6b7280"} />
+              ) : (
+                <AlignLeft size={18} color={isDark ? "#a1a1aa" : "#6b7280"} />
+              )}
+            </Pressable>
+          </View>
+
+          {actionFormat === "paragraph" ? (
+            <BottomSheetTextInput
+              multiline
+              style={[
+                styles.input, 
+                styles.textArea, 
+                isDark ? styles.inputDark : styles.inputLight,
+                { maxHeight: 120 }
+              ]}
+              placeholder="Describe what to do in this step..."
+              placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
+              value={actionDesc}
+              onChangeText={setActionDesc}
+              maxLength={1000}
+              onFocus={() => {
+                setTimeout(() => {
+                  modalScrollViewRef.current?.scrollTo({ y: 60, animated: true });
+                }, 350);
+              }}
+            />
+          ) : (
+            <View style={{ marginBottom: 12 }}>
+              {actionPointers.slice(0, LIST_LIMITS.actionPointers).map((item, index) => (
+                <View key={`ptr-${index}`} style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                  <Text style={{ width: 24, textAlign: 'right', color: isDark ? '#a1a1aa' : '#6b7280', fontWeight: '600', marginTop: 14 }}>
+                    {index + 1}.
                   </Text>
-                  <Pressable onPress={() => closeWithAnimation()} style={[styles.closeBtn, isDark ? styles.closeBtnDark : styles.closeBtnLight]}>
-                    <X size={16} color={isDark ? "#a1a1aa" : "#6b7280"} />
-                  </Pressable>
-                </View>
-
-                {/* Action Title */}
-                <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight]}>
-                  Action Title
-                </Text>
-                <TextInput
-                  style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
-                  placeholder="e.g. Apply Vitamin C"
-                  placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                  value={actionTitle}
-                  onChangeText={setActionTitle}
-                  maxLength={99}
-                />
-
-                {/* Action Description Header with format toggle */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight, { marginBottom: 0 }]}>
-                    Action Description
-                  </Text>
-                  <Pressable 
-                    onPress={() => {
-                      if (actionFormat === "paragraph") {
-                        if (actionDesc.trim() !== "") {
-                          setActionPointers([actionDesc.trim(), ""]);
-                        } else {
-                          setActionPointers([""]);
-                        }
-                        setActionFormat("pointers");
-                      } else {
-                        const filtered = actionPointers.filter(p => p.trim() !== "");
-                        if (filtered.length > 0) {
-                          setActionDesc(filtered.join("\n"));
-                        }
-                        setActionFormat("paragraph");
-                      }
-                    }}
-                    style={{ padding: 4 }}
-                  >
-                    {actionFormat === "paragraph" ? (
-                      <List size={18} color={isDark ? "#a1a1aa" : "#6b7280"} />
-                    ) : (
-                      <AlignLeft size={18} color={isDark ? "#a1a1aa" : "#6b7280"} />
-                    )}
-                  </Pressable>
-                </View>
-
-                {actionFormat === "paragraph" ? (
-                  <TextInput
+                  <BottomSheetTextInput
                     multiline
                     style={[
                       styles.input, 
-                      styles.textArea, 
-                      isDark ? styles.inputDark : styles.inputLight,
-                      { maxHeight: 120 } // Max 5 lines limit
+                      { 
+                        height: 'auto', 
+                        minHeight: 48, 
+                        maxHeight: 120,
+                        paddingTop: 12, 
+                        paddingBottom: 12, 
+                        flex: 1, 
+                        marginBottom: 0 
+                      },
+                      isDark ? styles.inputDark : styles.inputLight
                     ]}
-                    placeholder="Describe what to do in this step..."
+                    placeholder={index === 0 ? "e.g. Apply on damp skin" : "Add another pointer..."}
                     placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                    value={actionDesc}
-                    onChangeText={setActionDesc}
+                    value={item}
+                    onChangeText={(val) => handleListUpdate(setActionPointers, actionPointers, index, val, "actionPointers")}
                     maxLength={1000}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        modalScrollViewRef.current?.scrollTo({ y: 60 + index * 56, animated: true });
+                      }, 350);
+                    }}
                   />
-                ) : (
-                  <View style={{ marginBottom: 12 }}>
-                    {actionPointers.slice(0, LIST_LIMITS.actionPointers).map((item, index) => (
-                      <View key={`ptr-${index}`} style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-                        <Text style={{ width: 24, textAlign: 'right', color: isDark ? '#a1a1aa' : '#6b7280', fontWeight: '600', marginTop: 14 }}>
-                          {index + 1}.
-                        </Text>
-                        <TextInput
-                          multiline
-                          style={[
-                            styles.input, 
-                            { 
-                              height: 'auto', 
-                              minHeight: 48, 
-                              maxHeight: 120, // Max 5 lines scroll limit
-                              paddingTop: 12, 
-                              paddingBottom: 12, 
-                              flex: 1, 
-                              marginBottom: 0 
-                            },
-                            isDark ? styles.inputDark : styles.inputLight
-                          ]}
-                          placeholder={index === 0 ? "e.g. Apply on damp skin" : "Add another pointer..."}
-                          placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                          value={item}
-                          onChangeText={(val) => handleListUpdate(setActionPointers, actionPointers, index, val, "actionPointers")}
-                          maxLength={1000}
-                        />
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Product Name */}
-                <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight]}>
-                  Product Name <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
-                </Text>
-                <TextInput
-                  style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
-                  placeholder="e.g. Glow Recipe Dew Drops"
-                  placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                  value={productName}
-                  onChangeText={setProductName}
-                  maxLength={99}
-                />
-
-                {/* Conditionally Rendered Product Fields */}
-                {productName.trim() !== "" && (
-                  <>
-                    <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight]}>
-                      Product Description <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
-                    </Text>
-                    <TextInput
-                      multiline
-                      style={[
-                        styles.input, 
-                        styles.textArea, 
-                        isDark ? styles.inputDark : styles.inputLight,
-                        { maxHeight: 100 }
-                      ]}
-                      placeholder="Short description of the product..."
-                      placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                      value={productDesc}
-                      onChangeText={setProductDesc}
-                      maxLength={99}
-                    />
-
-                    <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight]}>
-                      Product Image <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
-                    </Text>
-                    {productImage ? (
-                      <Pressable onPress={() => setPreviewImageOpen(true)}>
-                        <View style={[styles.imageContainer, { borderColor: isDark ? '#27272a' : '#e5e7eb' }]}>
-                          <Image source={{ uri: productImage }} style={styles.imagePreview} />
-                          <Pressable
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              setProductImage("");
-                            }}
-                            style={styles.removeImageBtn}
-                          >
-                            <X size={14} color="#fff" />
-                          </Pressable>
-                        </View>
-                      </Pressable>
-                    ) : (
-                      <Pressable 
-                        onPress={handleImagePicker}
-                        style={[styles.imagePickerPlaceholder, isDark ? styles.inputDark : styles.inputLight]}
-                      >
-                        <Plus size={20} color={isDark ? "#a1a1aa" : "#6b7280"} />
-                        <Text style={[styles.imagePickerText, isDark ? styles.textSubDark : styles.textSubLight]}>Add Image</Text>
-                      </Pressable>
-                    )}
-
-                    <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight]}>
-                      Product Link <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
-                    </Text>
-                    <TextInput
-                      style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
-                      placeholder="https://..."
-                      placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                      value={productLink}
-                      onChangeText={setProductLink}
-                      autoCapitalize="none"
-                      keyboardType="url"
-                    />
-                  </>
-                )}
-
-                <View style={{ height: 16 }} />
-
-                {/* DO List */}
-                <Text style={[styles.label, styles.uppercaseLabel, { color: '#16a34a' }]}>
-                  ✓ DO <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
-                </Text>
-                {dos.slice(0, LIST_LIMITS.dos).map((item, index) => (
-                  <View key={`do-${index}`} style={{ flexDirection: 'row', gap: 8 }}>
-                    <Text style={{ width: 24, textAlign: 'right', color: '#16a34a', fontWeight: '600', marginTop: 14 }}>{index + 1}.</Text>
-                    <TextInput
-                      multiline
-                      style={[
-                        styles.input, 
-                        { 
-                          height: 'auto', 
-                          minHeight: 48, 
-                          maxHeight: 120, // 5 line scroll limit
-                          paddingTop: 12, 
-                          paddingBottom: 12, 
-                          flex: 1, 
-                          marginBottom: 8, 
-                          backgroundColor: isDark ? '#14532d15' : '#f0fdf4', 
-                          borderColor: isDark ? '#16653450' : '#bbf7d0', 
-                          color: isDark ? '#fff' : '#111827' 
-                        }
-                      ]}
-                      placeholder={index === 0 ? "e.g. Apply on damp skin" : "Add another do..."}
-                      placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                      value={item}
-                      onChangeText={(val) => handleListUpdate(setDos, dos, index, val, "dos")}
-                      maxLength={1000}
-                    />
-                  </View>
-                ))}
-
-                <View style={{ height: 16 }} />
-
-                {/* DON'T List */}
-                <Text style={[styles.label, styles.uppercaseLabel, { color: '#ef4444' }]}>
-                  ✕ DON'T <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
-                </Text>
-                {donts.slice(0, LIST_LIMITS.donts).map((item, index) => (
-                  <View key={`dont-${index}`} style={{ flexDirection: 'row', gap: 8 }}>
-                    <Text style={{ width: 24, textAlign: 'right', color: '#ef4444', fontWeight: '600', marginTop: 14 }}>{index + 1}.</Text>
-                    <TextInput
-                      multiline
-                      style={[
-                        styles.input, 
-                        { 
-                          height: 'auto', 
-                          minHeight: 48, 
-                          maxHeight: 120, // 5 line scroll limit
-                          paddingTop: 12, 
-                          paddingBottom: 12, 
-                          flex: 1, 
-                          marginBottom: 8, 
-                          backgroundColor: isDark ? '#7f1d1d15' : '#fef2f2', 
-                          borderColor: isDark ? '#991b1b50' : '#fecaca', 
-                          color: isDark ? '#fff' : '#111827' 
-                        }
-                      ]}
-                      placeholder={index === 0 ? "e.g. Avoid eye area" : "Add another don't..."}
-                      placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                      value={item}
-                      onChangeText={(val) => handleListUpdate(setDonts, donts, index, val, "donts")}
-                      maxLength={1000}
-                    />
-                  </View>
-                ))}
-
-                {/* Save Action Button inside ScrollView */}
-                <View style={{ marginTop: 12, marginBottom: 0 }}>
-                  <Pressable 
-                    onPress={saveAction} 
-                    disabled={!actionTitle.trim() || (actionFormat === "paragraph" ? !actionDesc.trim() : actionPointers.filter(p => p.trim() !== "").length === 0)}
-                    style={[
-                      styles.createBtn, 
-                      (!actionTitle.trim() || (actionFormat === "paragraph" ? !actionDesc.trim() : actionPointers.filter(p => p.trim() !== "").length === 0)) && { opacity: 0.5 }
-                    ]}
-                  >
-                    <Text style={styles.createBtnText}>Save Action Step {activeStep}</Text>
-                  </Pressable>
                 </View>
-                
-              </ScrollView>
-              
-              {/* Draggable Scroll-Down Circle */}
-              <DraggableScrollDownCircle
-                scrollViewRef={modalScrollViewRef}
-                isSaveBtnVisible={isSaveBtnVisible}
-                modalOpen={modalOpen}
-                isDark={isDark}
-                isFullScreenModal={true}
+              ))}
+            </View>
+          )}
+
+          {/* Product Name */}
+          <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight]}>
+            Product Name <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
+          </Text>
+          <BottomSheetTextInput
+            style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
+            placeholder="e.g. Glow Recipe Dew Drops"
+            placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
+            value={productName}
+            onChangeText={setProductName}
+            maxLength={99}
+            onFocus={() => {
+              setTimeout(() => {
+                modalScrollViewRef.current?.scrollTo({ y: 160, animated: true });
+              }, 350);
+            }}
+          />
+
+          {/* Conditionally Rendered Product Fields */}
+          {productName.trim() !== "" && (
+            <>
+              <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight]}>
+                Product Description <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
+              </Text>
+              <BottomSheetTextInput
+                multiline
+                style={[
+                  styles.input, 
+                  styles.textArea, 
+                  isDark ? styles.inputDark : styles.inputLight,
+                  { maxHeight: 100 }
+                ]}
+                placeholder="Short description of the product..."
+                placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
+                value={productDesc}
+                onChangeText={setProductDesc}
+                maxLength={99}
+                onFocus={() => {
+                  setTimeout(() => {
+                    modalScrollViewRef.current?.scrollTo({ y: 220, animated: true });
+                  }, 350);
+                }}
               />
 
-            </Animated.View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+              <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight]}>
+                Product Image <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
+              </Text>
+              {productImage ? (
+                <Pressable onPress={() => setPreviewImageOpen(true)}>
+                  <View style={[styles.imageContainer, { borderColor: isDark ? '#27272a' : '#e5e7eb' }]}>
+                    <Image source={{ uri: productImage }} style={styles.imagePreview} />
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setProductImage("");
+                      }}
+                      style={styles.removeImageBtn}
+                    >
+                      <X size={14} color="#fff" />
+                    </Pressable>
+                  </View>
+                </Pressable>
+              ) : (
+                <Pressable 
+                  onPress={handleImagePicker}
+                  style={[styles.imagePickerPlaceholder, isDark ? styles.inputDark : styles.inputLight]}
+                >
+                  <Plus size={20} color={isDark ? "#a1a1aa" : "#6b7280"} />
+                  <Text style={[styles.imagePickerText, isDark ? styles.textSubDark : styles.textSubLight]}>Add Image</Text>
+                </Pressable>
+              )}
+
+              <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight]}>
+                Product Link <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
+              </Text>
+              <BottomSheetTextInput
+                style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
+                placeholder="https://..."
+                placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
+                value={productLink}
+                onChangeText={setProductLink}
+                autoCapitalize="none"
+                keyboardType="url"
+                onFocus={() => {
+                  setTimeout(() => {
+                    modalScrollViewRef.current?.scrollTo({ y: 320, animated: true });
+                  }, 350);
+                }}
+              />
+            </>
+          )}
+
+          <View style={{ height: 16 }} />
+
+          {/* DO List */}
+          <Text style={[styles.label, styles.uppercaseLabel, { color: '#16a34a' }]}>
+            ✓ DO <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
+          </Text>
+          {dos.slice(0, LIST_LIMITS.dos).map((item, index) => (
+            <View key={`do-${index}`} style={{ flexDirection: 'row', gap: 8 }}>
+              <Text style={{ width: 24, textAlign: 'right', color: '#16a34a', fontWeight: '600', marginTop: 14 }}>{index + 1}.</Text>
+              <BottomSheetTextInput
+                multiline
+                style={[
+                  styles.input, 
+                  { 
+                    height: 'auto', 
+                    minHeight: 48, 
+                    maxHeight: 120,
+                    paddingTop: 12, 
+                    paddingBottom: 12, 
+                    flex: 1, 
+                    marginBottom: 8, 
+                    backgroundColor: isDark ? '#14532d15' : '#f0fdf4', 
+                    borderColor: isDark ? '#16653450' : '#bbf7d0', 
+                    color: isDark ? '#fff' : '#111827' 
+                  }
+                ]}
+                placeholder={index === 0 ? "e.g. Apply on damp skin" : "Add another do..."}
+                placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
+                value={item}
+                onChangeText={(val) => handleListUpdate(setDos, dos, index, val, "dos")}
+                maxLength={1000}
+                onFocus={() => {
+                  setTimeout(() => {
+                    modalScrollViewRef.current?.scrollTo({ y: 420 + index * 60, animated: true });
+                  }, 350);
+                }}
+              />
+            </View>
+          ))}
+
+          <View style={{ height: 16 }} />
+
+          {/* DON'T List */}
+          <Text style={[styles.label, styles.uppercaseLabel, { color: '#ef4444' }]}>
+            ✕ DON'T <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
+          </Text>
+          {donts.slice(0, LIST_LIMITS.donts).map((item, index) => (
+            <View key={`dont-${index}`} style={{ flexDirection: 'row', gap: 8 }}>
+              <Text style={{ width: 24, textAlign: 'right', color: '#ef4444', fontWeight: '600', marginTop: 14 }}>{index + 1}.</Text>
+              <BottomSheetTextInput
+                multiline
+                style={[
+                  styles.input, 
+                  { 
+                    height: 'auto', 
+                    minHeight: 48, 
+                    maxHeight: 120,
+                    paddingTop: 12, 
+                    paddingBottom: 12, 
+                    flex: 1, 
+                    marginBottom: 8, 
+                    backgroundColor: isDark ? '#7f1d1d15' : '#fef2f2', 
+                    borderColor: isDark ? '#991b1b50' : '#fecaca', 
+                    color: isDark ? '#fff' : '#111827' 
+                  }
+                ]}
+                placeholder={index === 0 ? "e.g. Avoid eye area" : "Add another don't..."}
+                placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
+                value={item}
+                onChangeText={(val) => handleListUpdate(setDonts, donts, index, val, "donts")}
+                maxLength={1000}
+                onFocus={() => {
+                  setTimeout(() => {
+                    modalScrollViewRef.current?.scrollTo({ y: 520 + index * 60, animated: true });
+                  }, 350);
+                }}
+              />
+            </View>
+          ))}
+
+          {/* Save Action Button inside ScrollView */}
+          <View style={{ marginTop: 12, marginBottom: 0 }}>
+            <Pressable 
+              onPress={saveAction} 
+              disabled={!actionTitle.trim() || (actionFormat === "paragraph" ? !actionDesc.trim() : actionPointers.filter(p => p.trim() !== "").length === 0)}
+              style={[
+                styles.createBtn, 
+                (!actionTitle.trim() || (actionFormat === "paragraph" ? !actionDesc.trim() : actionPointers.filter(p => p.trim() !== "").length === 0)) && { opacity: 0.5 }
+              ]}
+            >
+              <Text style={styles.createBtnText}>Save Action Step {activeStep}</Text>
+            </Pressable>
+          </View>
+          
+        </BottomSheetScrollView>
+        
+        {/* Draggable Scroll-Down Circle */}
+        <DraggableScrollDownCircle
+          scrollViewRef={modalScrollViewRef}
+          isSaveBtnVisible={isSaveBtnVisible}
+          modalOpen={modalOpen}
+          isDark={isDark}
+          isFullScreenModal={true}
+        />
+      </BottomSheetModal>
       <Modal visible={previewImageOpen} transparent={true} animationType="fade" onRequestClose={() => setPreviewImageOpen(false)}>
         <Pressable style={styles.previewOverlay} onPress={() => setPreviewImageOpen(false)}>
           <Pressable onPress={(e) => e.stopPropagation()} style={styles.fullScreenImageContainer}>
@@ -1331,8 +1560,8 @@ export default function CreateRoutineScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  bgLight: { backgroundColor: '#ffffff' },
-  bgDark: { backgroundColor: '#09090b' },
+  bgLight: { backgroundColor: '#f5f5f7' },
+  bgDark: { backgroundColor: '#121212' },
   scroll: { flex: 1 },
   content: { padding: 16 },
   
@@ -1382,8 +1611,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  cardDark: { backgroundColor: '#09090b', borderColor: '#27272a' },
-  cardLight: { backgroundColor: '#ffffff', borderColor: '#e5e7eb' },
+  cardDark: { backgroundColor: '#18181b', borderColor: '#27272a' },
+  cardLight: { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2, width: '100%' },
   actionTitle: { fontSize: 16, fontWeight: '600', fontFamily: 'Outfit_600SemiBold', flex: 1 },
   actionDesc: { fontSize: 14, fontFamily: 'Outfit_400Regular', flex: 1, lineHeight: 18 },
@@ -1418,7 +1647,7 @@ const styles = StyleSheet.create({
   bottomRow: { flexDirection: 'row', gap: 12, marginTop: 24, marginBottom: 8 },
   addStepBtn: { flex: 1, height: 48, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   addStepText: { fontSize: 14, fontWeight: '600', fontFamily: 'Outfit_600SemiBold' },
-  createBtn: { flex: 1, height: 48, borderRadius: 12, backgroundColor: '#9333ea', alignItems: 'center', justifyContent: 'center' },
+  createBtn: { flex: 1, height: 48, borderRadius: 12, backgroundColor: Colors.light.primary, alignItems: 'center', justifyContent: 'center' },
   createBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '600', fontFamily: 'Outfit_600SemiBold' },
 
   modalOverlay: { flex: 1, flexDirection: 'column' },
@@ -1427,10 +1656,14 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Outfit_700Bold' },
   closeBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  closeBtnLight: { backgroundColor: '#f3f4f6' },
+  closeBtnLight: { backgroundColor: '#e5e7eb' },
   closeBtnDark: { backgroundColor: '#27272a' },
+  handleContainer: {
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
   dragHandleContainer: { width: '100%', alignItems: 'center', paddingTop: 16, paddingBottom: 8, flexShrink: 0 },
-  dragHandle: { width: 56, height: 6, borderRadius: 999 },
+  dragHandle: { width: 52, height: 5, borderRadius: 999 },
   dragHandleLight: { backgroundColor: '#d1d5db' },
   dragHandleDark: { backgroundColor: '#3f3f46' },
   uppercaseLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600' },
@@ -1520,7 +1753,7 @@ const styles = StyleSheet.create({
   linkButtonText: { fontSize: 14, color: '#374151', fontWeight: '500', flex: 1, marginRight: 8 },
   linkButtonTextDark: { color: '#d1d5db' },
   // Close button — full width purple, same as web (py-2.5 = 10px vertical, mt-auto)
-  viewerCloseBtn: { width: '100%', height: 40, borderRadius: 12, backgroundColor: '#9333ea', justifyContent: 'center', alignItems: 'center', marginTop: 8 },
+  viewerCloseBtn: { width: '100%', height: 40, borderRadius: 12, backgroundColor: Colors.light.primary, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
   viewerCloseBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '600', fontFamily: 'Outfit_600SemiBold' },
 
   // Custom Confirmation Dialogs
@@ -1536,7 +1769,7 @@ const styles = StyleSheet.create({
   dialogBtnCancelLight: { backgroundColor: '#f4f4f5', borderColor: '#e4e4e7' },
   dialogBtnCancelDark: { backgroundColor: '#27272a', borderColor: '#3f3f46' },
   dialogBtnDelete: { backgroundColor: '#ef4444' },
-  dialogBtnSave: { backgroundColor: '#9333ea' },
+  dialogBtnSave: { backgroundColor: Colors.light.primary },
   dialogBtnText: { fontSize: 14, fontWeight: '600', fontFamily: 'Outfit_600SemiBold' },
   warningIconContainer: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   warningIconContainerLight: { backgroundColor: '#fef3c7' },
@@ -1562,5 +1795,126 @@ const styles = StyleSheet.create({
   // Text always contrasts the background
   toastTextLight: { fontSize: 14, fontWeight: '500', fontFamily: 'Outfit_500Medium', textAlign: 'center', color: '#ffffff' },
   toastTextDark: { fontSize: 14, fontWeight: '500', fontFamily: 'Outfit_500Medium', textAlign: 'center', color: '#111827' },
+
+  // Cover Image Card
+  coverCard: {
+    width: '100%',
+    minHeight: 180,
+    borderRadius: 22,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  coverCardLight: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#d1d5db',
+    borderStyle: 'dashed',
+  },
+  coverCardDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#3f3f46',
+    borderStyle: 'dashed',
+  },
+  coverImageWrapper: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    width: '100%',
+    height: 180,
+  },
+  coverImage: {
+    width: '100%',
+    height: 180,
+  },
+  coverPlaceholder: {
+    flex: 1,
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 32,
+  },
+  coverIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  coverIconCircleLight: { backgroundColor: '#e5e7eb' },
+  coverIconCircleDark: { backgroundColor: '#27272a' },
+  coverPlaceholderTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Outfit_600SemiBold',
+  },
+  coverPlaceholderSub: {
+    fontSize: 13,
+    fontFamily: 'Outfit_400Regular',
+  },
+  coverChangeBtn: {
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  coverChangeBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontFamily: 'Outfit_600SemiBold',
+    fontWeight: '600',
+  },
+  coverRemoveBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Sheet Top Toast styling
+  sheetTopToastContainer: {
+    position: 'absolute',
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    elevation: 20,
+    borderWidth: 1,
+    zIndex: 99999,
+  },
+  sheetTopToastLight: {
+    backgroundColor: '#111827',
+    borderColor: '#374151',
+  },
+  sheetTopToastDark: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  sheetTopToastTextLight: {
+    fontSize: 13,
+    fontWeight: '500',
+    fontFamily: 'Outfit_500Medium',
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  sheetTopToastTextDark: {
+    fontSize: 13,
+    fontWeight: '500',
+    fontFamily: 'Outfit_500Medium',
+    color: '#111827',
+    textAlign: 'center',
+  },
 });
 

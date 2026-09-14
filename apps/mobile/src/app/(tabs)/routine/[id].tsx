@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { 
   View, 
-  Text, 
   StyleSheet, 
   Pressable, 
   ScrollView, 
@@ -9,17 +8,19 @@ import {
   PanResponder, 
   Image, 
   Linking,
-  Dimensions
+  useWindowDimensions
 } from 'react-native';
+import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Clock, ArrowLeft, ArrowRight, ExternalLink, Package } from 'lucide-react-native';
+import { Clock, ArrowLeft, ArrowRight, ExternalLink, Package, Images as LucideImages } from 'lucide-react-native';
+import { Colors } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 
 export default function RoutineViewerScreen() {
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const scheme = useColorScheme();
@@ -93,24 +94,35 @@ export default function RoutineViewerScreen() {
   return (
     <View style={[styles.container, isDark ? styles.bgDark : styles.bgLight]}>
       
-      <View style={[styles.headerArea, { paddingTop: insets.top + 12 }]}>
+      <View style={[styles.headerArea, { paddingTop: insets.top + 8 }]}>
+        {/* Onboarding-style progress bar: back button + continuous track */}
+        <View style={styles.progressRow}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.backBtn,
+              isDark ? styles.backBtnDark : styles.backBtnLight,
+              pressed && (isDark ? styles.backBtnPressedDark : styles.backBtnPressedLight),
+            ]}
+            onPress={() => router.back()}
+            hitSlop={6}
+          >
+            <ArrowLeft size={17} color={isDark ? '#f4f4f5' : '#111111'} strokeWidth={2.8} />
+          </Pressable>
+          <View style={[styles.trackBorder, isDark ? styles.trackBorderDark : styles.trackBorderLight]}>
+            <View style={[styles.track, isDark ? styles.trackDark : styles.trackLight]}>
+              <ExpoLinearGradient
+                colors={["#d6cbe8", "#937abd"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.trackFill, { width: `${((currentIndex + 1) / totalSteps) * 100}%` }]}
+              />
+            </View>
+          </View>
+        </View>
         <View style={styles.titleContainer}>
           <Text style={[styles.routineTitle, isDark ? styles.textDark : styles.textLight]} numberOfLines={1}>
             {routine.title}
           </Text>
-        </View>
-        <View style={styles.progressRow}>
-          {stepsKeys.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.progressBar,
-                index <= currentIndex
-                  ? styles.progressActive
-                  : (isDark ? styles.progressInactiveDark : styles.progressInactiveLight)
-              ]}
-            />
-          ))}
         </View>
         <Text style={[styles.stepIndicator, isDark ? styles.subtextDark : styles.subtextLight]}>
           Step {currentIndex + 1} of {totalSteps}
@@ -138,7 +150,11 @@ export default function RoutineViewerScreen() {
               <View style={[styles.slideCard, isDark ? styles.cardDark : styles.cardLight]}>
                 <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
                   <View style={styles.cardTop}>
-                    <Text style={styles.actionLabel}>{step.actionTitle || "ACTION STEP"}</Text>
+                    <View style={[styles.actionPill, isDark ? styles.actionPillDark : styles.actionPillLight]}>
+                      <Text style={[styles.actionLabel, isDark ? styles.actionLabelDark : styles.actionLabelLight]}>
+                        {step.actionTitle || 'ACTION STEP'}
+                      </Text>
+                    </View>
                     
                     {step.productName ? (
                       <Text style={[styles.productName, isDark ? styles.textDark : styles.textLight]}>
@@ -167,7 +183,9 @@ export default function RoutineViewerScreen() {
                       <Image source={{ uri: step.productImage }} style={styles.productImage} />
                     ) : (
                       <View style={[styles.noImage, isDark ? styles.noImageDark : styles.noImageLight]}>
-                        <Text style={[styles.noImageText, isDark ? styles.subtextDark : styles.subtextLight]}>No image added</Text>
+                        <Text style={[styles.noImageText, isDark ? styles.subtextDark : styles.subtextLight]}>
+                          No image added
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -278,8 +296,8 @@ export default function RoutineViewerScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  bgLight: { backgroundColor: '#ffffff' },
-  bgDark: { backgroundColor: '#09090b' },
+  bgLight: { backgroundColor: '#f5f5f7' },
+  bgDark: { backgroundColor: '#121212' },
   centerAll: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   textLight: { color: '#111827' },
   textDark: { color: '#f4f4f5' },
@@ -292,17 +310,26 @@ const styles = StyleSheet.create({
   iconBgDark: { backgroundColor: '#18181b' },
   emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
   emptySubtitle: { fontSize: 14, textAlign: 'center', marginBottom: 24 },
-  goBackBtn: { backgroundColor: '#9333ea', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  goBackBtn: { backgroundColor: Colors.light.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   goBackText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 
-  headerArea: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16, alignItems: 'center' },
-  titleContainer: { width: '100%', overflow: 'hidden', alignItems: 'center', marginBottom: 8 },
+  headerArea: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, alignItems: 'center' },
+  titleContainer: { width: '100%', overflow: 'hidden', alignItems: 'center', marginBottom: 4 },
   routineTitle: { fontSize: 20, fontWeight: '800', textAlign: 'center', width: '100%' },
-  progressRow: { flexDirection: 'row', width: '100%', gap: 6, marginBottom: 8 },
-  progressBar: { flex: 1, height: 4, borderRadius: 2 },
-  progressActive: { backgroundColor: '#9333ea' },
-  progressInactiveLight: { backgroundColor: '#f3e8ff' },
-  progressInactiveDark: { backgroundColor: '#27272a' },
+  // Onboarding-style progress row
+  progressRow: { flexDirection: 'row', alignItems: 'center', width: '100%', gap: 10, marginBottom: 10 },
+  backBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  backBtnLight: { backgroundColor: '#efefef' },
+  backBtnDark: { backgroundColor: '#27272a' },
+  backBtnPressedLight: { backgroundColor: '#e0e0e0' },
+  backBtnPressedDark: { backgroundColor: '#3f3f46' },
+  trackBorder: { flex: 1, borderWidth: 2, borderRadius: 99, padding: 0.5 },
+  trackBorderLight: { borderColor: '#111111' },
+  trackBorderDark: { borderColor: '#ffffff' },
+  track: { width: '100%', height: 6, borderRadius: 99, overflow: 'hidden' },
+  trackLight: { backgroundColor: '#e8e8e8' },
+  trackDark: { backgroundColor: 'rgba(255,255,255,0.15)' },
+  trackFill: { height: '100%', borderRadius: 99 },
   stepIndicator: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
 
   cardContainer: { flex: 1, paddingHorizontal: 16, paddingBottom: 16 },
@@ -312,7 +339,13 @@ const styles = StyleSheet.create({
   scrollArea: { flex: 1 },
 
   cardTop: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 },
-  actionLabel: { fontSize: 10, fontWeight: '700', color: '#9333ea', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
+  // Action title pill - purple background with white text
+  actionPill: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10, marginBottom: 8, backgroundColor: '#937abd' },
+  actionPillLight: { backgroundColor: '#937abd' },
+  actionPillDark: { backgroundColor: '#937abd' },
+  actionLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, color: '#ffffff' },
+  actionLabelLight: { color: '#ffffff' },
+  actionLabelDark: { color: '#ffffff' },
   productName: { fontSize: 22, fontWeight: '700', lineHeight: 28 },
   noProductRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   noProductIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
@@ -321,10 +354,10 @@ const styles = StyleSheet.create({
 
   imageContainer: { marginHorizontal: 20, marginVertical: 12 },
   productImage: { width: '100%', aspectRatio: 1, borderRadius: 16, backgroundColor: '#f3f4f6' },
-  noImage: { width: '100%', aspectRatio: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed' },
+  noImage: { width: '100%', aspectRatio: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderStyle: 'dashed' },
   noImageLight: { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' },
   noImageDark: { backgroundColor: '#27272a', borderColor: '#3f3f46' },
-  noImageText: { fontSize: 13, fontWeight: '500' },
+  noImageText: { fontSize: 14, fontWeight: '500' },
 
   linkBtn: { marginHorizontal: 20, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
   linkBtnLight: { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' },
@@ -352,7 +385,7 @@ const styles = StyleSheet.create({
   listText: { flex: 1, fontSize: 14, lineHeight: 20 },
   listActionLight: { backgroundColor: '#faf5ff', borderColor: '#e9d5ff' },
   listActionDark: { backgroundColor: 'rgba(147, 51, 234, 0.1)', borderColor: 'rgba(147, 51, 234, 0.2)' },
-  listNumberAction: { fontWeight: '700', color: '#9333ea', marginRight: 8 },
+  listNumberAction: { fontWeight: '700', color: Colors.light.primary, marginRight: 8 },
 
   listDosLight: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
   listDosDark: { backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.2)' },
@@ -368,7 +401,7 @@ const styles = StyleSheet.create({
   navBtnPrevLight: { backgroundColor: '#ffffff', borderColor: '#e5e7eb' },
   navBtnPrevDark: { backgroundColor: '#18181b', borderColor: '#3f3f46' },
   navBtnText: { fontSize: 14, fontWeight: '600' },
-  navBtnNext: { backgroundColor: '#9333ea' },
+  navBtnNext: { backgroundColor: Colors.light.primary },
   navBtnNextText: { fontSize: 14, fontWeight: '600', color: '#ffffff' },
   navBtnDisabled: { opacity: 0.5 }
 });

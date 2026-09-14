@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
-  Text, 
   StyleSheet, 
   TextInput, 
   Pressable, 
@@ -11,18 +10,32 @@ import {
   ScrollView,
   Animated,
   PanResponder,
-  Dimensions
+  Dimensions,
+  BackHandler,
+  ImageBackground,
+  Image
 } from 'react-native';
+import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as Clipboard from 'expo-clipboard';
-import { Search, SlidersHorizontal, Clock, Plus, Copy, Eye, EyeOff, Pencil, Trash2 } from 'lucide-react-native';
+import { Search, SlidersHorizontal, Plus, Copy, Eye, EyeOff, Pencil, Trash2, Droplet, FlaskConical, Leaf } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { CustomClockIcon } from '@/components/custom-icons';
 import { useRouter } from 'expo-router';
+import { Colors } from '@/constants/theme';
 import Header from '@/components/layout/Header';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useFocusEffect } from 'expo-router';
 import { DraggableScrollDownCircle, useDraggableScroll } from '@/components/ui/draggable-scroll-down-circle';
+import LottieView from 'lottie-react-native';
+import EnterRoutineCodeSheet, { EnterRoutineCodeSheetRef } from '@/components/routine/EnterRoutineCodeSheet';
+import RoutineFilterModal from '@/components/routine/RoutineFilterModal';
+import RoutineDeleteModal from '@/components/routine/RoutineDeleteModal';
+import RoutineCard from '@/components/routine/RoutineCard';
 
 const levenshtein = (a: string, b: string): number => {
   const matrix = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
@@ -68,13 +81,60 @@ const getSimilarityScore = (query: string, target: string): number => {
   return overlapScore + levScore;
 };
 
+const getRoutineImage = (routine: any) => {
+  if (routine.coverImage) return { uri: routine.coverImage };
+  if (routine.image) return { uri: routine.image };
+  if (routine.productImage) return { uri: routine.productImage };
+  if (routine.stepData) {
+    for (const key of Object.keys(routine.stepData)) {
+      if (routine.stepData[key]?.productImage) {
+        return { uri: routine.stepData[key].productImage };
+      }
+    }
+  }
+  return require('../../../assets/images/routine_placeholder.jpg');
+};
+
+const getRoutineSubtitle = (routine: any) => {
+  if (routine.description && routine.description.trim()) return routine.description.trim();
+  if (routine.subtitle && routine.subtitle.trim()) return routine.subtitle.trim();
+  if (routine.stepData) {
+    for (const key of Object.keys(routine.stepData)) {
+      const step = routine.stepData[key];
+      if (step?.actionDesc && step.actionDesc.trim()) return step.actionDesc.trim();
+      if (step?.productDesc && step.productDesc.trim()) return step.productDesc.trim();
+    }
+  }
+  return "My go-to sequence for deeply nourishing dry winter skin. Focuses on layering...";
+};
+
 export default function RoutineScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
+  const insets = useSafeAreaInsets();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [routines, setRoutines] = useState([]);
+  const [routines, setRoutines] = useState<any[]>([]);
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  const fabMenuAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (fabMenuOpen) {
+      Animated.spring(fabMenuAnim, {
+        toValue: 1,
+        friction: 6,
+        tension: 65,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(fabMenuAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [fabMenuOpen]);
 
   // ScrollView tracking for main page to show/hide the scroll down circle
   const mainScrollViewRef = useRef<ScrollView>(null);
@@ -85,19 +145,31 @@ export default function RoutineScreen() {
     shouldScrollToTop: false,
   });
 
+  const [userProfile, setUserProfile] = useState<{ name: string; avatarUri: string | null } | null>(null);
+
   useFocusEffect(
     React.useCallback(() => {
-      const loadRoutines = async () => {
+      const loadData = async () => {
         try {
           const stored = await AsyncStorage.getItem('routines');
           if (stored) {
-            setRoutines(JSON.parse(stored));
+            const parsed = JSON.parse(stored);
+            parsed.sort((a: any, b: any) => {
+              const timeA = new Date(a.createdAt || a.updatedAt || parseInt(a.id) || 0).getTime();
+              const timeB = new Date(b.createdAt || b.updatedAt || parseInt(b.id) || 0).getTime();
+              return timeB - timeA;
+            });
+            setRoutines(parsed);
+          }
+          const storedProfile = await AsyncStorage.getItem('user_profile');
+          if (storedProfile) {
+            setUserProfile(JSON.parse(storedProfile));
           }
         } catch (e) {
-          console.error("Failed to load routines", e);
+          console.error("Failed to load routines or profile", e);
         }
       };
-      loadRoutines();
+      loadData();
     }, [])
   );
 
@@ -114,8 +186,19 @@ export default function RoutineScreen() {
     setHiddenCodes(prev => ({ ...prev, [routineId]: !prev[routineId] }));
   };
 
-  const [addCodeOpen, setAddCodeOpen] = useState(false);
-  const [addCodeValue, setAddCodeValue] = useState("");
+  const addCodeSheetRef = useRef<EnterRoutineCodeSheetRef>(null);
+  const [isAddCodeSheetOpen, setIsAddCodeSheetOpen] = useState(false);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isAddCodeSheetOpen) {
+        addCodeSheetRef.current?.dismiss();
+        return true; // block navigation
+      }
+      return false; // let system handle
+    });
+    return () => sub.remove();
+  }, [isAddCodeSheetOpen]);
   
   // Toast State — two separate toasts
   // 1. Error toast: lives INSIDE the modal (above blur), for "Enter a 6-digit code"
@@ -156,7 +239,13 @@ export default function RoutineScreen() {
     });
   };
 
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const lottieRef = useRef<LottieView>(null);
+
   const showSuccessToast = (msg: string) => {
+    // trigger animation and toast in parallel
+    setShowSuccessAnimation(true);
+
     if (successToastTimerRef.current) {
       clearTimeout(successToastTimerRef.current);
       successToastTimerRef.current = null;
@@ -171,16 +260,10 @@ export default function RoutineScreen() {
       mass: 0.8,
       useNativeDriver: true,
     }).start(() => {
+      // Fallback timer matching exact Lottie duration (126 frames @ 25fps = ~5040ms)
       successToastTimerRef.current = setTimeout(() => {
-        Animated.timing(successToastSlideAnim, {
-          toValue: -80,
-          duration: 250,
-          useNativeDriver: true,
-        }).start(() => {
-          setSuccessToastMessage("");
-          successToastTimerRef.current = null;
-        });
-      }, 5000);
+        dismissSuccessToast();
+      }, 5040);
     });
   };
 
@@ -264,79 +347,6 @@ export default function RoutineScreen() {
     })
   ).current;
   
-  const SCREEN_HEIGHT = Dimensions.get('window').height;
-  const translateY = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-
-  React.useEffect(() => {
-    if (addCodeOpen) {
-      translateY.setValue(SCREEN_HEIGHT);
-      Animated.spring(translateY, {
-        toValue: 0,
-        damping: 28,
-        stiffness: 250,
-        mass: 0.8,
-        useNativeDriver: true,
-      } as any).start();
-    }
-  }, [addCodeOpen]);
-
-  const closeAddCodeWithAnimation = () => {
-    Animated.timing(translateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 280,
-      useNativeDriver: true,
-    }).start(() => {
-      setAddCodeOpen(false);
-      translateY.setValue(SCREEN_HEIGHT);
-    });
-  };
-
-  const handleEnterCode = () => {
-    if (addCodeValue.length === 0) return;
-    
-    if (addCodeValue.length < 6) {
-      // Error: stays inside modal, above blur
-      showToast("Enter a 6-digit code");
-      return;
-    }
-    
-    // Success: close modal first, then show success toast outside modal
-    Animated.timing(translateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 280,
-      useNativeDriver: true,
-    }).start(() => {
-      setAddCodeOpen(false);
-      setAddCodeValue("");
-      translateY.setValue(SCREEN_HEIGHT);
-      showSuccessToast("Routine code successfully added!");
-    });
-  };
-
-  const addCodePanResponder = React.useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, g) => g.dy > 2,
-      onPanResponderMove: (_, g) => {
-        if (g.dy > 0) {
-          translateY.setValue(g.dy);
-        }
-      },
-      onPanResponderRelease: (_, g) => {
-        if (g.dy > 100 || g.vy > 0.3) {
-          closeAddCodeWithAnimation();
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            damping: 28,
-            stiffness: 250,
-            mass: 0.8,
-            useNativeDriver: true,
-          } as any).start();
-        }
-      },
-    })
-  ).current;
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [routineToDelete, setRoutineToDelete] = useState<any>(null);
 
@@ -363,10 +373,20 @@ export default function RoutineScreen() {
   const [filterMinSteps, setFilterMinSteps] = useState("");
   const [filterMinDos, setFilterMinDos] = useState("");
   const [filterMinDonts, setFilterMinDonts] = useState("");
-  const [appliedFilters, setAppliedFilters] = useState({ steps: null, dos: null, donts: null });
+  const [appliedFilters, setAppliedFilters] = useState<{ steps: number | null; dos: number | null; donts: number | null }>({ steps: null, dos: null, donts: null });
 
-  const hasAnyFilter = filterMinSteps !== "" || filterMinDos !== "" || filterMinDonts !== "";
+  // Clear button: enabled only when there are actually applied filters
   const isFilterApplied = appliedFilters.steps !== null || appliedFilters.dos !== null || appliedFilters.donts !== null;
+
+  // Apply button: enabled only when current inputs differ from what's already applied
+  const appliedStepsStr = appliedFilters.steps !== null ? appliedFilters.steps.toString() : '';
+  const appliedDosStr = appliedFilters.dos !== null ? appliedFilters.dos.toString() : '';
+  const appliedDontsStr = appliedFilters.donts !== null ? appliedFilters.donts.toString() : '';
+  const hasChanges = (
+    filterMinSteps !== appliedStepsStr ||
+    filterMinDos !== appliedDosStr ||
+    filterMinDonts !== appliedDontsStr
+  );
 
   let emptyStateMessage = "Adjust your search to find relevant results";
   if (isFilterApplied && searchQuery.trim().length > 0) {
@@ -375,14 +395,30 @@ export default function RoutineScreen() {
     emptyStateMessage = "Adjust your filters to find relevant results";
   }
 
+  // When filter modal opens, sync inputs to currently applied values
+  const openFilter = () => {
+    setFilterMinSteps(appliedStepsStr);
+    setFilterMinDos(appliedDosStr);
+    setFilterMinDonts(appliedDontsStr);
+    setFilterOpen(true);
+  };
+
   const applyFilters = () => {
-    setAppliedFilters({
+    const newFilters = {
       steps: filterMinSteps === "" ? null : parseInt(filterMinSteps),
       dos: filterMinDos === "" ? null : parseInt(filterMinDos),
       donts: filterMinDonts === "" ? null : parseInt(filterMinDonts),
-    });
+    };
+    setAppliedFilters(newFilters);
     setFilterOpen(false);
   };
+
+  // Auto-clear applied filters when all inputs are emptied
+  React.useEffect(() => {
+    if (filterMinSteps === "" && filterMinDos === "" && filterMinDonts === "" && isFilterApplied) {
+      setAppliedFilters({ steps: null, dos: null, donts: null });
+    }
+  }, [filterMinSteps, filterMinDos, filterMinDonts]);
 
   const filteredRoutines = React.useMemo(() => {
     let result = [...routines];
@@ -435,161 +471,89 @@ export default function RoutineScreen() {
 
   return (
     <View style={[styles.container, isDark ? styles.bgDark : styles.bgLight]}>
-      <Header title="Routines" />
-      
-      <View style={styles.content}>
-        {routines.length > 0 ? (
-          <>
-            {/* Search Bar Container */}
-            <View style={[styles.searchContainer, isDark ? styles.searchBgDark : styles.searchBgLight]}>
-              <Search size={20} color={isDark ? "#71717a" : "#9ca3af"} style={styles.searchIcon} />
-              <TextInput
-                style={[styles.searchInput, isDark ? styles.textDark : styles.textLight]}
-                placeholder="Search routines..."
-                placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              <Pressable 
-                onPress={() => setFilterOpen(true)} 
-                style={({ pressed }) => [
-                  styles.filterBtn,
-                  isFilterApplied 
-                    ? { backgroundColor: '#9333ea' } 
-                    : (pressed ? (isDark ? { backgroundColor: '#27272a' } : { backgroundColor: '#f3f4f6' }) : null)
-                ]}
-              >
-                <SlidersHorizontal size={18} color={isFilterApplied ? "#ffffff" : (isDark ? "#71717a" : "#9ca3af")} />
-              </Pressable>
-            </View>
-
-            <View style={styles.actionButtonsContainer}>
-              <Pressable style={styles.createBtnMain} onPress={() => router.push('/routine/create')}>
-                <Plus size={16} color="#fff" strokeWidth={2.5} />
-                <Text style={styles.createBtnMainText}>Create</Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.addCodeBtn, isDark ? styles.addCodeBtnDark : styles.addCodeBtnLight]}
-                onPress={() => setAddCodeOpen(true)}
-              >
-                <Plus size={16} color={isDark ? "#d4d4d8" : "#4b5563"} strokeWidth={2.5} />
-                <Text style={[styles.addCodeBtnText, isDark ? styles.textDark : styles.textLight]}>Add Code</Text>
-              </Pressable>
-            </View>
-
-            {filteredRoutines.length > 0 ? (
-              <ScrollView ref={mainScrollViewRef} style={styles.routineList} contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false} {...mainScrollHandlers}>
-                {filteredRoutines.map((routine: any) => (
-                  <Pressable 
-                  key={routine.id} 
-                  style={[styles.routineCard, isDark ? styles.cardDark : styles.cardLight]}
-                  onPress={() => router.push(`/routine/${routine.id}`)}
+      <ScrollView 
+        ref={mainScrollViewRef} 
+        style={styles.container} 
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }} 
+        showsVerticalScrollIndicator={false}
+        {...mainScrollHandlers}
+      >
+        <Header title="Routines" />
+        
+        <View style={styles.content}>
+          {routines.length > 0 ? (
+            <>
+              {/* Search Bar Container */}
+              <View style={[styles.searchContainer, isDark ? styles.searchBgDark : styles.searchBgLight]}>
+                <Search size={20} color={isDark ? "#71717a" : "#9ca3af"} style={styles.searchIcon} />
+                <TextInput
+                  style={[styles.searchInput, isDark ? styles.textDark : styles.textLight]}
+                  placeholder="Search routines..."
+                  placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                <Pressable 
+                  onPress={openFilter} 
+                  style={({ pressed }) => [
+                    styles.filterBtn,
+                    isFilterApplied 
+                      ? { backgroundColor: Colors.light.primary } 
+                      : (pressed ? (isDark ? { backgroundColor: '#27272a' } : { backgroundColor: '#f3f4f6' }) : null)
+                  ]}
                 >
-                  <Text style={[styles.routineTitle, isDark ? styles.textDark : styles.textLight]} numberOfLines={1}>
-                    {routine.title}
-                  </Text>
-                  
-                  <View style={styles.cardFooter}>
-                    <View style={styles.badgesRow}>
-                      <View style={[styles.badgeBlue, isDark && styles.badgeBlueDark]}>
-                        <Text style={[styles.badgeBlueText, isDark && styles.badgeBlueTextDark]}>
-                          {routine.stepsCount} STEPS
-                        </Text>
-                      </View>
-                      
-                      <View style={[styles.badgePurple, isDark && styles.badgePurpleDark]}>
-                        <Pressable
-                          style={styles.codeCopyBtn}
-                          onPress={() => {
-                            if (!hiddenCodes[routine.id]) {
-                              const code = routine.id?.slice(-6).toUpperCase() || 'AAAAAA';
-                              handleCopyCode(code);
-                            }
-                          }}
-                          disabled={hiddenCodes[routine.id]}
-                        >
-                          {!hiddenCodes[routine.id] && (
-                            <Copy size={13} color={isDark ? "#c084fc" : "#9333ea"} />
-                          )}
-                          <Text style={[styles.badgePurpleText, isDark && styles.badgePurpleTextDark]}>
-                            {hiddenCodes[routine.id]
-                              ? 'ROUTINE CODE'
-                              : (copiedId === (routine.id?.slice(-6).toUpperCase() || 'AAAAAA')
-                                  ? 'COPIED!'
-                                  : (routine.id?.slice(-6).toUpperCase() || 'AAAAAA')
-                                )
-                            }
-                          </Text>
-                        </Pressable>
-                        <View style={[styles.badgeDivider, isDark ? styles.badgeDividerDark : styles.badgeDividerLight]} />
-                        <Pressable
-                          style={styles.codeEyeBtn}
-                          onPress={() => toggleCodeVisibility(routine.id)}
-                        >
-                          {hiddenCodes[routine.id]
-                            ? <EyeOff size={13} color={isDark ? "#c084fc" : "#9333ea"} />
-                            : <Eye size={13} color={isDark ? "#c084fc" : "#9333ea"} />
-                          }
-                        </Pressable>
-                      </View>
-                    </View>
-
-                    <View style={styles.cardActions}>
-                      <Pressable 
-                        style={({ pressed }) => [
-                          styles.cardActionBtn,
-                          pressed && (isDark ? { backgroundColor: '#27272a' } : { backgroundColor: '#f3f4f6' })
-                        ]} 
-                        onPress={() => router.push(`/routine/create?edit=${routine.id}`)}
-                      >
-                        <Pencil size={18} color={isDark ? "#a1a1aa" : "#6b7280"} strokeWidth={2.5} />
-                      </Pressable>
-                      <Pressable 
-                        style={({ pressed }) => [
-                          styles.cardActionBtn,
-                          pressed && (isDark ? { backgroundColor: '#27272a' } : { backgroundColor: '#f3f4f6' })
-                        ]} 
-                        onPress={() => handleDeleteClick(routine)}
-                      >
-                        <Trash2 size={18} color={isDark ? "#a1a1aa" : "#6b7280"} strokeWidth={2.5} />
-                      </Pressable>
-                    </View>
-                  </View>
+                  <SlidersHorizontal size={18} color={isFilterApplied ? "#ffffff" : (isDark ? "#71717a" : "#9ca3af")} />
                 </Pressable>
-              ))}
-              </ScrollView>
-            ) : (
-              <View style={[styles.emptyState, { marginTop: 100, flex: 0 }]}>
-                 <View style={[styles.emptyIconBg, isDark ? styles.iconBgDark : styles.iconBgLight]}>
-                    <Search size={72} color={isDark ? "#52525b" : "#d1d5db"} strokeWidth={2.5} />
-                 </View>
-                 <Text style={[styles.emptyTitle, isDark ? styles.textDark : styles.textLight]}>
-                    No result found
-                 </Text>
-                 <Text style={[styles.emptySubtitle, isDark ? styles.subtextDark : styles.subtextLight]}>
-                    {emptyStateMessage}
-                 </Text>
               </View>
-            )}
-          </>
-        ) : (
-          <View style={styles.emptyState}>
-             <View style={[styles.emptyIconBg, isDark ? styles.iconBgDark : styles.iconBgLight]}>
-                <Clock size={72} color={isDark ? "#52525b" : "#d1d5db"} />
-             </View>
-             <Text style={[styles.emptyTitle, isDark ? styles.textDark : styles.textLight]}>
-                No routine added yet
-             </Text>
-             <Text style={[styles.emptySubtitle, isDark ? styles.subtextDark : styles.subtextLight]}>
-                Start building your daily regimen to track your progress and achieve your goals.
-             </Text>
-             <Pressable style={styles.createBtn} onPress={() => router.push('/routine/create')}>
-               <Plus size={16} color="#fff" />
-               <Text style={styles.createBtnText}>Create Routine</Text>
-             </Pressable>
-          </View>
-        )}
-      </View>
+
+              {filteredRoutines.length > 0 ? (
+                <View style={styles.routineList}>
+                  {filteredRoutines.map((routine: any) => (
+                    <RoutineCard
+                      key={routine.id}
+                      routine={routine}
+                      isDark={isDark}
+                      userProfile={userProfile}
+                      copiedId={copiedId}
+                      onCopyCode={handleCopyCode}
+                      onEdit={() => router.push(`/routine/create?edit=${routine.id}`)}
+                      onDelete={() => handleDeleteClick(routine)}
+                      onPress={() => router.push(`/routine/${routine.id}`)}
+                      onStartRoutine={() => router.push(`/routine/start?id=${routine.id}`)}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <View style={[styles.emptyState, { marginTop: 100, flex: 0 }]}>
+                   <View style={[styles.emptyIconBg, isDark ? styles.iconBgDark : styles.iconBgLight]}>
+                      <Search size={72} color={isDark ? "#52525b" : "#d1d5db"} strokeWidth={2.5} />
+                   </View>
+                   <Text style={[styles.emptyTitle, isDark ? styles.textDark : styles.textLight]}>
+                      No result found
+                   </Text>
+                   <Text style={[styles.emptySubtitle, isDark ? styles.subtextDark : styles.subtextLight]}>
+                      {emptyStateMessage}
+                   </Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.emptyState}>
+               <CustomClockIcon size={96} color={isDark ? "#52525b" : "#d1d5db"} style={styles.emptyIcon} />
+               <Text style={[styles.emptyTitle, isDark ? styles.textDark : styles.textLight]}>
+                  No routine added yet
+               </Text>
+               <Text style={[styles.emptySubtitle, isDark ? styles.subtextDark : styles.subtextLight]}>
+                  {"Build your routines and track your progress,\nstay consistent & achieve your goals."}
+               </Text>
+               <Pressable style={styles.createBtn} onPress={() => router.push('/routine/create')}>
+                 <Plus size={15} color="#fff" />
+                 <Text style={styles.createBtnText}>Create Routine</Text>
+               </Pressable>
+            </View>
+          )}
+        </View>
+      </ScrollView>
 
       {/* Main Page Draggable Scroll-Down Circle */}
       <DraggableScrollDownCircle
@@ -601,117 +565,58 @@ export default function RoutineScreen() {
       />
 
       {/* Delete Confirmation Modal */}
-      <Modal
+      <RoutineDeleteModal
         visible={deleteConfirmOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDeleteConfirmOpen(false)}
-      >
-        <Pressable style={styles.deleteModalOverlay} onPress={() => setDeleteConfirmOpen(false)}>
-          <View style={[styles.deleteModalContent, isDark ? styles.modalBgDark : styles.modalBgLight]} onStartShouldSetResponder={() => true}>
-            <Text style={[styles.deleteModalTitle, isDark ? styles.textDark : styles.textLight]}>
-              Delete Routine?
-            </Text>
-            <Text style={[styles.deleteModalDesc, isDark ? styles.subtextDark : styles.subtextLight]}>
-              This will delete your routine and it will be permanently deleted.
-            </Text>
-            <View style={styles.deleteModalActions}>
-              <Pressable
-                onPress={() => setDeleteConfirmOpen(false)}
-                style={[styles.deleteActionBtn, isDark ? styles.inputBgDark : styles.inputBgLight]}
-              >
-                <Text style={[styles.actionBtnText, isDark ? styles.textDark : styles.textLight]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={executeDelete}
-                style={[styles.deleteActionBtn, { backgroundColor: '#ef4444' }]}
-              >
-                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Delete</Text>
-              </Pressable>
-            </View>
-          </View>
-        </Pressable>
-      </Modal>
+        isDark={isDark}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onDelete={executeDelete}
+      />
 
       {/* Filter Modal */}
-      <Modal
+      <RoutineFilterModal
         visible={filterOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setFilterOpen(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setFilterOpen(false)}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
-            <Pressable style={[styles.modalContent, isDark ? styles.modalBgDark : styles.modalBgLight]} onPress={(e) => e.stopPropagation()}>
-              <Text style={[styles.modalTitle, isDark ? styles.subtextDark : styles.subtextLight]}>
-                FILTER BY
-              </Text>
-              
-              <View style={styles.filterRow}>
-                <Text style={[styles.filterLabel, isDark ? styles.textDark : styles.textLight]}>Min Steps</Text>
-                <TextInput 
-                  style={[styles.filterInput, isDark ? styles.inputBgDark : styles.inputBgLight, isDark ? styles.textDark : styles.textLight]}
-                  keyboardType="numeric"
-                  value={filterMinSteps}
-                  onChangeText={handleStepsChange}
-                  placeholder="0"
-                  placeholderTextColor={isDark ? "#52525b" : "#9ca3af"}
-                />
-              </View>
+        isDark={isDark}
+        filterMinSteps={filterMinSteps}
+        filterMinDos={filterMinDos}
+        filterMinDonts={filterMinDonts}
+        hasChanges={hasChanges}
+        hasAnyApplied={isFilterApplied}
+        onClose={() => setFilterOpen(false)}
+        onStepsChange={handleStepsChange}
+        onDosChange={handleDosChange}
+        onDontsChange={handleDontsChange}
+        onReset={resetFilters}
+        onApply={applyFilters}
+      />
 
-              <View style={styles.filterRow}>
-                <Text style={[styles.filterLabel, isDark ? styles.textDark : styles.textLight]}>Min Do's</Text>
-                <TextInput 
-                  style={[styles.filterInput, isDark ? styles.inputBgDark : styles.inputBgLight, isDark ? styles.textDark : styles.textLight]}
-                  keyboardType="numeric"
-                  value={filterMinDos}
-                  onChangeText={handleDosChange}
-                  placeholder="0"
-                  placeholderTextColor={isDark ? "#52525b" : "#9ca3af"}
-                />
-              </View>
+      {showSuccessAnimation && (
+        <View style={styles.lottieOverlay} pointerEvents="none">
+          <LottieView
+            ref={lottieRef}
+            source={require('../../../assets/animations/success_line.json')}
+            autoPlay
+            loop={false}
+            resizeMode="cover"
+            style={styles.lottieAnim}
+            onAnimationFinish={() => {
+              setShowSuccessAnimation(false);
+              dismissSuccessToast();
+            }}
+          />
+        </View>
+      )}
 
-              <View style={styles.filterRow}>
-                <Text style={[styles.filterLabel, isDark ? styles.textDark : styles.textLight]}>Min Don'ts</Text>
-                <TextInput 
-                  style={[styles.filterInput, isDark ? styles.inputBgDark : styles.inputBgLight, isDark ? styles.textDark : styles.textLight]}
-                  keyboardType="numeric"
-                  value={filterMinDonts}
-                  onChangeText={handleDontsChange}
-                  placeholder="0"
-                  placeholderTextColor={isDark ? "#52525b" : "#9ca3af"}
-                />
-              </View>
-
-              <View style={styles.modalActions}>
-                <Pressable
-                  onPress={resetFilters}
-                  disabled={!hasAnyFilter}
-                  style={[styles.actionBtn, isDark ? styles.inputBgDark : styles.inputBgLight, !hasAnyFilter && styles.disabledBtn]}
-                >
-                  <Text style={[styles.actionBtnText, isDark ? styles.textDark : styles.textLight, !hasAnyFilter && styles.disabledText]}>Clear</Text>
-                </Pressable>
-                <Pressable
-                  onPress={applyFilters}
-                  disabled={!hasAnyFilter}
-                  style={[styles.actionBtn, styles.applyBtn, !hasAnyFilter && styles.disabledBtn]}
-                >
-                  <Text style={[styles.applyBtnText, !hasAnyFilter && styles.disabledText]}>Apply</Text>
-                </Pressable>
-              </View>
-            </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
-
-      {/* Success Toast — OUTSIDE modal so it persists 5s after slide closes */}
+      {/* Success Toast — OUTSIDE modal so it persists after slide closes */}
       {successToastMessage ? (
         <Animated.View
           {...successToastPanResponder.panHandlers}
           style={[
             styles.toastContainer,
             isDark ? styles.toastDark : styles.toastLight,
-            { transform: [{ translateY: successToastSlideAnim }], top: 50 }
+            {
+              transform: [{ translateY: successToastSlideAnim }],
+              top: Math.max(insets.top, 16) + 10,
+            }
           ]}
         >
           <Text style={isDark ? styles.toastTextDark : styles.toastTextLight}>
@@ -720,76 +625,132 @@ export default function RoutineScreen() {
         </Animated.View>
       ) : null}
 
-      {/* Add Code Bottom Sheet Modal */}
-      <Modal visible={addCodeOpen} animationType="none" transparent onRequestClose={closeAddCodeWithAnimation}>
-        <View style={styles.sheetOverlay}>
-          <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
-          <Pressable style={{ flex: 1 }} onPress={closeAddCodeWithAnimation} />
+      {/* Add Code Bottom Sheet Component */}
+      <EnterRoutineCodeSheet
+        ref={addCodeSheetRef}
+        isDark={isDark}
+        onSuccess={(msg) => showSuccessToast(msg)}
+        onDismiss={() => setIsAddCodeSheetOpen(false)}
+      />
 
-          {/* Toast — inside modal so it renders above the blur, slides down from top */}
-          {toastMessage ? (
+      {/* FAB dismiss backdrop — transparent, closes the menu on outside tap */}
+      {fabMenuOpen && (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => setFabMenuOpen(false)}
+        />
+      )}
+
+      {/* Floating Action Button (FAB) and Separate Floating Menu Boxes */}
+      <View style={styles.fabWrapper} pointerEvents="box-none">
+        {fabMenuOpen && (
+          <View style={styles.fabMenuContainer}>
+            {/* Box 1: Create Routine */}
             <Animated.View
-              {...errorToastPanResponder.panHandlers}
               style={[
-                styles.toastContainer,
-                isDark ? styles.toastDark : styles.toastLight,
-                { transform: [{ translateY: toastSlideAnim }], top: 15 }
+                styles.fabFloatingBox,
+                isDark ? styles.fabBoxDark : styles.fabBoxLight,
+                {
+                  opacity: fabMenuAnim.interpolate({
+                    inputRange: [0, 0.3, 1],
+                    outputRange: [0, 0.2, 1],
+                  }),
+                  transform: [
+                    {
+                      translateY: fabMenuAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [30, 0],
+                      }),
+                    },
+                    {
+                      scale: fabMenuAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.7, 1],
+                      }),
+                    },
+                  ],
+                },
               ]}
             >
-              <Text style={isDark ? styles.toastTextDark : styles.toastTextLight}>
-                {toastMessage}
-              </Text>
+              <Pressable 
+                style={({ pressed }) => [
+                  styles.fabMenuItemPressable,
+                  pressed && (isDark ? { backgroundColor: '#27272a' } : { backgroundColor: '#f3f4f6' }),
+                ]}
+                onPress={() => {
+                  setFabMenuOpen(false);
+                  router.push('/routine/create');
+                }}
+              >
+                <Plus size={16} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.5} />
+                <Text style={[styles.fabMenuText, isDark ? styles.textDark : styles.textLight]}>Create Routine</Text>
+              </Pressable>
             </Animated.View>
-          ) : null}
-          
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheetKeyboard}>
-            <Animated.View style={[styles.sheetContent, isDark ? styles.bgDark : styles.bgLight, { transform: [{ translateY }] }]}>
-              <View style={styles.sheetDragHandleContainer} {...addCodePanResponder.panHandlers}>
-                <View style={[styles.sheetDragHandle, isDark ? styles.dragHandleDark : styles.dragHandleLight]} />
-              </View>
-              
-              <View style={styles.sheetInner}>
-                <Text style={[styles.sheetTitle, isDark ? styles.textDark : styles.textLight]}>Enter routine code</Text>
-                
-                <TextInput
-                  style={[
-                    styles.sheetInput,
-                    isDark ? styles.sheetInputDark : styles.sheetInputLight,
-                    isDark ? styles.textDark : styles.textLight,
-                    addCodeValue.length > 0 ? { letterSpacing: 4 } : { letterSpacing: 0 }
-                  ]}
-                  placeholder="E.G. A3F9B2"
-                  placeholderTextColor={isDark ? "#52525b" : "#9ca3af"}
-                  value={addCodeValue}
-                  maxLength={6}
-                  autoCapitalize="characters"
-                  onChangeText={(val) => {
-                    const sanitized = val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-                    setAddCodeValue(sanitized);
-                  }}
-                  onSubmitEditing={handleEnterCode}
-                />
-                
-                <View style={styles.sheetActions}>
-                  <Pressable 
-                    onPress={closeAddCodeWithAnimation}
-                    style={[styles.sheetActionBtn, isDark ? styles.sheetBtnCancelDark : styles.sheetBtnCancelLight]}
-                  >
-                    <Text style={[styles.sheetBtnCancelText, isDark ? styles.textDark : styles.textLight]}>Cancel</Text>
-                  </Pressable>
-                  <Pressable 
-                    onPress={handleEnterCode}
-                    disabled={addCodeValue.length === 0}
-                    style={[styles.sheetActionBtn, styles.sheetBtnEnter, addCodeValue.length === 0 && styles.disabledBtn]}
-                  >
-                    <Text style={styles.sheetBtnEnterText}>Enter</Text>
-                  </Pressable>
-                </View>
-              </View>
+
+            {/* Box 2: Add Code */}
+            <Animated.View
+              style={[
+                styles.fabFloatingBox,
+                isDark ? styles.fabBoxDark : styles.fabBoxLight,
+                {
+                  opacity: fabMenuAnim.interpolate({
+                    inputRange: [0, 0.1, 1],
+                    outputRange: [0, 0.4, 1],
+                  }),
+                  transform: [
+                    {
+                      translateY: fabMenuAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [15, 0],
+                      }),
+                    },
+                    {
+                      scale: fabMenuAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.8, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Pressable 
+                style={({ pressed }) => [
+                  styles.fabMenuItemPressable,
+                  pressed && (isDark ? { backgroundColor: '#27272a' } : { backgroundColor: '#f3f4f6' }),
+                ]}
+                onPress={() => {
+                  setFabMenuOpen(false);
+                  setIsAddCodeSheetOpen(true);
+                  addCodeSheetRef.current?.present();
+                }}
+              >
+                <Plus size={16} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.5} />
+                <Text style={[styles.fabMenuText, isDark ? styles.textDark : styles.textLight]}>Add Code</Text>
+              </Pressable>
             </Animated.View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+          </View>
+        )}
+        <Pressable 
+          style={[styles.fabButton, { backgroundColor: Colors.light.primary }]}
+          onPress={() => setFabMenuOpen(!fabMenuOpen)}
+        >
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  rotate: fabMenuAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '45deg'],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Plus size={24} color="#ffffff" strokeWidth={2.5} />
+          </Animated.View>
+        </Pressable>
+      </View>
 
     </View>
   );
@@ -797,8 +758,8 @@ export default function RoutineScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  bgLight: { backgroundColor: '#ffffff' },
-  bgDark: { backgroundColor: '#09090b' },
+  bgLight: { backgroundColor: '#f5f5f7' },
+  bgDark: { backgroundColor: '#121212' },
   content: {
     flex: 1,
     paddingHorizontal: 16,
@@ -847,7 +808,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -50,
+    marginTop: 0,
+    paddingHorizontal: 0,
+  },
+  emptyIcon: {
+    marginBottom: 16,
+    alignSelf: 'center',
   },
   emptyIconBg: {
     width: 140,
@@ -860,30 +826,37 @@ const styles = StyleSheet.create({
   iconBgLight: { backgroundColor: '#f9fafb' },
   iconBgDark: { backgroundColor: '#18181b' },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 21,
+    fontWeight: '700',
+    fontFamily: 'Outfit_700Bold',
     marginBottom: 8,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
-    maxWidth: 240,
     lineHeight: 20,
-    marginBottom: 24,
+    marginBottom: 14,
+    alignSelf: 'stretch',
+    paddingHorizontal: 32,
   },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#9333ea',
+    justifyContent: 'center',
+    backgroundColor: Colors.light.primary,
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    gap: 6,
+    paddingHorizontal: 22,
+    borderRadius: 13,
+    gap: 7,
+    marginTop: 0,
   },
   createBtnText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 15,
+    fontFamily: 'Outfit_600SemiBold',
   },
   actionButtonsContainer: {
     flexDirection: 'row',
@@ -895,7 +868,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#9333ea',
+    backgroundColor: Colors.light.primary,
     height: 48,
     borderRadius: 12,
     gap: 6,
@@ -931,103 +904,136 @@ const styles = StyleSheet.create({
     flex: 1,
     marginTop: 16,
   },
-  routineCard: {
+  routineCardOuter: {
+    borderRadius: 22,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  cardImageBg: {
+    width: '100%',
+  },
+  cardImageStyle: {
+    borderRadius: 22,
+    resizeMode: 'cover',
+  },
+  cardGradientOverlay: {
     padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 10,
+    borderRadius: 22,
   },
-  cardLight: {
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  authorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingRight: 12,
+    borderRadius: 20,
+    gap: 7,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  authorAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+  },
+  authorNameText: {
+    color: '#2d3748',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'Outfit_700Bold',
+  },
+  stepsPill: {
     backgroundColor: '#ffffff',
-    borderColor: '#e5e7eb',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  cardDark: {
-    backgroundColor: '#09090b',
-    borderColor: '#27272a',
+  stepsPillText: {
+    color: '#000000',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    fontFamily: 'Outfit_700Bold',
   },
-  routineTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
+  cardMiddleSection: {
+    marginBottom: 2,
   },
-  cardFooter: {
+  cardRoutineTitle: {
+    fontSize: 24,
+    lineHeight: 29,
+    fontWeight: '700',
+    color: '#ffffff',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(255, 255, 255, 0.88)',
+    fontFamily: 'Outfit_400Regular',
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  cardDividerLine: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  cardBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  badgesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  badgeBlue: {
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  badgeBlueDark: {
-    backgroundColor: 'rgba(30, 58, 138, 0.3)',
-  },
-  badgeBlueText: {
-    color: '#2563eb',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  badgeBlueTextDark: {
-    color: '#60a5fa',
-  },
-  badgePurple: {
+  routineCodePillBottom: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f3e8ff',
-    padding: 3,
-    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    gap: 6,
   },
-  badgePurpleDark: {
-    backgroundColor: 'rgba(88, 28, 135, 0.3)',
-  },
-  codeCopyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    gap: 4,
-  },
-  badgePurpleText: {
-    color: '#9333ea',
+  routineCodeBottomText: {
+    color: Colors.light.primary,
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    fontFamily: 'Outfit_700Bold',
   },
-  badgePurpleTextDark: {
-    color: '#c084fc',
-  },
-  badgeDivider: {
-    width: 1,
-    height: 14,
-    marginHorizontal: 2,
-  },
-  badgeDividerLight: {
-    backgroundColor: '#d8b4fe',
-  },
-  badgeDividerDark: {
-    backgroundColor: 'rgba(107, 33, 168, 0.7)',
-  },
-  codeEyeBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  cardActions: {
+  cardActionGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginRight: -4,
+    gap: 14,
   },
-  cardActionBtn: {
-    padding: 8,
-    borderRadius: 8,
+  cardBareActionBtn: {
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   modalOverlay: {
@@ -1151,7 +1157,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   applyBtn: {
-    backgroundColor: '#9333ea',
+    backgroundColor: Colors.light.primary,
   },
   applyBtnText: {
     color: '#ffffff',
@@ -1170,16 +1176,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheetBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   sheetKeyboard: {
+    justifyContent: 'flex-end',
     width: '100%',
-    alignItems: 'center',
   },
   sheetContent: {
     width: '100%',
-    maxWidth: 430,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     boxShadow: '0px -10px 40px rgba(0, 0, 0, 0.15)',
@@ -1205,7 +1210,6 @@ const styles = StyleSheet.create({
   },
   sheetInner: {
     paddingHorizontal: 24,
-    paddingBottom: 24,
     paddingTop: 8,
   },
   sheetTitle: {
@@ -1244,19 +1248,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sheetBtnCancelLight: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   sheetBtnCancelDark: {
     backgroundColor: '#27272a',
+    borderWidth: 1,
+    borderColor: '#3f3f46',
   },
   sheetBtnCancelText: {
     fontSize: 14,
     fontWeight: '600',
   },
   sheetBtnEnter: {
-    backgroundColor: '#9333ea',
-    boxShadow: '0px 4px 12px rgba(147, 51, 234, 0.25)',
-    elevation: 4,
+    backgroundColor: Colors.light.primary,
   },
   sheetBtnEnterText: {
     color: '#ffffff',
@@ -1277,5 +1283,78 @@ const styles = StyleSheet.create({
   toastLight: { backgroundColor: '#111827', borderColor: '#374151' },
   toastDark: { backgroundColor: '#ffffff', borderColor: '#e5e7eb' },
   toastTextLight: { fontSize: 14, fontWeight: '500', textAlign: 'center', color: '#ffffff' },
-  toastTextDark: { fontSize: 14, fontWeight: '500', textAlign: 'center', color: '#111827' }
+  toastTextDark: { fontSize: 14, fontWeight: '500', textAlign: 'center', color: '#111827' },
+
+  // ── FAB (Floating Action Button) ──────────────────────────────────────────
+  fabWrapper: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    alignItems: 'flex-end',
+    zIndex: 100,
+  },
+  fabButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 12,
+  },
+  fabMenuContainer: {
+    marginBottom: 12,
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  fabFloatingBox: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    minWidth: 160,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  fabBoxLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  fabBoxDark: {
+    backgroundColor: '#1c1c1e',
+    borderColor: '#27272a',
+  },
+  fabMenuItemPressable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  fabMenuText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  lottieOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9998,
+    pointerEvents: 'none',
+  },
+  lottieAnim: {
+    width: '100%',
+    height: '100%',
+  },
+  modalToastOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
 });

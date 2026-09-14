@@ -6,6 +6,9 @@ import {
   PanResponder,
   Dimensions,
   ScrollView,
+  Keyboard,
+  Platform,
+  KeyboardEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronDown } from 'lucide-react-native';
@@ -96,18 +99,42 @@ export function DraggableScrollDownCircle({
   isFullScreenModal = false,
 }: DraggableScrollDownCircleProps) {
   const insets = useSafeAreaInsets();
+  const keyboardHeightRef = useRef(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   
   const modalWidthRef = useRef(Dimensions.get('window').width);
   const modalHeightRef = useRef(0);
-  const currentSide = useRef<'left' | 'right'>('right');
+  const currentSide = useRef<'left' | 'right'>('left');
   const currentYRatio = useRef<number>(1); // Relative position ratio (0 at minY, 1 at maxY)
 
-  const circlePan = useRef(new Animated.ValueXY({ x: Dimensions.get('window').width - 70, y: 300 })).current;
+  const circlePan = useRef(new Animated.ValueXY({ x: 16, y: 300 })).current;
   const circleOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!isFullScreenModal) return;
+
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSubscription = Keyboard.addListener(showEvent, (e: KeyboardEvent) => {
+      keyboardHeightRef.current = e.endCoordinates.height;
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      keyboardHeightRef.current = 0;
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [isFullScreenModal]);
+
+  useEffect(() => {
     if (modalOpen) {
-      currentSide.current = 'right';
+      currentSide.current = 'left';
       currentYRatio.current = 1;
     }
   }, [modalOpen]);
@@ -147,7 +174,7 @@ export function DraggableScrollDownCircle({
         const minX = paddingX;
         const maxX = mWidth - circleSize - paddingX;
         const minY = isFullScreenModal ? insets.top + 16 : insets.top + 70; 
-        const maxY = mHeight - circleSize - paddingY - (isFullScreenModal ? insets.bottom : 0);
+        const maxY = mHeight - circleSize - paddingY - (isFullScreenModal ? insets.bottom + 80 : 0) - (isFullScreenModal ? keyboardHeightRef.current : 0);
         
         const isLeft = currentX < (mWidth / 2) - (circleSize / 2);
         currentSide.current = isLeft ? 'left' : 'right';
@@ -189,7 +216,7 @@ export function DraggableScrollDownCircle({
     const minX = paddingX;
     const maxX = width - circleSize - paddingX;
     const minY = isFullScreenModal ? insets.top + 16 : insets.top + 70; 
-    const maxY = height - circleSize - paddingY - (isFullScreenModal ? insets.bottom : 0);
+    const maxY = height - circleSize - paddingY - (isFullScreenModal ? insets.bottom + 80 : 0) - (isFullScreenModal ? keyboardHeightRef.current : 0);
     
     const targetX = currentSide.current === 'left' ? minX : maxX;
     const targetY = minY + currentYRatio.current * (maxY - minY);

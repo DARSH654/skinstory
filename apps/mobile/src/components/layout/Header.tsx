@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, Appearance } from 'react-native';
+import { View, StyleSheet, Pressable, Appearance, Image } from 'react-native';
+import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeStore } from '@/store/themeStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Sun, Moon, User } from 'lucide-react-native';
+import { ChevronLeft, Sun, Moon, User, Compass } from 'lucide-react-native';
+import Logo from '@/components/Logo';
 
 export default function Header({ title, showBack = false, onBack }: { title: string, showBack?: boolean, onBack?: () => void }) {
   const insets = useSafeAreaInsets();
@@ -29,14 +31,19 @@ export default function Header({ title, showBack = false, onBack }: { title: str
           </Pressable>
         )}
         <View style={styles.logoContainer}>
-          <View style={styles.logoIcon}>
-            <Text style={styles.logoIconText}>G</Text>
-          </View>
-          <Text style={styles.logoText}>GLAMUP</Text>
+          <Logo size={22} color={isDark ? '#ffffff' : '#111111'} />
+          <Text style={[styles.logoText, { color: isDark ? '#ffffff' : '#111111' }]}>Skin Story</Text>
         </View>
       </View>
 
       <View style={styles.rightActions}>
+        <Pressable 
+          onPress={() => router.push('/onboarding/page-1')} 
+          style={[styles.actionBtn, isDark ? styles.actionBtnDark : styles.actionBtnLight]}
+          accessibilityLabel="Onboarding"
+        >
+          <Compass size={18} color={isDark ? "#a1a1aa" : "#4b5563"} />
+        </Pressable>
         <Pressable onPress={toggleTheme} style={[styles.actionBtn, isDark ? styles.actionBtnDark : styles.actionBtnLight]}>
           {isDark ? (
             <Sun size={18} color="#a1a1aa" />
@@ -63,11 +70,11 @@ const styles = StyleSheet.create({
   },
   left: { flexDirection: 'row', alignItems: 'center' },
   headerLight: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FAF8F6',
     borderBottomColor: '#f3f4f6',
   },
   headerDark: {
-    backgroundColor: '#09090b',
+    backgroundColor: '#0d0d0d',
     borderBottomColor: '#27272a',
   },
   logoContainer: {
@@ -75,24 +82,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  logoIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: '#9333ea', // purple-600
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoIconText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '800',
-    fontFamily: 'Outfit_800ExtraBold'
+  logoImage: {
+    width: 28,
+    height: 28,
   },
   logoText: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#9333ea',
+    color: '#937abd',
     letterSpacing: 0.5,
     fontFamily: 'Outfit_800ExtraBold'
   },
@@ -109,10 +106,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionBtnLight: {
-    backgroundColor: '#f3f4f6', // gray-100
+    backgroundColor: '#f3f4f6',
   },
   actionBtnDark: {
-    backgroundColor: '#27272a', // zinc-800
+    backgroundColor: '#27272a',
   },
   iconBtn: {
     padding: 4,

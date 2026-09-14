@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { View, Text, Pressable, useColorScheme, StyleSheet, Platform } from 'react-native';
 import { Home, ScanFace, Clock } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CustomHomeIcon, CustomClockIcon } from './custom-icons';
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const scheme = useColorScheme();
@@ -40,15 +41,21 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             }
           };
 
-          const color = isFocused 
+          const textColor = isFocused 
             ? (isDark ? '#ffffff' : '#000000') 
             : (isDark ? '#71717a' : '#9ca3af'); 
+          
+          const iconColor = isFocused 
+            ? (isDark ? '#ddc5f8' : '#6417b8')
+            : (isDark ? '#71717a' : '#9ca3af');
+
+          const pillBgColor = isDark ? '#3b0764' : '#e9d5ff';
 
           let Icon = null;
-          if (route.name === 'index') Icon = Home;
+          if (route.name === 'index') Icon = CustomHomeIcon;
           else if (route.name === 'scan') Icon = ScanFace;
-          else if (route.name === 'routine') Icon = Clock;
-          else Icon = Home;
+          else if (route.name === 'routine') Icon = CustomClockIcon;
+          else Icon = CustomHomeIcon;
 
           return (
             <Pressable
@@ -69,14 +76,20 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                 <>
                   <View style={[
                     styles.iconContainer,
-                    isFocused && (isDark ? styles.iconActiveDark : styles.iconActiveLight),
-                    (pressed || hovered) && (isDark ? styles.iconPressedDark : styles.iconPressedLight)
+                    isFocused && (isDark ? { backgroundColor: pillBgColor } : styles.iconActiveLight),
+                    (pressed || hovered) && !isFocused && (isDark ? styles.iconPressedDark : styles.iconPressedLight)
                   ]}>
-                    {Icon && <Icon size={24} strokeWidth={isFocused ? 2.5 : 2} color={color} />}
+                    {Icon && (
+                      <Icon 
+                        size={29} 
+                        strokeWidth={isFocused ? 2.5 : 2} 
+                        color={iconColor}
+                      />
+                    )}
                   </View>
                   <Text style={[
                     styles.tabLabel,
-                    { color: color }
+                    { color: textColor, fontWeight: isFocused ? '700' : '500' }
                   ]}>
                     {label as string}
                   </Text>
@@ -105,11 +118,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   tabBarLight: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F5F5F7',
     borderColor: '#e5e7eb',
   },
   tabBarDark: {
-    backgroundColor: '#09090b',
+    backgroundColor: '#121212',
     borderColor: '#27272a',
   },
   tabItem: {
@@ -118,7 +131,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 72,
     height: '100%',
-    gap: 4,
+    gap: 1,
   },
   iconContainer: {
     width: 64,
