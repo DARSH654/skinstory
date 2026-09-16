@@ -28,10 +28,10 @@ export default function WaitlistCtaSection() {
         {/* LEFT COLUMN: Title, Subtitle, and Call to Action (7 cols) */}
         <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left space-y-4 min-w-0">
           
-          {/* Social Proof Pill (Above Title, larger size with +2px font) */}
-          <div className="inline-flex items-center gap-2 md:gap-3 px-4 md:px-5 py-2 md:py-2.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-[0_2px_12px_rgba(0,0,0,0.06)] select-none max-w-full">
+          {/* Social Proof Pill (Above Title, balanced inner spacing) */}
+          <div className="inline-flex items-center gap-1.5 md:gap-2 pl-4 md:pl-5 pr-3 md:pr-3.5 py-2 md:py-2.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-[0_2px_12px_rgba(0,0,0,0.06)] select-none max-w-full">
             <span className="text-[13px] sm:text-sm md:text-base font-medium text-zinc-700 dark:text-zinc-300 tracking-tight inline-flex items-center whitespace-nowrap">
-              <span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">4,192</strong> already in line</span><span className="inline-block w-[6px] h-[6px] md:w-[7px] md:h-[7px] aspect-square rounded-full bg-[#937abd] border-[1.5px] border-black dark:border-white shrink-0 mx-2 md:mx-2.5" /><span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">108</strong> spots left</span>
+              <span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">4,192</strong> already in line</span><span className="inline-block w-[5px] h-[5px] md:w-[6px] md:h-[6px] aspect-square rounded-full bg-[#937abd] border-[1.5px] border-black dark:border-white shrink-0 mx-1 md:mx-1.5" /><span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">108</strong> spots left</span>
             </span>
           </div>
 
