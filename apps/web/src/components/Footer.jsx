@@ -20,17 +20,43 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto bg-white dark:bg-zinc-900 border-[3px] border-zinc-950 dark:border-white rounded-[32px] sm:rounded-[44px] px-6 sm:px-10 pt-5 sm:pt-6 pb-4 sm:pb-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-colors">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 pb-5 border-b border-zinc-200/70 dark:border-zinc-800">
           
-          {/* Left Column: Authentic Brand Logo & Official Store Badges */}
+          {/* Left Column: Brand Logo + App Store Badges */}
           <div className="lg:col-span-5 space-y-4 text-left">
-            <div className="flex items-center gap-3">
-              {/* Official Skin Story Two-Square Logo Component */}
-              <div className="w-10 h-10 relative inline-block shrink-0">
-                <div className="absolute top-0 right-0 bg-zinc-950 dark:bg-white w-[25px] h-[25px]" />
-                <div className="absolute bottom-0 left-0 bg-zinc-950 dark:bg-white w-[16px] h-[16px]" />
+            {/* Logo row: Logo + Name + Icon-only theme toggle (mobile only, on same line) */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                {/* Skin Story Two-Square Logo */}
+                <div className="w-10 h-10 relative inline-block shrink-0">
+                  <div className="absolute top-0 right-0 bg-zinc-950 dark:bg-white w-[25px] h-[25px]" />
+                  <div className="absolute bottom-0 left-0 bg-zinc-950 dark:bg-white w-[16px] h-[16px]" />
+                </div>
+                <span className="text-2xl sm:text-[26px] font-bold tracking-tight text-zinc-950 dark:text-white font-[family-name:var(--font-outfit)]">
+                  Skin Story
+                </span>
               </div>
-              <span className="text-2xl sm:text-[26px] font-bold tracking-tight text-zinc-950 dark:text-white font-[family-name:var(--font-outfit)]">
-                Skin Story
-              </span>
+
+              {/* Icon-only theme toggle — visible only on mobile (hidden on lg+) */}
+              <div className="flex lg:hidden items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 gap-1 border border-zinc-200/60 dark:border-zinc-700 shrink-0">
+                {[
+                  { key: "light", icon: <Sun size={18} /> },
+                  { key: "system", icon: <Monitor size={18} /> },
+                  { key: "dark", icon: <Moon size={18} /> },
+                ].map(({ key, icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => setTheme(key)}
+                    aria-label={key}
+                    title={key}
+                    className={`flex items-center justify-center w-9 h-9 rounded-full transition-all duration-150 ${
+                      currentTheme === key
+                        ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                    }`}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Official Mobile Store Buttons */}
@@ -45,19 +71,19 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Right Column: Clean Link Grid */}
+          {/* Right Column: Link Grid */}
           <div className="lg:col-span-7 grid grid-cols-2 gap-8 text-left sm:pl-4">
             
             {/* Legal Links */}
             <div className="space-y-3.5">
-              <h4 className="text-[15px] font-semibold text-zinc-950 dark:text-white tracking-tight font-[family-name:var(--font-outfit)] relative inline-block">
+              <h4 className="text-base sm:text-[15px] font-semibold text-zinc-950 dark:text-white tracking-tight font-[family-name:var(--font-outfit)] relative inline-block">
                 <span className="relative z-10">Legal</span>
                 <span
                   className="absolute left-[-2px] right-[-2px] bottom-0 h-2 bg-[#d6cbe8] dark:bg-[#5f4982] rounded-[2px] -z-0"
                   aria-hidden="true"
                 />
               </h4>
-              <ul className="space-y-2.5 text-xs sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium">
+              <ul className="space-y-2.5 text-sm sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium">
                 <li><a href="/privacy-policy" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Privacy Policy</a></li>
                 <li><a href="/terms-of-service" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Terms of Service</a></li>
                 <li><a href="/refund-cancellation" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Refund &amp; Cancellation</a></li>
@@ -67,14 +93,14 @@ export default function Footer() {
 
             {/* Company Links */}
             <div className="space-y-3.5">
-              <h4 className="text-[15px] font-semibold text-zinc-950 dark:text-white tracking-tight font-[family-name:var(--font-outfit)] relative inline-block">
+              <h4 className="text-base sm:text-[15px] font-semibold text-zinc-950 dark:text-white tracking-tight font-[family-name:var(--font-outfit)] relative inline-block">
                 <span className="relative z-10">Company</span>
                 <span
                   className="absolute left-[-2px] right-[-2px] bottom-0 h-2 bg-[#d6cbe8] dark:bg-[#5f4982] rounded-[2px] -z-0"
                   aria-hidden="true"
                 />
               </h4>
-              <ul className="space-y-2.5 text-xs sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium">
+              <ul className="space-y-2.5 text-sm sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium">
                 <li><a href="/faq" className="hover:text-zinc-950 dark:hover:text-white transition-colors">FAQ</a></li>
                 <li><a href="/contact-us" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Contact Us</a></li>
                 <li><a href="/blog" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Blog</a></li>
@@ -85,12 +111,12 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Bottom Bar: Copyright left + Theme toggle right */}
+        {/* Bottom Bar: Copyright left + Theme toggle right (desktop only) */}
         <div className="pt-3.5 flex items-center justify-between text-sm sm:text-base text-zinc-600 dark:text-zinc-400 font-medium">
-          <p>© {new Date().getFullYear()} Skin Story. All rights reserved.</p>
+          <p className="whitespace-nowrap">© {new Date().getFullYear()} Skin Story. All rights reserved.</p>
 
-          {/* 3-way theme toggle: Light / System / Dark */}
-          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-0.5 gap-0.5 border border-zinc-200/60 dark:border-zinc-700">
+          {/* Full text theme toggle — visible only on desktop (lg+) */}
+          <div className="hidden lg:flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-0.5 gap-0.5 border border-zinc-200/60 dark:border-zinc-700">
             {[
               { key: "light", icon: <Sun size={13} />, label: "Light" },
               { key: "system", icon: <Monitor size={13} />, label: "System" },
