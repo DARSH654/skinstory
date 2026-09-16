@@ -41,12 +41,12 @@ export default function HeroSection() {
               alt="Member"
             />
           </div>
-          <span className="text-[11px] min-[360px]:text-[12px] min-[400px]:text-[13.5px] sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 tracking-tight inline-flex items-center whitespace-nowrap shrink-0">
+          <span className="text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 tracking-tight inline-flex items-center flex-wrap justify-center sm:justify-start gap-x-1 sm:gap-x-1.5">
             <span className="whitespace-nowrap">
               <strong className="font-semibold text-zinc-950 dark:text-white">4,192</strong> on waitlist
             </span>
             {/* Small dot separator */}
-            <span className="inline-block w-[4px] h-[4px] sm:w-[6px] sm:h-[6px] aspect-square rounded-full bg-[#937abd] border-[1px] sm:border-[1.5px] border-black dark:border-white shrink-0 mx-1 sm:mx-1.5" />
+            <span className="inline-block w-[4px] h-[4px] sm:w-[6px] sm:h-[6px] aspect-square rounded-full bg-[#937abd] border-[1px] sm:border-[1.5px] border-black dark:border-white shrink-0 mx-0.5 sm:mx-1" />
             <span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">500</strong> early members secured</span>
           </span>
         </div>

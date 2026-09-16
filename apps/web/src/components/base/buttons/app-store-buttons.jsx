@@ -4,33 +4,33 @@
  * Both render crisply at 42px height with natural aspect ratios.
  */
 
-export function AppStoreButton({ url = null, className = "" }) {
+export function AppStoreButton({ url = null, className = "", imgClassName = "" }) {
   return (
     <span
       aria-label="Download on the App Store — Coming Soon"
-      className={`inline-flex items-center select-none opacity-90 cursor-default ${className}`}
+      className={`inline-flex items-center select-none opacity-90 cursor-default shrink-0 ${className}`}
     >
       <img
         src="/badges/app-store.svg"
         alt="Download on the App Store"
         draggable={false}
-        style={{ height: "42px", width: "auto", display: "block" }}
+        className={`h-8 min-[380px]:h-9 sm:h-[42px] w-auto block ${imgClassName}`}
       />
     </span>
   );
 }
 
-export function GooglePlayButton({ url = null, className = "" }) {
+export function GooglePlayButton({ url = null, className = "", imgClassName = "" }) {
   return (
     <span
       aria-label="Get it on Google Play — Coming Soon"
-      className={`inline-flex items-center select-none opacity-90 cursor-default ${className}`}
+      className={`inline-flex items-center select-none opacity-90 cursor-default shrink-0 ${className}`}
     >
       <img
         src="/badges/google-play.svg"
         alt="Get it on Google Play"
         draggable={false}
-        style={{ height: "42px", width: "auto", display: "block" }}
+        className={`h-8 min-[380px]:h-9 sm:h-[42px] w-auto block ${imgClassName}`}
       />
     </span>
   );

@@ -23,31 +23,31 @@ export default function Footer() {
           {/* Left Column: Brand Logo + App Store Badges */}
           <div className="lg:col-span-5 space-y-4 text-center lg:text-left">
             {/* Logo row: Logo + Name + Icon-only theme toggle (mobile only, on same line) */}
-            <div className="flex items-center justify-between lg:justify-start gap-3">
-              <div className="flex items-center gap-3 mx-auto lg:mx-0">
+            <div className="flex items-center justify-between lg:justify-start gap-2 sm:gap-3 w-full">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 {/* Skin Story Two-Square Logo */}
-                <div className="w-10 h-10 relative inline-block shrink-0">
-                  <div className="absolute top-0 right-0 bg-zinc-950 dark:bg-white w-[25px] h-[25px]" />
-                  <div className="absolute bottom-0 left-0 bg-zinc-950 dark:bg-white w-[16px] h-[16px]" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 relative inline-block shrink-0">
+                  <div className="absolute top-0 right-0 bg-zinc-950 dark:bg-white w-[20px] h-[20px] sm:w-[25px] sm:h-[25px]" />
+                  <div className="absolute bottom-0 left-0 bg-zinc-950 dark:bg-white w-[13px] h-[13px] sm:w-[16px] sm:h-[16px]" />
                 </div>
-                <span className="text-2xl sm:text-[26px] font-bold tracking-tight text-zinc-950 dark:text-white font-[family-name:var(--font-outfit)]">
+                <span className="text-xl min-[360px]:text-2xl sm:text-[26px] font-bold tracking-tight text-zinc-950 dark:text-white font-[family-name:var(--font-outfit)] whitespace-nowrap">
                   Skin Story
                 </span>
               </div>
 
               {/* Icon-only theme toggle — mobile only */}
-              <div className="flex lg:hidden items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 gap-1 border border-zinc-200/60 dark:border-zinc-700 shrink-0">
+              <div className="flex lg:hidden items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-0.5 sm:p-1 gap-0.5 sm:gap-1 border border-zinc-200/60 dark:border-zinc-700 shrink-0">
                 {[
-                  { key: "light", icon: <Sun size={18} /> },
-                  { key: "system", icon: <Monitor size={18} /> },
-                  { key: "dark", icon: <Moon size={18} /> },
+                  { key: "light", icon: <Sun className="w-4 h-4 sm:w-[18px] sm:h-[18px]" /> },
+                  { key: "system", icon: <Monitor className="w-4 h-4 sm:w-[18px] sm:h-[18px]" /> },
+                  { key: "dark", icon: <Moon className="w-4 h-4 sm:w-[18px] sm:h-[18px]" /> },
                 ].map(({ key, icon }) => (
                   <button
                     key={key}
                     onClick={() => setTheme(key)}
                     aria-label={key}
                     title={key}
-                    className={`flex items-center justify-center w-9 h-9 rounded-full transition-all duration-150 ${
+                    className={`flex items-center justify-center w-7 h-7 sm:w-9 sm:h-9 rounded-full transition-all duration-150 ${
                       currentTheme === key
                         ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-sm"
                         : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
@@ -60,11 +60,11 @@ export default function Footer() {
             </div>
 
             {/* Official Mobile Store Buttons */}
-            <div className="pt-5">
-              <span className="text-sm font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 block mb-[5px]">
+            <div className="pt-4 sm:pt-5">
+              <span className="text-xs min-[360px]:text-sm font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 block mb-2">
                 Coming soon to
               </span>
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3">
+              <div className="flex flex-nowrap items-center justify-center lg:justify-start gap-2 sm:gap-3">
                 <GooglePlayButton />
                 <AppStoreButton />
               </div>
@@ -112,8 +112,8 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar: Copyright + Theme toggle */}
-        <div className="pt-3.5 flex flex-col lg:flex-row items-center justify-between gap-2 text-sm sm:text-base text-zinc-600 dark:text-zinc-400 font-medium">
-          <p className="whitespace-nowrap text-center lg:text-left">© {new Date().getFullYear()} Skin Story. All rights reserved.</p>
+        <div className="pt-3.5 flex flex-col lg:flex-row items-center justify-between gap-2 text-xs min-[360px]:text-sm sm:text-base text-zinc-600 dark:text-zinc-400 font-medium">
+          <p className="text-center lg:text-left break-words">© {new Date().getFullYear()} Skin Story. All rights reserved.</p>
 
           {/* Full text theme toggle — visible only on desktop (lg+) */}
           <div className="hidden lg:flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-0.5 gap-0.5 border border-zinc-200/60 dark:border-zinc-700">
