@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import Logo from "./Logo";
+import { AppStoreButton, GooglePlayButton } from "@/components/base/buttons/app-store-buttons";
 import {
   FlagUS,
   FlagCA,
@@ -237,13 +238,11 @@ export default function FloatingNavbar() {
             </AnimatePresence>
           </div>
 
-          {/* CTA Button: Get Early Access */}
-          <Link
-            href="#early-access"
-            className="px-5 py-2.5 text-sm font-semibold text-white bg-[#937abd] rounded-full hover:bg-[#856db0] active:scale-[0.98] transition-all whitespace-nowrap"
-          >
-            {t("nav.earlyAccess") || "Get Early Access"}
-          </Link>
+          {/* App Store Buttons (replaces CTA) */}
+          <div className="flex items-center gap-2 shrink-0">
+            <AppStoreButton />
+            <GooglePlayButton />
+          </div>
         </div>
 
         {/* Mobile Menu Toggle Button */}

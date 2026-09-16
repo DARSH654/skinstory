@@ -21,10 +21,10 @@ export default function Footer() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 pb-5 border-b border-zinc-200/70 dark:border-zinc-800">
           
           {/* Left Column: Brand Logo + App Store Badges */}
-          <div className="lg:col-span-5 space-y-4 text-left">
+          <div className="lg:col-span-5 space-y-4 text-center lg:text-left">
             {/* Logo row: Logo + Name + Icon-only theme toggle (mobile only, on same line) */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between lg:justify-start gap-3">
+              <div className="flex items-center gap-3 mx-auto lg:mx-0">
                 {/* Skin Story Two-Square Logo */}
                 <div className="w-10 h-10 relative inline-block shrink-0">
                   <div className="absolute top-0 right-0 bg-zinc-950 dark:bg-white w-[25px] h-[25px]" />
@@ -35,7 +35,7 @@ export default function Footer() {
                 </span>
               </div>
 
-              {/* Icon-only theme toggle — visible only on mobile (hidden on lg+) */}
+              {/* Icon-only theme toggle — mobile only */}
               <div className="flex lg:hidden items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 gap-1 border border-zinc-200/60 dark:border-zinc-700 shrink-0">
                 {[
                   { key: "light", icon: <Sun size={18} /> },
@@ -64,7 +64,7 @@ export default function Footer() {
               <span className="text-sm font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 block mb-[5px]">
                 Coming soon to
               </span>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3">
                 <GooglePlayButton />
                 <AppStoreButton />
               </div>
@@ -72,7 +72,7 @@ export default function Footer() {
           </div>
 
           {/* Right Column: Link Grid */}
-          <div className="lg:col-span-7 grid grid-cols-2 gap-8 text-left sm:pl-4">
+          <div className="lg:col-span-7 grid grid-cols-2 gap-8 text-center lg:text-left sm:pl-4">
             
             {/* Legal Links */}
             <div className="space-y-3.5">
@@ -111,9 +111,9 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Bottom Bar: Copyright left + Theme toggle right (desktop only) */}
-        <div className="pt-3.5 flex items-center justify-between text-sm sm:text-base text-zinc-600 dark:text-zinc-400 font-medium">
-          <p className="whitespace-nowrap">© {new Date().getFullYear()} Skin Story. All rights reserved.</p>
+        {/* Bottom Bar: Copyright + Theme toggle */}
+        <div className="pt-3.5 flex flex-col lg:flex-row items-center justify-between gap-2 text-sm sm:text-base text-zinc-600 dark:text-zinc-400 font-medium">
+          <p className="whitespace-nowrap text-center lg:text-left">© {new Date().getFullYear()} Skin Story. All rights reserved.</p>
 
           {/* Full text theme toggle — visible only on desktop (lg+) */}
           <div className="hidden lg:flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-0.5 gap-0.5 border border-zinc-200/60 dark:border-zinc-700">
