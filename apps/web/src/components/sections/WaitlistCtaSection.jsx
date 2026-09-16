@@ -26,7 +26,7 @@ export default function WaitlistCtaSection() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
         
         {/* LEFT COLUMN: Title, Subtitle, and Call to Action (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col items-start text-left space-y-6 min-w-0">
+        <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left space-y-6 min-w-0">
           
           {/* Emotional, Brand-Focused Title with Underline */}
           <div className="space-y-3">
@@ -42,13 +42,13 @@ export default function WaitlistCtaSection() {
                 />
               </span>
             </h2>
-            <p className="text-zinc-600 dark:text-zinc-300 text-base sm:text-lg leading-relaxed font-normal max-w-xl">
+            <p className="text-zinc-600 dark:text-zinc-300 text-base sm:text-lg leading-relaxed font-normal max-w-xl mx-auto lg:mx-0">
               Stop jumping between endless products and guessing in the mirror. Connect your daily habits to your biology with clinical-grade clarity.
             </p>
           </div>
 
           {/* Clean Minimalist Social Proof Pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-100/90 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-100/90 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 mx-auto lg:mx-0">
             <span className="w-1.5 h-1.5 rounded-full bg-[#937abd]" />
             <span><strong className="text-zinc-950 dark:text-white font-semibold">4,192</strong> already in line</span>
             <span className="text-zinc-300 dark:text-zinc-600">•</span>
@@ -56,27 +56,27 @@ export default function WaitlistCtaSection() {
           </div>
 
           {/* Email Form / State */}
-          <div className="w-full max-w-lg pt-1">
+          <div className="w-full max-w-md mx-auto lg:mx-0 pt-1">
             {!submitted ? (
               <form onSubmit={handleSubmit} className="space-y-3">
-                <div className="flex flex-col sm:flex-row gap-2.5 p-1.5 bg-zinc-50/90 dark:bg-zinc-900 rounded-2xl sm:rounded-full border border-zinc-300 dark:border-zinc-700 focus-within:border-[3px] focus-within:border-black dark:focus-within:border-white shadow-[0_2px_14px_rgba(0,0,0,0.04)] transition-all">
+                <div className="flex items-center p-1.5 bg-zinc-50/90 dark:bg-zinc-900 rounded-full border border-zinc-300 dark:border-zinc-700 focus-within:border-[3px] focus-within:border-black dark:focus-within:border-white shadow-[0_2px_14px_rgba(0,0,0,0.04)] transition-all">
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email address"
-                    className="flex-1 px-4 py-3 sm:py-2.5 text-sm sm:text-base text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 bg-transparent outline-hidden"
+                    className="flex-1 min-w-0 px-4 py-2.5 text-sm sm:text-base text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 bg-transparent outline-hidden text-left"
                   />
                   <button
                     type="submit"
-                    className="px-6 py-3.5 sm:py-2.5 text-sm sm:text-base font-semibold text-white bg-[#937abd] hover:bg-[#856db0] rounded-xl sm:rounded-full transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                    className="px-5 sm:px-6 py-2.5 text-sm sm:text-base font-semibold text-white bg-[#937abd] hover:bg-[#856db0] rounded-full transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2 cursor-pointer shrink-0"
                   >
                     <span>Join Waitlist</span>
                     <ArrowRight size={16} />
                   </button>
                 </div>
-                <div className="flex items-center gap-2 pl-3 text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="flex items-center justify-center lg:justify-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                   <ShieldCheck size={14} className="text-[#937abd] shrink-0" />
                   <span>Free for early cohort. Zero spam or sponsored product bias.</span>
                 </div>

@@ -265,7 +265,7 @@ export default function FloatingNavbar() {
               <Link href="/contact-us" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                 Contact
               </Link>
-              <div className="flex items-center gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-800 w-full justify-center">
+              <div className="flex flex-wrap items-center gap-3 pt-2 w-full justify-center">
                 <AppStoreButton />
                 <GooglePlayButton />
               </div>
