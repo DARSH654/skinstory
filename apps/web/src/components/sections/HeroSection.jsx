@@ -76,7 +76,7 @@ export default function HeroSection() {
         {/* Email Capture / Call To Action Form - Pill Shaped */}
         {!submitted ? (
           <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto lg:mx-0 mb-1.5">
-            <div className="flex items-center p-1.5 bg-zinc-50/80 dark:bg-zinc-900 hover:bg-white dark:hover:bg-zinc-900 focus-within:bg-white dark:focus-within:bg-zinc-900 rounded-full border-[3px] border-transparent focus-within:border-black dark:focus-within:border-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+            <div className="flex items-center p-1.5 bg-zinc-50/80 dark:bg-zinc-900 hover:bg-white dark:hover:bg-zinc-900 focus-within:bg-white dark:focus-within:bg-zinc-900 rounded-full border border-zinc-200/90 dark:border-zinc-700 focus-within:border-[3px] focus-within:border-black dark:focus-within:border-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
               <input
                 type="email"
                 required

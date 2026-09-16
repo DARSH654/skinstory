@@ -59,7 +59,7 @@ export default function WaitlistCtaSection() {
           <div className="w-full max-w-lg pt-1">
             {!submitted ? (
               <form onSubmit={handleSubmit} className="space-y-3">
-                <div className="flex flex-col sm:flex-row gap-2.5 p-1.5 bg-zinc-50/90 dark:bg-zinc-900 rounded-2xl sm:rounded-full border-[3px] border-transparent focus-within:border-black dark:focus-within:border-white shadow-[0_2px_14px_rgba(0,0,0,0.04)] transition-all">
+                <div className="flex flex-col sm:flex-row gap-2.5 p-1.5 bg-zinc-50/90 dark:bg-zinc-900 rounded-2xl sm:rounded-full border border-zinc-300 dark:border-zinc-700 focus-within:border-[3px] focus-within:border-black dark:focus-within:border-white shadow-[0_2px_14px_rgba(0,0,0,0.04)] transition-all">
                   <input
                     type="email"
                     required
