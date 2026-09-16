@@ -155,7 +155,7 @@ export default function FloatingNavbar() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 6, scale: 0.98 }}
                   transition={{ duration: 0.16 }}
-                  className="absolute top-full left-0 mt-2.5 w-[470px] max-w-[92vw] p-3.5 bg-white dark:bg-zinc-900 rounded-2xl shadow-[0_25px_60px_-10px_rgba(0,0,0,0.2),0_10px_25px_-5px_rgba(0,0,0,0.08)] border border-zinc-200 dark:border-zinc-800 z-50"
+                  className="fixed sm:absolute top-[58px] sm:top-full inset-x-3 sm:inset-x-auto sm:left-0 mt-0 sm:mt-2.5 mx-auto sm:mx-0 w-auto sm:w-[470px] max-w-[470px] p-3.5 bg-white dark:bg-zinc-900 rounded-2xl shadow-[0_25px_60px_-10px_rgba(0,0,0,0.2),0_10px_25px_-5px_rgba(0,0,0,0.08)] border border-zinc-200 dark:border-zinc-800 z-50"
                 >
                   <div className="px-1.5 pb-2 mb-1.5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
                     <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
