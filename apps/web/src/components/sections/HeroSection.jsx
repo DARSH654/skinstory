@@ -22,31 +22,31 @@ export default function HeroSection() {
       {/* LEFT COLUMN: Content & Form (7.5 / 4.5 column balance on desktop) */}
       <div className="lg:col-span-7 xl:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
         {/* Top Badge: Proportionally scaled pill (avatars, text, height, and paddings) */}
-        <div className="inline-flex items-center gap-3 pl-1.5 pr-4 py-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-[0_2px_10px_rgba(0,0,0,0.05)] mb-3.5 select-none">
+        <div className="inline-flex items-center gap-1.5 sm:gap-3 pl-1 sm:pl-1.5 pr-3 sm:pr-4 py-1 sm:py-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-[0_2px_10px_rgba(0,0,0,0.05)] mb-3.5 select-none max-w-full">
           {/* Overlapping user avatars */}
-          <div className="flex -space-x-2 overflow-hidden shrink-0">
+          <div className="flex -space-x-1.5 sm:-space-x-2 overflow-hidden shrink-0">
             <img
-              className="inline-block h-[34px] w-[34px] rounded-full ring-2 ring-white dark:ring-zinc-900 object-cover"
+              className="inline-block h-6 w-6 sm:h-[34px] sm:w-[34px] rounded-full ring-2 ring-white dark:ring-zinc-900 object-cover"
               src="/avatar-user.jpg"
               alt="Member"
             />
             <img
-              className="inline-block h-[34px] w-[34px] rounded-full ring-2 ring-white dark:ring-zinc-900 object-cover"
+              className="inline-block h-6 w-6 sm:h-[34px] sm:w-[34px] rounded-full ring-2 ring-white dark:ring-zinc-900 object-cover"
               src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=faces"
               alt="Member"
             />
             <img
-              className="inline-block h-[34px] w-[34px] rounded-full ring-2 ring-white dark:ring-zinc-900 object-cover"
+              className="inline-block h-6 w-6 sm:h-[34px] sm:w-[34px] rounded-full ring-2 ring-white dark:ring-zinc-900 object-cover"
               src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=faces"
               alt="Member"
             />
           </div>
-          <span className="text-[13.5px] sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 tracking-tight inline-flex items-center flex-wrap">
+          <span className="text-[11px] min-[360px]:text-[12px] min-[400px]:text-[13.5px] sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 tracking-tight inline-flex items-center whitespace-nowrap shrink-0">
             <span className="whitespace-nowrap">
               <strong className="font-semibold text-zinc-950 dark:text-white">4,192</strong> on waitlist
             </span>
             {/* Small dot separator */}
-            <span className="inline-block w-[6px] h-[6px] aspect-square rounded-full bg-[#937abd] border-[1.5px] border-black dark:border-white shrink-0 mx-1.5" />
+            <span className="inline-block w-[4px] h-[4px] sm:w-[6px] sm:h-[6px] aspect-square rounded-full bg-[#937abd] border-[1px] sm:border-[1.5px] border-black dark:border-white shrink-0 mx-1 sm:mx-1.5" />
             <span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">500</strong> early members secured</span>
           </span>
         </div>
