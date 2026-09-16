@@ -121,49 +121,33 @@ export default function FloatingNavbar() {
 
   return (
     <header className="w-full bg-white dark:bg-[#121212] transition-colors duration-200 relative z-50">
-      <nav className="w-full px-4 lg:px-6 pt-3.5 pb-2 flex items-center justify-between">
-        {/* Brand: Logo + Title (Always Left) */}
-        <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <Logo size={28} color="currentColor" className="text-zinc-950 dark:text-white shrink-0" />
-          <span className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white font-[family-name:var(--font-outfit)] whitespace-nowrap">
-            Skin Story
-          </span>
-        </Link>
+      <nav className="w-full px-4 lg:px-6 pt-3.5 pb-2 flex items-center justify-between gap-3">
 
-        {/* Desktop Controls (Hidden on Mobile) */}
-        <div className="hidden md:flex items-center gap-4 lg:gap-6">
-          {/* Center Nav Links */}
-          <div className="flex items-center gap-2">
-            <Link
-              href="/faq"
-              className="px-4 py-2 text-sm lg:text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
-            >
-              FAQ
-            </Link>
-            <Link
-              href="/contact-us"
-              className="px-4 py-2 text-sm lg:text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
-            >
-              Contact
-            </Link>
-          </div>
+        {/* LEFT: Logo + Language Picker (always together) */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+            <Logo size={28} color="currentColor" className="text-zinc-950 dark:text-white shrink-0" />
+            <span className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white font-[family-name:var(--font-outfit)] whitespace-nowrap">
+              Skin Story
+            </span>
+          </Link>
 
-          {/* Language Selector Pill */}
+          {/* Language Selector Pill — right next to Skin Story */}
           <div className="relative" ref={dropdownRef}>
             <button
               type="button"
               onClick={() => setIsOpen(!isOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white bg-zinc-100/80 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 rounded-full transition-all border border-zinc-200/80 dark:border-zinc-700 select-none cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white bg-zinc-100/80 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 rounded-full transition-all border border-zinc-200/80 dark:border-zinc-700 select-none cursor-pointer"
             >
               <CurrentFlag className="w-4 h-3 shrink-0" />
-              <span className="tracking-tight font-medium whitespace-nowrap">{DisplayCountry.name}</span>
+              <span className="tracking-tight font-medium whitespace-nowrap hidden sm:inline">{DisplayCountry.name}</span>
               <ChevronDown
                 size={13}
                 className={`text-zinc-500 dark:text-zinc-400 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
               />
             </button>
 
-            {/* Solid Dropdown Menu */}
+            {/* Dropdown Menu */}
             <AnimatePresence>
               {isOpen && (
                 <motion.div
@@ -171,14 +155,12 @@ export default function FloatingNavbar() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 6, scale: 0.98 }}
                   transition={{ duration: 0.16 }}
-                  className="absolute top-full right-0 mt-2.5 w-[470px] max-w-[90vw] p-3.5 bg-white dark:bg-zinc-900 rounded-2xl shadow-[0_25px_60px_-10px_rgba(0,0,0,0.2),0_10px_25px_-5px_rgba(0,0,0,0.08)] border border-zinc-200 dark:border-zinc-800 z-50"
+                  className="absolute top-full left-0 mt-2.5 w-[470px] max-w-[92vw] p-3.5 bg-white dark:bg-zinc-900 rounded-2xl shadow-[0_25px_60px_-10px_rgba(0,0,0,0.2),0_10px_25px_-5px_rgba(0,0,0,0.08)] border border-zinc-200 dark:border-zinc-800 z-50"
                 >
-                  {/* Header with Title and Chevron Navigation */}
                   <div className="px-1.5 pb-2 mb-1.5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
                     <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
                       Select Region & Language
                     </span>
-
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
@@ -200,20 +182,15 @@ export default function FloatingNavbar() {
                       </button>
                     </div>
                   </div>
-
-                  {/* 3 Column Grid */}
                   <div className="grid grid-cols-3 gap-1">
                     {currentCountries.map((country) => {
                       const FlagComponent = country.Flag;
                       const isSelected = selectedCountry.code === country.code;
                       return (
-                         <button
+                        <button
                           key={country.code}
                           type="button"
-                          onClick={() => {
-                            setLocale(country.code);
-                            setIsOpen(false);
-                          }}
+                          onClick={() => { setLocale(country.code); setIsOpen(false); }}
                           className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
                             isSelected
                               ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white font-bold border border-zinc-300 dark:border-zinc-600 shadow-xs"
@@ -222,12 +199,8 @@ export default function FloatingNavbar() {
                         >
                           <FlagComponent className="w-3.5 h-2.5 shrink-0" />
                           <div className="flex flex-col min-w-0">
-                            <span className="text-[11px] font-semibold leading-tight truncate text-zinc-900 dark:text-zinc-100">
-                              {country.name}
-                            </span>
-                            <span className="text-[9px] text-zinc-400 dark:text-zinc-500 leading-tight truncate">
-                              {country.lang}
-                            </span>
+                            <span className="text-[11px] font-semibold leading-tight truncate text-zinc-900 dark:text-zinc-100">{country.name}</span>
+                            <span className="text-[9px] text-zinc-400 dark:text-zinc-500 leading-tight truncate">{country.lang}</span>
                           </div>
                         </button>
                       );
@@ -237,88 +210,31 @@ export default function FloatingNavbar() {
               )}
             </AnimatePresence>
           </div>
-
-          {/* App Store Buttons (replaces CTA) */}
-          <div className="flex items-center gap-2 shrink-0">
-            <AppStoreButton />
-            <GooglePlayButton />
-          </div>
         </div>
 
-        {/* Mobile Menu Toggle Button */}
-        <button
-          className="md:hidden flex items-center justify-center p-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-950 dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          aria-label="Toggle Menu"
-        >
-          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </nav>
-
-      {/* Mobile Slide-down Drawer */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="md:hidden overflow-hidden border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-[#121212]"
+        {/* CENTER: FAQ + Contact — only on desktop */}
+        <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
+          <Link
+            href="/faq"
+            className="px-4 py-2 text-sm lg:text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
           >
-            <div className="px-4 py-5 flex flex-col items-center space-y-2">
-              <Link 
-                href="/faq" 
-                className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white px-2 py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" 
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                FAQ
-              </Link>
-              <Link 
-                href="/contact-us" 
-                className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white px-2 py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" 
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Contact
-              </Link>
+            FAQ
+          </Link>
+          <Link
+            href="/contact-us"
+            className="px-4 py-2 text-sm lg:text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
+          >
+            Contact
+          </Link>
+        </div>
 
-              {/* Language Selector inside drawer */}
-              <div className="w-full pt-2">
-                <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider text-center mb-2">Region & Language</p>
-                <div className="grid grid-cols-3 gap-1">
-                  {COUNTRIES.slice(0, 12).map((country) => {
-                    const FlagComponent = country.Flag;
-                    const isSelected = selectedCountry.code === country.code;
-                    return (
-                      <button
-                        key={country.code}
-                        type="button"
-                        onClick={() => { setLocale(country.code); setIsMobileMenuOpen(false); }}
-                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
-                          isSelected
-                            ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white font-bold border border-zinc-300 dark:border-zinc-600"
-                            : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 border border-transparent"
-                        }`}
-                      >
-                        <FlagComponent className="w-3.5 h-2.5 shrink-0" />
-                        <span className="text-[10px] font-semibold truncate">{country.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+        {/* RIGHT: App Store + Google Play — ALL screen sizes */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <AppStoreButton className="[&_img]:h-[32px] sm:[&_img]:h-[38px] lg:[&_img]:h-[42px]" />
+          <GooglePlayButton className="[&_img]:h-[32px] sm:[&_img]:h-[38px] lg:[&_img]:h-[42px]" />
+        </div>
 
-              <div className="w-full pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                <Link 
-                  href="#early-access" 
-                  className="flex justify-center w-full px-5 py-3.5 text-base font-semibold text-white bg-[#937abd] rounded-full active:scale-[0.98] transition-all" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {t("nav.earlyAccess") || "Get Early Access"}
-                </Link>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </nav>
     </header>
   );
 }
