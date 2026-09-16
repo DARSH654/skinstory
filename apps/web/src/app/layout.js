@@ -1,5 +1,4 @@
 import { Outfit } from "next/font/google";
-import FloatingNavbar from "@/components/FloatingNavbar";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import "./globals.css";
@@ -48,7 +47,6 @@ export default function RootLayout({ children }) {
       <body className="bg-white dark:bg-[#121212] text-zinc-900 dark:text-zinc-100 antialiased min-h-screen w-full relative selection:bg-[#937abd] selection:text-white transition-colors duration-200">
         <LanguageProvider>
           <ThemeProvider>
-            <FloatingNavbar />
             {children}
           </ThemeProvider>
         </LanguageProvider>

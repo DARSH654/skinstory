@@ -50,10 +50,10 @@ export default function Footer() {
                 />
               </h4>
               <ul className="space-y-2.5 text-xs sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium">
-                <li><a href="#privacy" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="#terms" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Terms of Service</a></li>
-                <li><a href="#biometric" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Biometric Data Policy</a></li>
-                <li><a href="#security" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Security &amp; Encryption</a></li>
+                <li><a href="/privacy-policy" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="/terms-of-service" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Terms of Service</a></li>
+                <li><a href="/refund-cancellation" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Refund &amp; Cancellation</a></li>
+                <li><a href="/data-deletion" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Data Deletion</a></li>
               </ul>
             </div>
 
@@ -67,8 +67,8 @@ export default function Footer() {
                 />
               </h4>
               <ul className="space-y-2.5 text-xs sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium">
-                <li><a href="#faq" className="hover:text-zinc-950 dark:hover:text-white transition-colors">FAQ</a></li>
-                <li><a href="mailto:support@getskinstory.com" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Contact Us</a></li>
+                <li><a href="/faq" className="hover:text-zinc-950 dark:hover:text-white transition-colors">FAQ</a></li>
+                <li><a href="/contact-us" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Contact Us</a></li>
                 <li><a href="#press" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Press &amp; Media</a></li>
                 <li><a href="#early-access" className="hover:text-zinc-950 dark:hover:text-white transition-colors font-semibold">Join Waitlist</a></li>
               </ul>

@@ -215,11 +215,27 @@ export default function FloatingNavbar() {
           </div>
         </div>
 
+        {/* Center Nav Links */}
+        <div className="hidden md:flex items-center gap-1">
+          <Link
+            href="/faq"
+            className="px-4 py-2 text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all"
+          >
+            FAQ
+          </Link>
+          <Link
+            href="/contact-us"
+            className="px-4 py-2 text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all"
+          >
+            Contact
+          </Link>
+        </div>
+
         {/* CTA Button: Get Early Access */}
         <div className="flex items-center gap-3">
           <Link
             href="#early-access"
-            className="px-5 py-2.5 text-sm font-semibold text-white bg-[#937abd] rounded-full hover:bg-[#856db0] active:scale-[0.98] transition-all shadow-[0_4px_14px_rgba(147,122,189,0.3)]"
+            className="px-5 py-2.5 text-sm font-semibold text-white bg-[#937abd] rounded-full hover:bg-[#856db0] active:scale-[0.98] transition-all"
           >
             {t("nav.earlyAccess")}
           </Link>

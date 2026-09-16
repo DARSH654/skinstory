@@ -40,13 +40,13 @@ export default function HeroSection() {
               alt="Member"
             />
           </div>
-          <span className="text-[13.5px] sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 tracking-tight flex items-center gap-1">
+          <span className="text-[13.5px] sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 tracking-tight inline-flex items-center">
             <span>
               <strong className="font-semibold text-zinc-950 dark:text-white">4,192</strong> on waitlist
             </span>
-            {/* 6.5px dot with black border and minimal gap */}
-            <span className="inline-block w-[6.5px] h-[6.5px] rounded-full bg-[#937abd] border border-black shrink-0" />
-            <span className="text-zinc-600 dark:text-zinc-400">500 early members secured</span>
+            {/* Small dot separator */}
+            <span className="inline-block w-[6px] h-[6px] aspect-square rounded-full bg-[#937abd] border-[1.5px] border-black dark:border-white shrink-0 mx-1" />
+            <span><strong className="font-semibold text-zinc-950 dark:text-white">500</strong> early members secured</span>
           </span>
         </div>
 

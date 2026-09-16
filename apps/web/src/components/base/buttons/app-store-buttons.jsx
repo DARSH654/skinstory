@@ -4,14 +4,11 @@
  * Both render crisply at 42px height with natural aspect ratios.
  */
 
-export function AppStoreButton({ url = "#", className = "" }) {
+export function AppStoreButton({ url = null, className = "" }) {
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Download on the App Store"
-      className={`inline-flex items-center select-none hover:opacity-90 active:scale-[0.98] transition-all ${className}`}
+    <span
+      aria-label="Download on the App Store — Coming Soon"
+      className={`inline-flex items-center select-none opacity-90 cursor-default ${className}`}
     >
       <img
         src="/badges/app-store.svg"
@@ -19,18 +16,15 @@ export function AppStoreButton({ url = "#", className = "" }) {
         draggable={false}
         style={{ height: "42px", width: "auto", display: "block" }}
       />
-    </a>
+    </span>
   );
 }
 
-export function GooglePlayButton({ url = "#", className = "" }) {
+export function GooglePlayButton({ url = null, className = "" }) {
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Get it on Google Play"
-      className={`inline-flex items-center select-none hover:opacity-90 active:scale-[0.98] transition-all ${className}`}
+    <span
+      aria-label="Get it on Google Play — Coming Soon"
+      className={`inline-flex items-center select-none opacity-90 cursor-default ${className}`}
     >
       <img
         src="/badges/google-play.svg"
@@ -38,7 +32,7 @@ export function GooglePlayButton({ url = "#", className = "" }) {
         draggable={false}
         style={{ height: "42px", width: "auto", display: "block" }}
       />
-    </a>
+    </span>
   );
 }
 
