@@ -1,6 +1,7 @@
 import { Outfit } from "next/font/google";
 import FloatingNavbar from "@/components/FloatingNavbar";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -43,11 +44,13 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={outfit.variable}>
-      <body className="bg-white text-zinc-900 antialiased min-h-screen w-full relative selection:bg-[#937abd] selection:text-white">
+    <html lang="en" className={outfit.variable} suppressHydrationWarning>
+      <body className="bg-white dark:bg-[#121212] text-zinc-900 dark:text-zinc-100 antialiased min-h-screen w-full relative selection:bg-[#937abd] selection:text-white transition-colors duration-200">
         <LanguageProvider>
-          <FloatingNavbar />
-          {children}
+          <ThemeProvider>
+            <FloatingNavbar />
+            {children}
+          </ThemeProvider>
         </LanguageProvider>
       </body>
     </html>

@@ -113,13 +113,13 @@ export default function FloatingNavbar() {
   }, []);
 
   return (
-    <header className="w-full bg-white">
+    <header className="w-full bg-white dark:bg-[#121212] transition-colors duration-200">
       <nav className="w-full px-2 sm:px-4 lg:px-6 pt-3.5 pb-2 flex items-center justify-between">
         {/* Brand: Logo + Title + Country/Language Picker */}
         <div className="flex items-center gap-3 sm:gap-4">
           <Link href="/" className="flex items-center gap-2.5">
-            <Logo size={28} color="#111111" />
-            <span className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 font-[family-name:var(--font-outfit)]">
+            <Logo size={28} color="currentColor" className="text-zinc-950 dark:text-white" />
+            <span className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white font-[family-name:var(--font-outfit)]">
               Skin Story
             </span>
           </Link>
@@ -129,17 +129,17 @@ export default function FloatingNavbar() {
             <button
               type="button"
               onClick={() => setIsOpen(!isOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:text-zinc-950 bg-zinc-100/80 hover:bg-zinc-100 rounded-full transition-all border border-zinc-200/80 select-none cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white bg-zinc-100/80 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 rounded-full transition-all border border-zinc-200/80 dark:border-zinc-700 select-none cursor-pointer"
             >
               <CurrentFlag className="w-4 h-3" />
               <span className="tracking-tight font-medium">{selectedCountry.name}</span>
               <ChevronDown
                 size={13}
-                className={`text-zinc-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                className={`text-zinc-500 dark:text-zinc-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
               />
             </button>
 
-            {/* 100% Solid Pure Opaque White Dropdown Menu */}
+            {/* Solid Dropdown Menu */}
             <AnimatePresence>
               {isOpen && (
                 <motion.div
@@ -147,11 +147,11 @@ export default function FloatingNavbar() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 6, scale: 0.98 }}
                   transition={{ duration: 0.16 }}
-                  className="absolute top-full left-0 mt-2.5 w-[470px] max-w-[92vw] p-3.5 bg-white rounded-2xl shadow-[0_25px_60px_-10px_rgba(0,0,0,0.2),0_10px_25px_-5px_rgba(0,0,0,0.08)] border border-zinc-200 z-50"
+                  className="absolute top-full left-0 mt-2.5 w-[470px] max-w-[92vw] p-3.5 bg-white dark:bg-zinc-900 rounded-2xl shadow-[0_25px_60px_-10px_rgba(0,0,0,0.2),0_10px_25px_-5px_rgba(0,0,0,0.08)] border border-zinc-200 dark:border-zinc-800 z-50"
                 >
                   {/* Header with Title and Chevron Navigation */}
-                  <div className="px-1.5 pb-2 mb-1.5 border-b border-zinc-100 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                  <div className="px-1.5 pb-2 mb-1.5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
                       Select Region & Language
                     </span>
 
@@ -161,18 +161,18 @@ export default function FloatingNavbar() {
                         onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
                         disabled={currentPage === 0}
                         aria-label="Previous Page"
-                        className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-100 hover:bg-zinc-200/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer border border-zinc-200/80"
+                        className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer border border-zinc-200/80 dark:border-zinc-700"
                       >
-                        <ChevronLeft size={12} className="text-zinc-700" />
+                        <ChevronLeft size={12} className="text-zinc-700 dark:text-zinc-300" />
                       </button>
                       <button
                         type="button"
                         onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
                         disabled={currentPage >= totalPages - 1}
                         aria-label="Next Page"
-                        className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-100 hover:bg-zinc-200/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer border border-zinc-200/80"
+                        className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer border border-zinc-200/80 dark:border-zinc-700"
                       >
-                        <ChevronRight size={12} className="text-zinc-700" />
+                        <ChevronRight size={12} className="text-zinc-700 dark:text-zinc-300" />
                       </button>
                     </div>
                   </div>
@@ -192,16 +192,16 @@ export default function FloatingNavbar() {
                           }}
                           className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
                             isSelected
-                              ? "bg-zinc-100 text-zinc-950 font-bold border border-zinc-300 shadow-xs"
-                              : "text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950 border border-transparent"
+                              ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white font-bold border border-zinc-300 dark:border-zinc-600 shadow-xs"
+                              : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-zinc-950 dark:hover:text-white border border-transparent"
                           }`}
                         >
                           <FlagComponent className="w-3.5 h-2.5 shrink-0" />
                           <div className="flex flex-col min-w-0">
-                            <span className="text-[11px] font-semibold leading-tight truncate text-zinc-900">
+                            <span className="text-[11px] font-semibold leading-tight truncate text-zinc-900 dark:text-zinc-100">
                               {country.name}
                             </span>
-                            <span className="text-[9px] text-zinc-400 leading-tight truncate">
+                            <span className="text-[9px] text-zinc-400 dark:text-zinc-500 leading-tight truncate">
                               {country.lang}
                             </span>
                           </div>
