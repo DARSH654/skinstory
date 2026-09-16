@@ -228,14 +228,51 @@ export default function FloatingNavbar() {
           </Link>
         </div>
 
-        {/* RIGHT: App Store + Google Play — ALL screen sizes */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <AppStoreButton className="[&_img]:h-[32px] sm:[&_img]:h-[38px] lg:[&_img]:h-[42px]" />
-          <GooglePlayButton className="[&_img]:h-[32px] sm:[&_img]:h-[38px] lg:[&_img]:h-[42px]" />
+        {/* RIGHT: Store buttons on desktop | Hamburger on mobile */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Store buttons: desktop only */}
+          <div className="hidden md:flex items-center gap-2">
+            <AppStoreButton />
+            <GooglePlayButton />
+          </div>
+
+          {/* Hamburger: mobile only */}
+          <button
+            className="md:hidden flex items-center justify-center p-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-950 dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label="Toggle Menu"
+          >
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
 
       </nav>
+
+      {/* Mobile Slide-down Drawer */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="md:hidden overflow-hidden border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-[#121212]"
+          >
+            <div className="px-6 py-6 flex flex-col items-center gap-3">
+              <Link href="/faq" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                FAQ
+              </Link>
+              <Link href="/contact-us" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                Contact
+              </Link>
+              <div className="flex items-center gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-800 w-full justify-center">
+                <AppStoreButton />
+                <GooglePlayButton />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
-
