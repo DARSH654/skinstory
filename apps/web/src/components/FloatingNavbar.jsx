@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import Logo from "./Logo";
 import {
   FlagUS,
@@ -105,6 +105,8 @@ export default function FloatingNavbar() {
     (currentPage + 1) * ITEMS_PER_PAGE
   );
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   useEffect(() => {
     setMounted(true);
     function handleClickOutside(e) {
@@ -117,16 +119,33 @@ export default function FloatingNavbar() {
   }, []);
 
   return (
-    <header className="w-full bg-white dark:bg-[#121212] transition-colors duration-200">
-      <nav className="w-full px-2 sm:px-4 lg:px-6 pt-3.5 pb-2 flex items-center justify-between">
-        {/* Brand: Logo + Title + Country/Language Picker */}
-        <div className="flex items-center gap-3 sm:gap-4">
-          <Link href="/" className="flex items-center gap-2.5">
-            <Logo size={28} color="currentColor" className="text-zinc-950 dark:text-white" />
-            <span className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white font-[family-name:var(--font-outfit)]">
-              Skin Story
-            </span>
-          </Link>
+    <header className="w-full bg-white dark:bg-[#121212] transition-colors duration-200 relative z-50">
+      <nav className="w-full px-4 lg:px-6 pt-3.5 pb-2 flex items-center justify-between">
+        {/* Brand: Logo + Title (Always Left) */}
+        <Link href="/" className="flex items-center gap-2.5 shrink-0">
+          <Logo size={28} color="currentColor" className="text-zinc-950 dark:text-white shrink-0" />
+          <span className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white font-[family-name:var(--font-outfit)] whitespace-nowrap">
+            Skin Story
+          </span>
+        </Link>
+
+        {/* Desktop Controls (Hidden on Mobile) */}
+        <div className="hidden md:flex items-center gap-4 lg:gap-6">
+          {/* Center Nav Links */}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/faq"
+              className="px-4 py-2 text-sm lg:text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
+            >
+              FAQ
+            </Link>
+            <Link
+              href="/contact-us"
+              className="px-4 py-2 text-sm lg:text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
+            >
+              Contact
+            </Link>
+          </div>
 
           {/* Language Selector Pill */}
           <div className="relative" ref={dropdownRef}>
@@ -135,11 +154,11 @@ export default function FloatingNavbar() {
               onClick={() => setIsOpen(!isOpen)}
               className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white bg-zinc-100/80 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 rounded-full transition-all border border-zinc-200/80 dark:border-zinc-700 select-none cursor-pointer"
             >
-              <CurrentFlag className="w-4 h-3" />
-              <span className="tracking-tight font-medium">{DisplayCountry.name}</span>
+              <CurrentFlag className="w-4 h-3 shrink-0" />
+              <span className="tracking-tight font-medium whitespace-nowrap">{DisplayCountry.name}</span>
               <ChevronDown
                 size={13}
-                className={`text-zinc-500 dark:text-zinc-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                className={`text-zinc-500 dark:text-zinc-400 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
               />
             </button>
 
@@ -151,7 +170,7 @@ export default function FloatingNavbar() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 6, scale: 0.98 }}
                   transition={{ duration: 0.16 }}
-                  className="absolute top-full left-0 mt-2.5 w-[470px] max-w-[92vw] p-3.5 bg-white dark:bg-zinc-900 rounded-2xl shadow-[0_25px_60px_-10px_rgba(0,0,0,0.2),0_10px_25px_-5px_rgba(0,0,0,0.08)] border border-zinc-200 dark:border-zinc-800 z-50"
+                  className="absolute top-full right-0 mt-2.5 w-[470px] max-w-[90vw] p-3.5 bg-white dark:bg-zinc-900 rounded-2xl shadow-[0_25px_60px_-10px_rgba(0,0,0,0.2),0_10px_25px_-5px_rgba(0,0,0,0.08)] border border-zinc-200 dark:border-zinc-800 z-50"
                 >
                   {/* Header with Title and Chevron Navigation */}
                   <div className="px-1.5 pb-2 mb-1.5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
@@ -187,7 +206,7 @@ export default function FloatingNavbar() {
                       const FlagComponent = country.Flag;
                       const isSelected = selectedCountry.code === country.code;
                       return (
-                        <button
+                         <button
                           key={country.code}
                           type="button"
                           onClick={() => {
@@ -217,34 +236,64 @@ export default function FloatingNavbar() {
               )}
             </AnimatePresence>
           </div>
-        </div>
 
-        {/* Center Nav Links */}
-        <div className="hidden md:flex items-center gap-1">
-          <Link
-            href="/faq"
-            className="px-4 py-2 text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all"
-          >
-            FAQ
-          </Link>
-          <Link
-            href="/contact-us"
-            className="px-4 py-2 text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all"
-          >
-            Contact
-          </Link>
-        </div>
-
-        {/* CTA Button: Get Early Access */}
-        <div className="flex items-center gap-3">
+          {/* CTA Button: Get Early Access */}
           <Link
             href="#early-access"
-            className="px-5 py-2.5 text-sm font-semibold text-white bg-[#937abd] rounded-full hover:bg-[#856db0] active:scale-[0.98] transition-all"
+            className="px-5 py-2.5 text-sm font-semibold text-white bg-[#937abd] rounded-full hover:bg-[#856db0] active:scale-[0.98] transition-all whitespace-nowrap"
           >
-            {t("nav.earlyAccess")}
+            {t("nav.earlyAccess") || "Get Early Access"}
           </Link>
         </div>
+
+        {/* Mobile Menu Toggle Button */}
+        <button
+          className="md:hidden flex items-center justify-center p-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-950 dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          aria-label="Toggle Menu"
+        >
+          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
       </nav>
+
+      {/* Mobile Slide-down Drawer */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="md:hidden overflow-hidden border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-[#121212]"
+          >
+            <div className="px-4 py-5 flex flex-col space-y-4">
+              <Link 
+                href="/faq" 
+                className="text-lg font-medium text-zinc-900 dark:text-white px-2 py-1" 
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                FAQ
+              </Link>
+              <Link 
+                href="/contact-us" 
+                className="text-lg font-medium text-zinc-900 dark:text-white px-2 py-1" 
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Contact
+              </Link>
+              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                <Link 
+                  href="#early-access" 
+                  className="flex justify-center w-full px-5 py-3.5 text-base font-semibold text-white bg-[#937abd] rounded-full active:scale-[0.98] transition-all" 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {t("nav.earlyAccess") || "Get Early Access"}
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
+

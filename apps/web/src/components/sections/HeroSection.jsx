@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import HighlightPhrase from "@/components/HighlightPhrase";
 
 export default function HeroSection() {
   const { t } = useLanguage();
@@ -19,11 +20,11 @@ export default function HeroSection() {
   return (
     <div className="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 xl:gap-12 items-center relative z-10">
       {/* LEFT COLUMN: Content & Form (7.5 / 4.5 column balance on desktop) */}
-      <div className="lg:col-span-7 xl:col-span-7 flex flex-col items-start text-left">
+      <div className="lg:col-span-7 xl:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
         {/* Top Badge: Proportionally scaled pill (avatars, text, height, and paddings) */}
         <div className="inline-flex items-center gap-3 pl-1.5 pr-4 py-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-[0_2px_10px_rgba(0,0,0,0.05)] mb-3.5 select-none">
           {/* Overlapping user avatars */}
-          <div className="flex -space-x-2 overflow-hidden">
+          <div className="flex -space-x-2 overflow-hidden shrink-0">
             <img
               className="inline-block h-[34px] w-[34px] rounded-full ring-2 ring-white dark:ring-zinc-900 object-cover"
               src="/avatar-user.jpg"
@@ -40,55 +41,41 @@ export default function HeroSection() {
               alt="Member"
             />
           </div>
-          <span className="text-[13.5px] sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 tracking-tight inline-flex items-center">
-            <span>
+          <span className="text-[13.5px] sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 tracking-tight inline-flex items-center flex-wrap">
+            <span className="whitespace-nowrap">
               <strong className="font-semibold text-zinc-950 dark:text-white">4,192</strong> on waitlist
             </span>
             {/* Small dot separator */}
-            <span className="inline-block w-[6px] h-[6px] aspect-square rounded-full bg-[#937abd] border-[1.5px] border-black dark:border-white shrink-0 mx-1" />
-            <span><strong className="font-semibold text-zinc-950 dark:text-white">500</strong> early members secured</span>
+            <span className="inline-block w-[6px] h-[6px] aspect-square rounded-full bg-[#937abd] border-[1.5px] border-black dark:border-white shrink-0 mx-1.5" />
+            <span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">500</strong> early members secured</span>
           </span>
         </div>
 
         {/* Headings: Full original big font size */}
-        <div className="mb-3.5 space-y-1.5">
+        <div className="mb-3.5 space-y-1.5 w-full">
           <h1 className="text-3xl sm:text-5xl lg:text-[54px] font-semibold tracking-tight text-zinc-950 dark:text-white leading-[1.08] font-[family-name:var(--font-outfit)]">
             Meet Skin Story
           </h1>
-          <h2 className="text-3xl sm:text-5xl lg:text-[50px] font-normal tracking-tight text-zinc-800 dark:text-zinc-200 leading-[1.16]">
-            {/* Line 1: Stop guessing. See the exact */}
-            <span className="block whitespace-nowrap">
-              Stop guessing. See the{" "}
-              <span className="relative inline-block">
-                <span className="relative z-10 font-medium text-zinc-950 dark:text-white">exact</span>
-                <span
-                  className="absolute left-[-2px] right-[-2px] bottom-1 h-3 sm:h-3.5 bg-[#d6cbe8] dark:bg-[#5f4982] rounded-[2px] -z-0"
-                  aria-hidden="true"
-                />
-              </span>
-            </span>
-            {/* Line 2: insights you've been missing. */}
-            <span className="block whitespace-nowrap">
-              <span className="relative inline-block">
-                <span className="relative z-10 font-medium text-zinc-950 dark:text-white">insights</span>
-                <span
-                  className="absolute left-[-2px] right-[-2px] bottom-1 h-3 sm:h-3.5 bg-[#d6cbe8] dark:bg-[#5f4982] rounded-[2px] -z-0"
-                  aria-hidden="true"
-                />
-              </span>{" "}
-              you&apos;ve been missing.
-            </span>
+          <h2 className="text-3xl sm:text-5xl lg:text-[50px] font-normal tracking-tight text-zinc-800 dark:text-zinc-200 leading-[1.16] text-balance">
+            Stop guessing. See the{" "}
+            <HighlightPhrase 
+              words={[
+                { text: "exact", hasSpace: true },
+                { text: "insights", hasSpace: false }
+              ]} 
+            />{" "}
+            you&apos;ve been missing.
           </h2>
         </div>
 
         {/* Subtitle: Shifted upwards */}
-        <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 max-w-xl mb-3.5 leading-relaxed font-normal">
+        <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 max-w-xl mx-auto lg:mx-0 mb-3.5 leading-relaxed font-normal">
           We use technology which filters out background noise to the iris by neutralizing the light angle and isolating skin-level data. It extracts pinpoint-accurate insights without the guesswork.
         </p>
 
         {/* Email Capture / Call To Action Form - Pill Shaped */}
         {!submitted ? (
-          <form onSubmit={handleSubmit} className="w-full max-w-md mb-1.5">
+          <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto lg:mx-0 mb-1.5">
             <div className="flex items-center p-1.5 bg-zinc-50/80 dark:bg-zinc-900 hover:bg-white dark:hover:bg-zinc-850 focus-within:bg-white dark:focus-within:bg-zinc-850 rounded-full border border-zinc-200/90 dark:border-zinc-800 shadow-[0_2px_12px_rgba(0,0,0,0.04)] focus-within:border-zinc-300 dark:focus-within:border-zinc-700 transition-all">
               <input
                 type="email"
@@ -96,7 +83,7 @@ export default function HeroSection() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter email address"
-                className="flex-1 min-w-0 px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 bg-transparent outline-hidden"
+                className="flex-1 min-w-0 px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 bg-transparent outline-hidden text-left"
               />
               <button
                 type="submit"
@@ -108,7 +95,7 @@ export default function HeroSection() {
             </div>
           </form>
         ) : (
-          <div className="w-full max-w-md p-3.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 flex items-center gap-3 mb-1.5 shadow-xs">
+          <div className="w-full max-w-md mx-auto lg:mx-0 p-3.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 flex items-center justify-center lg:justify-start gap-3 mb-1.5 shadow-xs">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span className="text-sm font-semibold">
               You’re on the early access waitlist! We will notify you soon.
@@ -117,7 +104,7 @@ export default function HeroSection() {
         )}
 
         {/* Microcopy: Tightened gap */}
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium pl-3">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium text-center lg:text-left lg:pl-3">
           Only 108 early member spots remaining.
         </p>
       </div>

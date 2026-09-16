@@ -26,7 +26,7 @@ export default function WaitlistCtaSection() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
         
         {/* LEFT COLUMN: Title, Subtitle, and Call to Action (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col items-start text-left space-y-6">
+        <div className="lg:col-span-7 flex flex-col items-start text-left space-y-6 min-w-0">
           
           {/* Emotional, Brand-Focused Title with Underline */}
           <div className="space-y-3">
