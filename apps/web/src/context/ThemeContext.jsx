@@ -8,16 +8,30 @@ const ThemeContext = createContext({
   resolvedTheme: "light",
 });
 
-export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState("system");
-  const [resolvedTheme, setResolvedTheme] = useState("light");
-
-  useEffect(() => {
+function getInitialTheme() {
+  if (typeof window === "undefined") return "system";
+  try {
     const saved = localStorage.getItem("skinstory_theme");
     if (saved && ["light", "dark", "system"].includes(saved)) {
-      setThemeState(saved);
+      return saved;
     }
-  }, []);
+  } catch (e) {}
+  return "system";
+}
+
+function getInitialResolvedTheme(theme) {
+  if (typeof window === "undefined") return "light";
+  try {
+    if (theme === "dark") return "dark";
+    if (theme === "light") return "light";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  } catch (e) {}
+  return "light";
+}
+
+export function ThemeProvider({ children }) {
+  const [theme, setThemeState] = useState(getInitialTheme);
+  const [resolvedTheme, setResolvedTheme] = useState(() => getInitialResolvedTheme(theme));
 
   useEffect(() => {
     const root = document.documentElement;
@@ -33,14 +47,15 @@ export function ThemeProvider({ children }) {
         isDark = mediaQuery.matches;
       }
 
+      const nextResolved = isDark ? "dark" : "light";
+      setResolvedTheme((prev) => (prev !== nextResolved ? nextResolved : prev));
+
       if (isDark) {
-        root.classList.add("dark");
+        if (!root.classList.contains("dark")) root.classList.add("dark");
         root.classList.remove("light");
-        setResolvedTheme("dark");
       } else {
+        if (!root.classList.contains("light")) root.classList.add("light");
         root.classList.remove("dark");
-        root.classList.add("light");
-        setResolvedTheme("light");
       }
     };
 

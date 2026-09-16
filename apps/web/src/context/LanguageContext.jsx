@@ -79,12 +79,14 @@ export function LanguageProvider({ children }) {
   const [locale, setLocale] = useState("en-US");
 
   useEffect(() => {
-    // 1. If user previously manually picked a language, use that
-    const saved = localStorage.getItem("skinstory_locale");
-    if (saved && translations[saved]) {
-      setLocale(saved);
-      return;
-    }
+    // 1. If already saved in localStorage, update on client mount
+    try {
+      const saved = localStorage.getItem("skinstory_locale");
+      if (saved && translations[saved]) {
+        setLocale(saved);
+        return;
+      }
+    } catch (e) {}
 
     // 2. Automatic Geo / IP detection (works with VPNs)
     fetch("https://ipapi.co/json/")

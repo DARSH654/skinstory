@@ -1,11 +1,19 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 import { AppStoreButton, GooglePlayButton } from "@/components/base/buttons/app-store-buttons";
 
 export default function Footer() {
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const currentTheme = mounted ? theme : "system";
 
   return (
     <footer className="w-full mt-10 sm:mt-12 relative z-10">
@@ -13,7 +21,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 pb-5 border-b border-zinc-200/70 dark:border-zinc-800">
           
           {/* Left Column: Authentic Brand Logo & Official Store Badges */}
-          <div className="lg:col-span-6 space-y-4 text-left">
+          <div className="lg:col-span-5 space-y-4 text-left">
             <div className="flex items-center gap-3">
               {/* Official Skin Story Two-Square Logo Component */}
               <div className="w-10 h-10 relative inline-block shrink-0">
@@ -38,7 +46,7 @@ export default function Footer() {
           </div>
 
           {/* Right Column: Clean Link Grid */}
-          <div className="lg:col-span-6 grid grid-cols-2 gap-8 text-left sm:pl-10">
+          <div className="lg:col-span-7 grid grid-cols-2 gap-8 text-left sm:pl-4">
             
             {/* Legal Links */}
             <div className="space-y-3.5">
@@ -69,7 +77,7 @@ export default function Footer() {
               <ul className="space-y-2.5 text-xs sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium">
                 <li><a href="/faq" className="hover:text-zinc-950 dark:hover:text-white transition-colors">FAQ</a></li>
                 <li><a href="/contact-us" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Contact Us</a></li>
-                <li><a href="#press" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Press &amp; Media</a></li>
+                <li><a href="/blog" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Blog</a></li>
                 <li><a href="#early-access" className="hover:text-zinc-950 dark:hover:text-white transition-colors font-semibold">Join Waitlist</a></li>
               </ul>
             </div>
@@ -94,7 +102,7 @@ export default function Footer() {
                 aria-label={label}
                 title={label}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 ${
-                  theme === key
+                  currentTheme === key
                     ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-sm"
                     : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                 }`}

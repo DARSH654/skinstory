@@ -17,9 +17,9 @@ export default function HeroSection() {
   };
 
   return (
-    <div className="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center relative z-10">
-      {/* LEFT COLUMN: Content & Form (7 cols) */}
-      <div className="lg:col-span-7 flex flex-col items-start text-left">
+    <div className="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 xl:gap-12 items-center relative z-10">
+      {/* LEFT COLUMN: Content & Form (7.5 / 4.5 column balance on desktop) */}
+      <div className="lg:col-span-7 xl:col-span-7 flex flex-col items-start text-left">
         {/* Top Badge: Proportionally scaled pill (avatars, text, height, and paddings) */}
         <div className="inline-flex items-center gap-3 pl-1.5 pr-4 py-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-[0_2px_10px_rgba(0,0,0,0.05)] mb-3.5 select-none">
           {/* Overlapping user avatars */}
@@ -50,14 +50,14 @@ export default function HeroSection() {
           </span>
         </div>
 
-        {/* Headings: Shifted upwards with reduced gaps */}
+        {/* Headings: Full original big font size */}
         <div className="mb-3.5 space-y-1.5">
           <h1 className="text-3xl sm:text-5xl lg:text-[54px] font-semibold tracking-tight text-zinc-950 dark:text-white leading-[1.08] font-[family-name:var(--font-outfit)]">
             Meet Skin Story
           </h1>
           <h2 className="text-3xl sm:text-5xl lg:text-[50px] font-normal tracking-tight text-zinc-800 dark:text-zinc-200 leading-[1.16]">
             {/* Line 1: Stop guessing. See the exact */}
-            <span className="block">
+            <span className="block whitespace-nowrap">
               Stop guessing. See the{" "}
               <span className="relative inline-block">
                 <span className="relative z-10 font-medium text-zinc-950 dark:text-white">exact</span>
@@ -68,7 +68,7 @@ export default function HeroSection() {
               </span>
             </span>
             {/* Line 2: insights you've been missing. */}
-            <span className="block">
+            <span className="block whitespace-nowrap">
               <span className="relative inline-block">
                 <span className="relative z-10 font-medium text-zinc-950 dark:text-white">insights</span>
                 <span
@@ -123,11 +123,11 @@ export default function HeroSection() {
       </div>
 
       {/* RIGHT COLUMN: Hero Phones Image (5 cols) */}
-      <div className="lg:col-span-5 flex justify-center lg:justify-end items-center">
+      <div className="lg:col-span-5 xl:col-span-5 flex justify-center lg:justify-end items-center">
         <img
           src="/hero-phones.webp"
           alt="App Preview"
-          className="w-full max-w-[440px] sm:max-w-[480px] lg:max-w-none h-auto object-contain drop-shadow-xl select-none pointer-events-none"
+          className="w-full max-w-[420px] sm:max-w-[460px] xl:max-w-[480px] h-auto object-contain drop-shadow-xl select-none pointer-events-none"
         />
       </div>
     </div>

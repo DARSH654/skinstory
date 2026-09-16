@@ -93,9 +93,12 @@ export default function FloatingNavbar() {
   const dropdownRef = useRef(null);
   const { locale, setLocale, t } = useLanguage();
 
+  const [mounted, setMounted] = useState(false);
+
   const totalPages = Math.ceil(COUNTRIES.length / ITEMS_PER_PAGE);
   const selectedCountry = COUNTRIES.find((c) => c.code === locale) || COUNTRIES[0];
-  const CurrentFlag = selectedCountry.Flag;
+  const DisplayCountry = mounted ? selectedCountry : COUNTRIES[0];
+  const CurrentFlag = DisplayCountry.Flag;
 
   const currentCountries = COUNTRIES.slice(
     currentPage * ITEMS_PER_PAGE,
@@ -103,6 +106,7 @@ export default function FloatingNavbar() {
   );
 
   useEffect(() => {
+    setMounted(true);
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsOpen(false);
@@ -132,7 +136,7 @@ export default function FloatingNavbar() {
               className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white bg-zinc-100/80 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 rounded-full transition-all border border-zinc-200/80 dark:border-zinc-700 select-none cursor-pointer"
             >
               <CurrentFlag className="w-4 h-3" />
-              <span className="tracking-tight font-medium">{selectedCountry.name}</span>
+              <span className="tracking-tight font-medium">{DisplayCountry.name}</span>
               <ChevronDown
                 size={13}
                 className={`text-zinc-500 dark:text-zinc-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
