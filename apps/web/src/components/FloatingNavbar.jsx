@@ -213,7 +213,7 @@ export default function FloatingNavbar() {
         </div>
 
         {/* CENTER: FAQ + Contact — only on desktop */}
-        <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
+        <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
           <Link
             href="/faq"
             className="px-4 py-2 text-sm lg:text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
@@ -231,14 +231,14 @@ export default function FloatingNavbar() {
         {/* RIGHT: Store buttons on desktop | Hamburger on mobile */}
         <div className="flex items-center gap-2 shrink-0">
           {/* Store buttons: desktop only */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2">
             <AppStoreButton />
             <GooglePlayButton />
           </div>
 
           {/* Hamburger: mobile only */}
           <button
-            className="md:hidden flex items-center justify-center p-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-950 dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+            className="lg:hidden flex items-center justify-center p-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-950 dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label="Toggle Menu"
           >
@@ -256,7 +256,7 @@ export default function FloatingNavbar() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="md:hidden overflow-hidden border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-[#121212]"
+            className="lg:hidden overflow-hidden border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-[#121212]"
           >
             <div className="px-6 py-6 flex flex-col items-center gap-3">
               <Link href="/faq" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
