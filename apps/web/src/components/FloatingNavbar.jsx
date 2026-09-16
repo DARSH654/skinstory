@@ -265,22 +265,49 @@ export default function FloatingNavbar() {
             exit={{ height: 0, opacity: 0 }}
             className="md:hidden overflow-hidden border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-[#121212]"
           >
-            <div className="px-4 py-5 flex flex-col space-y-4">
+            <div className="px-4 py-5 flex flex-col items-center space-y-2">
               <Link 
                 href="/faq" 
-                className="text-lg font-medium text-zinc-900 dark:text-white px-2 py-1" 
+                className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white px-2 py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" 
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 FAQ
               </Link>
               <Link 
                 href="/contact-us" 
-                className="text-lg font-medium text-zinc-900 dark:text-white px-2 py-1" 
+                className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white px-2 py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" 
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Contact
               </Link>
-              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
+
+              {/* Language Selector inside drawer */}
+              <div className="w-full pt-2">
+                <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider text-center mb-2">Region & Language</p>
+                <div className="grid grid-cols-3 gap-1">
+                  {COUNTRIES.slice(0, 12).map((country) => {
+                    const FlagComponent = country.Flag;
+                    const isSelected = selectedCountry.code === country.code;
+                    return (
+                      <button
+                        key={country.code}
+                        type="button"
+                        onClick={() => { setLocale(country.code); setIsMobileMenuOpen(false); }}
+                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
+                          isSelected
+                            ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white font-bold border border-zinc-300 dark:border-zinc-600"
+                            : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 border border-transparent"
+                        }`}
+                      >
+                        <FlagComponent className="w-3.5 h-2.5 shrink-0" />
+                        <span className="text-[10px] font-semibold truncate">{country.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="w-full pt-3 border-t border-zinc-100 dark:border-zinc-800">
                 <Link 
                   href="#early-access" 
                   className="flex justify-center w-full px-5 py-3.5 text-base font-semibold text-white bg-[#937abd] rounded-full active:scale-[0.98] transition-all" 
