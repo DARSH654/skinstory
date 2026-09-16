@@ -91,6 +91,7 @@ const ITEMS_PER_PAGE = 12;
 export default function FloatingNavbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
+  const [direction, setDirection] = useState(1);
   const dropdownRef = useRef(null);
   const { locale, setLocale, t } = useLanguage();
 
@@ -164,7 +165,7 @@ export default function FloatingNavbar() {
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                        onClick={() => { setDirection(-1); setCurrentPage((p) => Math.max(0, p - 1)); }}
                         disabled={currentPage === 0}
                         aria-label="Previous Page"
                         className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer border border-zinc-200/80 dark:border-zinc-700"
@@ -173,7 +174,7 @@ export default function FloatingNavbar() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                        onClick={() => { setDirection(1); setCurrentPage((p) => Math.min(totalPages - 1, p + 1)); }}
                         disabled={currentPage >= totalPages - 1}
                         aria-label="Next Page"
                         className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer border border-zinc-200/80 dark:border-zinc-700"
@@ -182,29 +183,54 @@ export default function FloatingNavbar() {
                       </button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-1">
-                    {currentCountries.map((country) => {
-                      const FlagComponent = country.Flag;
-                      const isSelected = selectedCountry.code === country.code;
-                      return (
-                        <button
-                          key={country.code}
-                          type="button"
-                          onClick={() => { setLocale(country.code); setIsOpen(false); }}
-                          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
-                            isSelected
-                              ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white font-bold border border-zinc-300 dark:border-zinc-600 shadow-xs"
-                              : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-zinc-950 dark:hover:text-white border border-transparent"
-                          }`}
-                        >
-                          <FlagComponent className="w-3.5 h-2.5 shrink-0" />
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[11px] font-semibold leading-tight truncate text-zinc-900 dark:text-zinc-100">{country.name}</span>
-                            <span className="text-[9px] text-zinc-400 dark:text-zinc-500 leading-tight truncate">{country.lang}</span>
-                          </div>
-                        </button>
-                      );
-                    })}
+                  <div className="relative w-full overflow-hidden touch-pan-y min-h-[160px]">
+                    <AnimatePresence mode="wait" custom={direction} initial={false}>
+                      <motion.div 
+                        key={currentPage}
+                        custom={direction}
+                        drag="x"
+                        dragConstraints={{ left: 0, right: 0 }}
+                        dragElastic={0.15}
+                        onDragEnd={(_, info) => {
+                          const swipeThreshold = 15;
+                          if (info.offset.x < -swipeThreshold && currentPage < totalPages - 1) {
+                            setDirection(1);
+                            setCurrentPage((p) => p + 1);
+                          } else if (info.offset.x > swipeThreshold && currentPage > 0) {
+                            setDirection(-1);
+                            setCurrentPage((p) => p - 1);
+                          }
+                        }}
+                        initial={(dir) => ({ opacity: 0, x: dir > 0 ? 80 : -80 })}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={(dir) => ({ opacity: 0, x: dir > 0 ? -80 : 80 })}
+                        transition={{ duration: 0.22, ease: "easeOut" }}
+                        className="grid grid-cols-3 gap-1 cursor-grab active:cursor-grabbing select-none"
+                      >
+                        {currentCountries.map((country) => {
+                          const FlagComponent = country.Flag;
+                          const isSelected = selectedCountry.code === country.code;
+                          return (
+                            <button
+                              key={country.code}
+                              type="button"
+                              onClick={() => { setLocale(country.code); setIsOpen(false); }}
+                              className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors cursor-pointer select-none ${
+                                isSelected
+                                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white font-bold border border-zinc-300 dark:border-zinc-600 shadow-xs"
+                                  : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-zinc-950 dark:hover:text-white border border-transparent"
+                              }`}
+                            >
+                              <FlagComponent className="w-3.5 h-2.5 shrink-0 pointer-events-none" />
+                              <div className="flex flex-col min-w-0 pointer-events-none">
+                                <span className="text-[11px] font-semibold leading-tight truncate text-zinc-900 dark:text-zinc-100">{country.name}</span>
+                                <span className="text-[9px] text-zinc-400 dark:text-zinc-500 leading-tight truncate">{country.lang}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </motion.div>
+                    </AnimatePresence>
                   </div>
                 </motion.div>
               )}

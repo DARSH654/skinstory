@@ -72,40 +72,44 @@ export default function Footer() {
           </div>
 
           {/* Right Column: Link Grid */}
-          <div className="lg:col-span-7 grid grid-cols-2 gap-8 text-center lg:text-left sm:pl-4">
+          <div className="lg:col-span-7 grid grid-cols-2 gap-8 sm:pl-4">
             
             {/* Legal Links */}
-            <div className="space-y-3.5">
-              <h4 className="text-base sm:text-[15px] font-semibold text-zinc-950 dark:text-white tracking-tight font-[family-name:var(--font-outfit)] relative inline-block">
-                <span className="relative z-10">Legal</span>
-                <span
-                  className="absolute left-[-2px] right-[-2px] bottom-0 h-2 bg-[#d6cbe8] dark:bg-[#5f4982] rounded-[2px] -z-0"
-                  aria-hidden="true"
-                />
-              </h4>
-              <ul className="space-y-2.5 text-sm sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium">
-                <li><a href="/privacy-policy" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="/terms-of-service" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Terms of Service</a></li>
-                <li><a href="/refund-cancellation" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Refund &amp; Cancellation</a></li>
-                <li><a href="/data-deletion" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Data Deletion</a></li>
-              </ul>
+            <div className="space-y-3.5 flex flex-col items-center lg:items-start text-left">
+              <div className="w-fit text-left">
+                <h4 className="text-base sm:text-[15px] font-semibold text-zinc-950 dark:text-white tracking-tight font-[family-name:var(--font-outfit)] relative inline-block text-left mb-3.5">
+                  <span className="relative z-10">Legal</span>
+                  <span
+                    className="absolute left-[-2px] right-[-2px] bottom-0 h-2 bg-[#d6cbe8] dark:bg-[#5f4982] rounded-[2px] -z-0"
+                    aria-hidden="true"
+                  />
+                </h4>
+                <ul className="space-y-2.5 text-sm sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium text-left">
+                  <li><a href="/privacy-policy" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Privacy Policy</a></li>
+                  <li><a href="/terms-of-service" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Terms of Service</a></li>
+                  <li><a href="/refund-cancellation" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Refund &amp; Cancellation</a></li>
+                  <li><a href="/data-deletion" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Data Deletion</a></li>
+                </ul>
+              </div>
             </div>
 
             {/* Company Links */}
-            <div className="space-y-3.5">
-              <h4 className="text-base sm:text-[15px] font-semibold text-zinc-950 dark:text-white tracking-tight font-[family-name:var(--font-outfit)] relative inline-block">
-                <span className="relative z-10">Company</span>
-                <span
-                  className="absolute left-[-2px] right-[-2px] bottom-0 h-2 bg-[#d6cbe8] dark:bg-[#5f4982] rounded-[2px] -z-0"
-                  aria-hidden="true"
-                />
-              </h4>
-              <ul className="space-y-2.5 text-sm sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium">
-                <li><a href="/faq" className="hover:text-zinc-950 dark:hover:text-white transition-colors">FAQ</a></li>
-                <li><a href="/contact-us" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Contact Us</a></li>
-                <li><a href="/blog" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#early-access" className="hover:text-zinc-950 dark:hover:text-white transition-colors font-semibold">Join Waitlist</a></li>
-              </ul>
+            <div className="space-y-3.5 flex flex-col items-center lg:items-start text-left">
+              <div className="w-fit text-left">
+                <h4 className="text-base sm:text-[15px] font-semibold text-zinc-950 dark:text-white tracking-tight font-[family-name:var(--font-outfit)] relative inline-block text-left mb-3.5">
+                  <span className="relative z-10">Company</span>
+                  <span
+                    className="absolute left-[-2px] right-[-2px] bottom-0 h-2 bg-[#d6cbe8] dark:bg-[#5f4982] rounded-[2px] -z-0"
+                    aria-hidden="true"
+                  />
+                </h4>
+                <ul className="space-y-2.5 text-sm sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium text-left">
+                  <li><a href="/faq" className="hover:text-zinc-950 dark:hover:text-white transition-colors">FAQ</a></li>
+                  <li><a href="/contact-us" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Contact Us</a></li>
+                  <li><a href="/blog" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Blog</a></li>
+                  <li><a href="#early-access" className="hover:text-zinc-950 dark:hover:text-white transition-colors font-semibold">Join Waitlist</a></li>
+                </ul>
+              </div>
             </div>
 
           </div>

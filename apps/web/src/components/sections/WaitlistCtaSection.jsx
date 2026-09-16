@@ -26,8 +26,17 @@ export default function WaitlistCtaSection() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
         
         {/* LEFT COLUMN: Title, Subtitle, and Call to Action (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left space-y-6 min-w-0">
+        <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left space-y-4 min-w-0">
           
+          {/* Social Proof Pill (Above Title, Hero style, no avatars, no starting dot) */}
+          <div className="inline-flex items-center gap-1.5 md:gap-2.5 px-3 md:px-3.5 py-1 md:py-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-[0_2px_10px_rgba(0,0,0,0.05)] select-none max-w-full">
+            <span className="text-[11px] sm:text-xs md:text-sm font-medium text-zinc-700 dark:text-zinc-300 tracking-tight inline-flex items-center whitespace-nowrap">
+              <span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">4,192</strong> already in line</span>
+              <span className="inline-block w-[5px] h-[5px] md:w-[6px] md:h-[6px] aspect-square rounded-full bg-[#937abd] border-[1.5px] border-black dark:border-white shrink-0 mx-1.5 md:mx-2" />
+              <span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">108</strong> spots left</span>
+            </span>
+          </div>
+
           {/* Emotional, Brand-Focused Title with Underline */}
           <div className="space-y-3">
             <h2 className="text-3xl sm:text-5xl lg:text-[48px] font-semibold tracking-tight text-zinc-950 dark:text-white leading-[1.14] font-[family-name:var(--font-outfit)]">
@@ -45,14 +54,6 @@ export default function WaitlistCtaSection() {
             <p className="text-zinc-600 dark:text-zinc-300 text-base sm:text-lg leading-relaxed font-normal max-w-xl mx-auto lg:mx-0">
               Stop jumping between endless products and guessing in the mirror. Connect your daily habits to your biology with clinical-grade clarity.
             </p>
-          </div>
-
-          {/* Clean Minimalist Social Proof Pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-100/90 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 mx-auto lg:mx-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#937abd]" />
-            <span><strong className="text-zinc-950 dark:text-white font-semibold">4,192</strong> already in line</span>
-            <span className="text-zinc-300 dark:text-zinc-600">•</span>
-            <span className="text-[#937abd] font-semibold">108 spots left</span>
           </div>
 
           {/* Email Form / State */}
