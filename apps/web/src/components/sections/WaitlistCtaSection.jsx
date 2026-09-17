@@ -37,10 +37,10 @@ export default function WaitlistCtaSection() {
 
           {/* Emotional, Brand-Focused Title with Underline */}
           <div className="space-y-3">
-            <h2 className="text-3xl sm:text-5xl lg:text-[48px] font-semibold tracking-tight text-zinc-950 dark:text-white leading-[1.14] font-[family-name:var(--font-outfit)]">
+            <h2 className="text-3xl sm:text-5xl lg:text-[48px] font-normal tracking-tight text-zinc-800 dark:text-zinc-200 leading-[1.14] font-[family-name:var(--font-outfit)]">
               Every face has a past. It&apos;s time to{" "}
               <span className="relative inline-block whitespace-nowrap">
-                <span className="relative z-10 font-bold text-zinc-950 dark:text-white">
+                <span className="relative z-10 font-medium text-zinc-950 dark:text-white">
                   write your story.
                 </span>
                 <span
