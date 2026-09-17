@@ -27,9 +27,9 @@ export default async function BlogPostPage({ params }) {
   const isThirdBlog = slug === "does-sugar-really-cause-hormonal-acne-spikes";
 
   const heroImage = isSecondBlog
-    ? "/avatar-user.jpg"
+    ? "/blog-sleep-skin.jpg"
     : isThirdBlog
-    ? "/blog-skincare-routine.jpg"
+    ? "/blog-sugar-food.jpg"
     : "/blog-stress-chin.jpg";
 
   return (
@@ -309,7 +309,7 @@ export default async function BlogPostPage({ params }) {
               {/* Image 2 */}
               <div className="w-full aspect-[16/10] sm:aspect-[16/9] rounded-2xl sm:rounded-3xl overflow-hidden my-10 shadow-sm border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900">
                 <img
-                  src="/blog-stress-diagram.jpg"
+                  src="/blog-sleep-dark-circles.jpg"
                   alt="Sleep deprivation and cortisol impact on skin barrier diagram"
                   className="w-full h-full object-cover"
                 />
@@ -414,7 +414,7 @@ export default async function BlogPostPage({ params }) {
               {/* Image 3 */}
               <div className="w-full aspect-[16/10] sm:aspect-[16/9] rounded-2xl sm:rounded-3xl overflow-hidden my-10 shadow-sm border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900">
                 <img
-                  src="/blog-skincare-routine.jpg"
+                  src="/blog-sleep-skin.jpg"
                   alt="Restorative evening skincare products for sleep-deprived skin"
                   className="w-full h-full object-cover"
                 />
@@ -537,7 +537,7 @@ export default async function BlogPostPage({ params }) {
               {/* Image 2 */}
               <div className="w-full aspect-[16/10] sm:aspect-[16/9] rounded-2xl sm:rounded-3xl overflow-hidden my-10 shadow-sm border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900">
                 <img
-                  src="/blog-stress-chin.jpg"
+                  src="/blog-acne-jawline.jpg"
                   alt="Hormonal acne pattern on jawline and chin linked to dietary sugar"
                   className="w-full h-full object-cover"
                 />
@@ -644,7 +644,7 @@ export default async function BlogPostPage({ params }) {
               {/* Image 3 */}
               <div className="w-full aspect-[16/10] sm:aspect-[16/9] rounded-2xl sm:rounded-3xl overflow-hidden my-10 shadow-sm border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900">
                 <img
-                  src="/blog-stress-diagram.jpg"
+                  src="/blog-glycemic-food.jpg"
                   alt="Glycemic load chart and insulin-androgen pathway diagram"
                   className="w-full h-full object-cover"
                 />
