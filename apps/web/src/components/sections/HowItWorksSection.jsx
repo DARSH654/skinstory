@@ -1,47 +1,68 @@
+import HighlightPhrase from "@/components/HighlightPhrase";
+
 export default function HowItWorksSection() {
   return (
-    <section className="max-w-6xl mx-auto mt-20 sm:mt-28">
-      <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-18">
-        <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight text-zinc-950 dark:text-white mb-3 font-[family-name:var(--font-outfit)]">
-          Your face remembers everything your life does.
-        </h2>
-        <p className="text-zinc-600 dark:text-zinc-300 text-sm sm:text-base leading-relaxed font-normal">
-          Stress on Monday shows up on your chin by Wednesday. Bad sleep Tuesday appears as dullness Thursday. Our engine connects your daily life to your skin&apos;s response and names the exact pattern you never noticed. One scan plus your daily inputs equals your first real answer.
+    <section className="max-w-5xl mx-auto mt-14 sm:mt-20 px-4 sm:px-8 flex flex-col items-center gap-6 sm:gap-8">
+
+      {/* ── Quote Card ── */}
+      <div className="w-full relative rounded-3xl bg-white dark:bg-zinc-950 border-[3px] border-zinc-950 dark:border-white shadow-2xl p-8 sm:p-12">
+        <p className="text-2xl sm:text-3xl md:text-[2rem] lg:text-[2.2rem] font-normal tracking-tight text-zinc-800 dark:text-zinc-200 leading-[1.65] text-balance">
+          {/* Opening Quote Icon */}
+          <span className="inline-block align-top mr-2.5 sm:mr-3 -translate-y-1 select-none text-zinc-950 dark:text-white" aria-hidden="true">
+            <svg
+              className="w-8 h-8 sm:w-10 sm:h-10 inline-block fill-current"
+              viewBox="0 0 24 24"
+            >
+              <path d="M9.983 3v7.391c0 5.704-3.731 9.57-8.983 10.609l-.995-2.151c2.432-.917 3.995-3.638 3.995-5.849h-4v-10h9.983zm14.017 0v7.391c0 5.704-3.748 9.571-9 10.609l-.996-2.151c2.433-.917 3.996-3.638 3.996-5.849h-3.983v-10h9.983z" />
+            </svg>
+          </span>
+          Your chin broke out because of{" "}
+          <HighlightPhrase
+            words={[
+              { text: "3", hasSpace: true },
+              { text: "consecutive", hasSpace: true },
+              { text: "high-stress", hasSpace: true },
+              { text: "days.", hasSpace: false },
+            ]}
+          />{" "}
+          This has happened{" "}
+          <HighlightPhrase
+            words={[
+              { text: "4", hasSpace: true },
+              { text: "times", hasSpace: true },
+              { text: "in", hasSpace: true },
+              { text: "the", hasSpace: true },
+              { text: "last", hasSpace: true },
+              { text: "6", hasSpace: true },
+              { text: "weeks.", hasSpace: false },
+            ]}
+          />{" "}
+          Same pattern. Same zone. Every time.
+          {/* Closing Quote Icon */}
+          <span className="inline-block align-top ml-2.5 sm:ml-3 translate-y-1 select-none text-zinc-950 dark:text-white" aria-hidden="true">
+            <svg
+              className="w-8 h-8 sm:w-10 sm:h-10 inline-block fill-current rotate-180"
+              viewBox="0 0 24 24"
+            >
+              <path d="M9.983 3v7.391c0 5.704-3.731 9.57-8.983 10.609l-.995-2.151c2.432-.917 3.995-3.638 3.995-5.849h-4v-10h9.983zm14.017 0v7.391c0 5.704-3.748 9.571-9 10.609l-.996-2.151c2.433-.917 3.996-3.638 3.996-5.849h-3.983v-10h9.983z" />
+            </svg>
+          </span>
         </p>
       </div>
 
-      {/* 3 Step Visuals */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mb-14">
-        <div className="p-7 rounded-3xl bg-zinc-50/90 dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-zinc-800 text-left">
-          <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-950 dark:text-white shadow-2xs mb-4">
-            01
-          </span>
-          <h3 className="text-lg font-semibold text-zinc-950 dark:text-white mb-1">Scan your face</h3>
-          <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
-            AI reads your zones in seconds, eliminating lighting variations and reflections.
-          </p>
-        </div>
+      {/* ── Tagline — below the card ── */}
+      <p className="text-center text-3xl sm:text-5xl lg:text-[54px] font-normal tracking-tight text-zinc-800 dark:text-zinc-200 leading-[1.08] font-[family-name:var(--font-outfit)]">
+        This is what{" "}
+        <HighlightPhrase
+          words={[
+            { text: "knowing", hasSpace: true },
+            { text: "your", hasSpace: true },
+            { text: "skin", hasSpace: false },
+          ]}
+        />{" "}
+        actually looks like.
+      </p>
 
-        <div className="p-7 rounded-3xl bg-zinc-50/90 dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-zinc-800 text-left">
-          <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-950 dark:text-white shadow-2xs mb-4">
-            02
-          </span>
-          <h3 className="text-lg font-semibold text-zinc-950 dark:text-white mb-1">Log your day</h3>
-          <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
-            Sleep, stress, diet — three quick taps in under 10 seconds.
-          </p>
-        </div>
-
-        <div className="p-7 rounded-3xl bg-zinc-50/90 dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-zinc-800 text-left">
-          <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-950 dark:text-white shadow-2xs mb-4">
-            03
-          </span>
-          <h3 className="text-lg font-semibold text-zinc-950 dark:text-white mb-1">Get your insight</h3>
-          <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
-            We connect your life to your skin and name the exact cause behind every change.
-          </p>
-        </div>
-      </div>
     </section>
   );
 }

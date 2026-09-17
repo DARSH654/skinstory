@@ -49,7 +49,7 @@ export default function FaqSection() {
   ];
 
   return (
-    <section className="max-w-3xl mx-auto mt-24 sm:mt-32 relative z-10">
+    <section className="max-w-3xl mx-auto mt-14 sm:mt-20 relative z-10">
       {/* Headings */}
       <div className="text-center mb-10 sm:mb-12">
         <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight text-zinc-950 dark:text-white mb-3 font-[family-name:var(--font-outfit)]">

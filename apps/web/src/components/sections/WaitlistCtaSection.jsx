@@ -22,7 +22,7 @@ export default function WaitlistCtaSection() {
   };
 
   return (
-    <section id="early-access" className="max-w-6xl mx-auto mt-24 sm:mt-32 relative z-10">
+    <section id="early-access" className="max-w-6xl mx-auto mt-14 sm:mt-20 relative z-10">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
         
         {/* LEFT COLUMN: Title, Subtitle, and Call to Action (7 cols) */}

@@ -2,7 +2,7 @@ import { ArrowRight } from "lucide-react";
 
 export default function ComparisonSection() {
   return (
-    <section className="max-w-6xl mx-auto mt-6 sm:mt-8">
+    <section className="max-w-6xl mx-auto mt-14 sm:mt-20">
       {/* App Insight Preview & Direct Comparison - Dark in light mode, White in dark mode */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-3xl p-8 sm:p-12 shadow-xl border border-transparent dark:border-zinc-200/80 transition-colors">
         <div className="lg:col-span-5 flex justify-center">
