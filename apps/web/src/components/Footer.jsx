@@ -88,7 +88,7 @@ export default function Footer() {
                   <li><a href="/privacy-policy" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Privacy Policy</a></li>
                   <li><a href="/terms-of-service" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Terms of Service</a></li>
                   <li><a href="/refund-cancellation" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Refund &amp; Cancellation</a></li>
-                  <li><a href="/data-deletion" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Data Deletion</a></li>
+                  <li><a href="/cookie-policy" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Cookie Policy</a></li>
                 </ul>
               </div>
             </div>
