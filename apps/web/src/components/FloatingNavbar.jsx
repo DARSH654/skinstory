@@ -238,19 +238,31 @@ export default function FloatingNavbar() {
           </div>
         </div>
 
-        {/* CENTER: FAQ + Contact — only on desktop */}
+        {/* CENTER: Navigation Links — desktop */}
         <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
           <Link
             href="/faq"
-            className="px-4 py-2 text-sm lg:text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
+            className="px-3.5 py-1.5 text-base lg:text-lg font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
           >
             FAQ
           </Link>
           <Link
-            href="/contact-us"
-            className="px-4 py-2 text-sm lg:text-base font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
+            href="/press"
+            className="px-3.5 py-1.5 text-base lg:text-lg font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
           >
-            Contact
+            Press
+          </Link>
+          <a
+            href="mailto:support@getskinstory.com"
+            className="px-3.5 py-1.5 text-base lg:text-lg font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
+          >
+            Support
+          </a>
+          <Link
+            href="/blog"
+            className="px-3.5 py-1.5 text-base lg:text-lg font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
+          >
+            Blog
           </Link>
         </div>
 
@@ -284,12 +296,18 @@ export default function FloatingNavbar() {
             transition={{ duration: 0.2, ease: "easeInOut" }}
             className="lg:hidden overflow-hidden border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-[#121212]"
           >
-            <div className="px-6 py-6 flex flex-col items-center gap-3">
-              <Link href="/faq" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+            <div className="px-6 py-6 flex flex-col items-center gap-2">
+              <Link href="/faq" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                 FAQ
               </Link>
-              <Link href="/contact-us" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                Contact
+              <Link href="/press" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                Press
+              </Link>
+              <a href="mailto:support@getskinstory.com" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                Support
+              </a>
+              <Link href="/blog" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                Blog
               </Link>
               <div className="flex flex-wrap items-center gap-3 pt-2 w-full justify-center">
                 <AppStoreButton />

@@ -105,9 +105,9 @@ export default function Footer() {
                 </h4>
                 <ul className="space-y-2.5 text-sm sm:text-[13.5px] text-zinc-700 dark:text-zinc-300 font-medium text-left">
                   <li><a href="/faq" className="hover:text-zinc-950 dark:hover:text-white transition-colors">FAQ</a></li>
-                  <li><a href="/contact-us" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Contact Us</a></li>
+                  <li><a href="/press" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Press</a></li>
+                  <li><a href="mailto:support@getskinstory.com" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Support</a></li>
                   <li><a href="/blog" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Blog</a></li>
-                  <li><a href="#early-access" className="hover:text-zinc-950 dark:hover:text-white transition-colors font-semibold">Join Waitlist</a></li>
                 </ul>
               </div>
             </div>

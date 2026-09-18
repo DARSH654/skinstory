@@ -31,18 +31,18 @@ export default function BlogPage() {
             </p>
           </div>
 
-          {/* Blog Question Links List - No divider spacers, direct spacing like Cal AI */}
-          <div className="flex flex-col space-y-9 sm:space-y-10">
+          {/* Blog Question Links List - All 40 blog titles left-aligned */}
+          <div className="flex flex-col space-y-9 sm:space-y-10 items-start text-left">
             {blogPosts.map((post) => (
               <article key={post.slug} className="text-left">
                 <Link
                   href={`/blog/${post.slug}`}
-                  className="group block space-y-1 w-fit"
+                  className="group block space-y-1 w-fit text-left"
                 >
-                  <h2 className="text-xl sm:text-[1.45rem] font-semibold text-zinc-900 dark:text-zinc-100 group-hover:underline decoration-zinc-900 dark:decoration-white underline-offset-4 transition-colors leading-snug">
+                  <h2 className="text-xl sm:text-[1.45rem] font-semibold text-zinc-900 dark:text-zinc-100 group-hover:underline decoration-zinc-900 dark:decoration-white underline-offset-4 transition-colors leading-snug text-left">
                     {post.title}
                   </h2>
-                  <p className="text-[13px] sm:text-sm text-zinc-400 dark:text-zinc-500 font-normal group-hover:underline decoration-zinc-400 dark:decoration-zinc-500 underline-offset-2">
+                  <p className="text-[13px] sm:text-sm text-zinc-400 dark:text-zinc-500 font-normal group-hover:underline decoration-zinc-400 dark:decoration-zinc-500 underline-offset-2 text-left">
                     {post.date}
                   </p>
                 </Link>

@@ -80,44 +80,59 @@ export const blogPosts = [
     "date": "4/9/2026"
   },
   {
+    "title": "How Does Alcohol Consumption Impact Skin Clarity?",
+    "slug": "how-does-alcohol-consumption-impact-skin-clarity",
+    "date": "4/8/2026"
+  },
+  {
+    "title": "Why Is Niacinamide Causing Redness or Flushing on Your Skin?",
+    "slug": "why-is-niacinamide-causing-redness-or-flushing-on-your-skin",
+    "date": "4/7/2026"
+  },
+  {
+    "title": "Can Hard Water Cause Persistent Facial Acne?",
+    "slug": "can-hard-water-cause-persistent-facial-acne",
+    "date": "4/6/2026"
+  },
+  {
     "title": "How Does Gut Health Connect Directly to Facial Redness?",
     "slug": "how-does-gut-health-connect-directly-to-facial-redness",
-    "date": "4/8/2026"
+    "date": "4/5/2026"
   },
   {
     "title": "Why Does Your T-Zone Produce More Sebum Than Your Cheeks?",
     "slug": "why-does-your-t-zone-produce-more-sebum-than-your-cheeks",
-    "date": "4/6/2026"
+    "date": "4/4/2026"
   },
   {
     "title": "Can Skipping Sunscreen for One Day Cause Lasting Damage?",
     "slug": "can-skipping-sunscreen-for-one-day-cause-lasting-damage",
-    "date": "4/5/2026"
+    "date": "4/3/2026"
   },
   {
     "title": "What Causes Sudden Red Bumps After High-Intensity Workouts?",
     "slug": "what-causes-sudden-red-bumps-after-high-intensity-workouts",
-    "date": "4/4/2026"
+    "date": "4/2/2026"
   },
   {
     "title": "How Can You Tell If Your Skin Is Dry or Just Dehydrated?",
     "slug": "how-can-you-tell-if-your-skin-is-dry-or-just-dehydrated",
-    "date": "4/3/2026"
+    "date": "4/1/2026"
   },
   {
     "title": "Why Do Acne Scars Take Months to Fade Completely?",
     "slug": "why-do-acne-scars-take-months-to-fade-completely",
-    "date": "4/1/2026"
+    "date": "3/30/2026"
   },
   {
     "title": "Can Salicylic Acid Make Your Breakouts Worse Initially?",
     "slug": "can-salicylic-acid-make-your-breakouts-worse-initially",
-    "date": "3/30/2026"
+    "date": "3/29/2026"
   },
   {
     "title": "Why Does Cold Weather Make Facial Skin Flake and Burn?",
     "slug": "why-does-cold-weather-make-facial-skin-flake-and-burn",
-    "date": "3/29/2026"
+    "date": "3/28/2026"
   },
   {
     "title": "Does Drinking 3 Liters of Water Clear Acne on Its Own?",
@@ -178,21 +193,6 @@ export const blogPosts = [
     "title": "Does Sweating During Workouts Actually Clear Out Your Pores?",
     "slug": "does-sweating-during-workouts-actually-clear-out-your-pores",
     "date": "3/8/2026"
-  },
-  {
-    "title": "How Does Air Pollution Accelerate Facial Hyperpigmentation?",
-    "slug": "how-does-air-pollution-accelerate-facial-hyperpigmentation",
-    "date": "3/6/2026"
-  },
-  {
-    "title": "Why Does Your Skin Feel Tight and Dry Right After Cleansing?",
-    "slug": "why-does-your-skin-feel-tight-and-dry-right-after-cleansing",
-    "date": "3/4/2026"
-  },
-  {
-    "title": "Can Inconsistent Sleep Schedules Trigger Adult Cystic Flare-ups?",
-    "slug": "can-inconsistent-sleep-schedules-trigger-adult-cystic-flare-ups",
-    "date": "3/2/2026"
   },
   {
     "title": "What Is the Difference Between Fungal Acne and Bacterial Acne?",
