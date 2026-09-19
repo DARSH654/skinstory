@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import HighlightPhrase from "@/components/HighlightPhrase";
 
 export default function HeroSection() {
+  const router = useRouter();
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -13,7 +15,7 @@ export default function HeroSection() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (email.trim()) {
-      setSubmitted(true);
+      router.push(`/checkout?email=${encodeURIComponent(email.trim())}`);
     }
   };
 

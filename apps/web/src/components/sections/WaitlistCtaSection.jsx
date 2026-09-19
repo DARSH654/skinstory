@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, ShieldCheck, Sparkles } from "lucide-react";
 
 export default function WaitlistCtaSection() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -11,7 +13,7 @@ export default function WaitlistCtaSection() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (email.trim()) {
-      setSubmitted(true);
+      router.push(`/checkout?email=${encodeURIComponent(email.trim())}`);
     }
   };
 
