@@ -247,10 +247,10 @@ export default function FloatingNavbar() {
             FAQ
           </Link>
           <Link
-            href="/press"
+            href="/pre-launch-offer"
             className="px-3.5 py-1.5 text-base lg:text-lg font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all whitespace-nowrap"
           >
-            Press
+            Pre-Launch Offer
           </Link>
           <a
             href="mailto:support@getskinstory.com"
@@ -300,8 +300,8 @@ export default function FloatingNavbar() {
               <Link href="/faq" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                 FAQ
               </Link>
-              <Link href="/press" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                Press
+              <Link href="/pre-launch-offer" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                Pre-Launch Offer
               </Link>
               <a href="mailto:support@getskinstory.com" className="w-full text-center text-lg font-medium text-zinc-900 dark:text-white py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                 Support

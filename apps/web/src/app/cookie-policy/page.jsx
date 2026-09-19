@@ -25,7 +25,7 @@ export default function CookiePolicyPage() {
           
           <div className="space-y-10 text-[15px] leading-relaxed text-zinc-700 dark:text-zinc-300">
 
-            <section>
+            <section id="what-are-cookies">
               <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">What Are Cookies?</h2>
               <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
                 <p>
@@ -37,7 +37,7 @@ export default function CookiePolicyPage() {
               </div>
             </section>
 
-            <section>
+            <section id="first-vs-third-party">
               <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">First-Party vs. Third-Party Cookies</h2>
               <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
                 <p>
@@ -49,7 +49,7 @@ export default function CookiePolicyPage() {
               </div>
             </section>
 
-            <section>
+            <section id="information-collected">
               <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Information Collected via Analytics &amp; Tracking</h2>
               <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
                 <p>
@@ -61,7 +61,7 @@ export default function CookiePolicyPage() {
               </div>
             </section>
 
-            <section>
+            <section id="zero-advertising">
               <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Zero-Advertising &amp; Strict Non-Sharing Guarantee</h2>
               <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
                 <p>
@@ -73,7 +73,7 @@ export default function CookiePolicyPage() {
               </div>
             </section>
 
-            <section>
+            <section id="global-compliance">
               <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Global Regulatory Compliance</h2>
               <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
                 <p>
@@ -88,7 +88,7 @@ export default function CookiePolicyPage() {
               </div>
             </section>
 
-            <section>
+            <section id="managing-cookies">
               <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Managing &amp; Controlling Cookies</h2>
               <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
                 <p>

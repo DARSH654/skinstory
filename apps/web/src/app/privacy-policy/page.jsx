@@ -30,7 +30,7 @@ export default function PrivacyPolicyPage() {
         <div className="space-y-8 text-[15px] leading-relaxed text-zinc-700 dark:text-zinc-300">
 
           {/* Introduction Section */}
-          <section>
+          <section id="introduction">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Introduction</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -45,7 +45,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="effective-date">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Effective Date &amp; Jurisdiction</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -57,7 +57,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="eligibility">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Who Can Use This Service</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -72,7 +72,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="information-collected">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Information We Collect</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -90,7 +90,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="how-we-collect">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">How We Collect Information</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -102,7 +102,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="how-we-use">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">How We Use Your Information</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -117,7 +117,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="biometric-data">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Facial &amp; Biometric Data</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -132,7 +132,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="data-retention">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Data Retention &amp; Storage</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -144,7 +144,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="zero-selling">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Third Party Sharing Policy</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -156,7 +156,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="third-party-providers">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Third Party Service Providers</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -168,7 +168,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="cookies">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Cookies &amp; Tracking Technologies</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -184,7 +184,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="childrens-privacy">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Children&apos;s Privacy (COPPA)</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -196,7 +196,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="global-rights">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">California Residents (CCPA/CPRA)</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -208,7 +208,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="european-residents">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">European Residents (GDPR)</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -220,7 +220,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="uk-residents">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">UK Residents (UK GDPR)</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -232,7 +232,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="india-residents">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">India Residents (DPDP Act)</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
@@ -244,7 +244,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section>
+          <section id="data-security">
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Data Security</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
