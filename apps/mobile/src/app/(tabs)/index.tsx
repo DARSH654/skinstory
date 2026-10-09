@@ -9,11 +9,12 @@ import {
   TextInput,
   Image,
 } from 'react-native';
+import { scale, verticalScale, moderateScale } from 'react-native-size-matters';
 import { Text } from '@/components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import Svg, { Defs, LinearGradient, Stop, Rect, Path, Circle } from 'react-native-svg';
-import { Flame, ChevronLeft, ChevronRight, Sparkles, Moon, Sun, CalendarDays, User, Plus, ScanFace, Clock } from 'lucide-react-native';
+import { Flame, ChevronLeft, ChevronRight, Sparkles, Moon, Sun, CalendarDays, User, Plus, ScanFace, Clock, BookOpen } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
@@ -27,6 +28,7 @@ import RoutineCard from '@/components/routine/RoutineCard';
 import RoutineDeleteModal from '@/components/routine/RoutineDeleteModal';
 import { MOCK_SCANS } from '@/constants/mockScans';
 import ConnectingDots from '@/components/ConnectingDots';
+import { useNavigationGuard } from '@/hooks/useNavigationGuard';
 import Animated, {
   useSharedValue,
   withTiming,
@@ -137,7 +139,7 @@ function AnimatedScoreItem({
   }));
 
   return (
-    <View style={{ width: itemWidth, height: 355, alignItems: 'center', justifyContent: 'flex-start' }}>
+    <View style={{ width: itemWidth, height: 355, alignItems: 'center', justifyContent: 'flex-start' }} pointerEvents="none">
       {/* Dynamic Guidance Header inside slidable card */}
       <View style={{ justifyContent: 'flex-start', alignItems: 'center', paddingHorizontal: 10, marginTop: 5, marginBottom: 15, height: 95 }}>
         <View style={{
@@ -164,63 +166,8 @@ function AnimatedScoreItem({
         </Text>
       </View>
 
-      {/* Overall Skin Score Arc Circle */}
-      <View style={{ alignItems: 'center', justifyContent: 'center', width: 240, height: 240 }}>
-        <Svg width={240} height={240} viewBox="0 0 240 240" style={{ position: 'absolute' }}>
-          <Defs>
-            <LinearGradient id={`scoreGrad-${dayIndex}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#937abd" />
-              <Stop offset="100%" stopColor="#d6cbe8" />
-            </LinearGradient>
-          </Defs>
-          {/* Background Track Circle */}
-          <Circle
-            cx="120"
-            cy="120"
-            r={radius}
-            fill="none"
-            stroke={isDark ? 'rgba(147, 122, 189, 0.2)' : '#e8e3f1'}
-            strokeWidth={16}
-          />
-          {/* Animated Active Progress Circle — driven by UI thread */}
-          <AnimatedCircle
-            cx="120"
-            cy="120"
-            r={radius}
-            fill="none"
-            stroke={`url(#scoreGrad-${dayIndex})`}
-            strokeWidth={16}
-            strokeDasharray={circumference}
-            strokeLinecap="round"
-            transform="rotate(-90 120 120)"
-            animatedProps={animatedArcProps}
-          />
-        </Svg>
-        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-          <AnimatedTextInput
-            animatedProps={animatedScoreTextProps}
-            editable={false}
-            underlineColorAndroid="transparent"
-            style={[
-              {
-                color: isDark ? '#ffffff' : '#1a1a1a',
-                fontSize: 72,
-                fontWeight: '300',
-                lineHeight: 80,
-                textAlign: 'center',
-                padding: 0,
-                margin: 0,
-                minWidth: 120,
-                backgroundColor: 'transparent',
-              },
-              animatedTextStyle,
-            ]}
-          />
-          <Text style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)', fontSize: 13, fontWeight: '400', marginTop: 5 }}>
-            Overall Skin Score
-          </Text>
-        </View>
-      </View>
+      {/* Overall Skin Score Spacer (exact circle space preserved) */}
+      <View style={{ alignItems: 'center', justifyContent: 'center', width: 240, height: 240 }} />
     </View>
   );
 }
@@ -259,7 +206,7 @@ function AnimatedMetricNode({
   }));
 
   return (
-    <View style={{ alignItems: 'center', width: (pageWidth - 20) / 3 }}>
+    <View style={{ alignItems: 'center', width: (pageWidth - 20) / 3 }} pointerEvents="none">
       <View style={{ width: 80, height: 80, alignItems: 'center', justifyContent: 'center' }}>
         <Svg width={80} height={80} viewBox="0 0 80 80">
           <Defs>
@@ -294,6 +241,7 @@ function AnimatedMetricNode({
         <AnimatedTextInput
           animatedProps={animatedTextProps}
           editable={false}
+          pointerEvents="none"
           underlineColorAndroid="transparent"
           style={{
             position: 'absolute',
@@ -321,6 +269,7 @@ export default function HomeScreen() {
   const isDark = scheme === 'dark';
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { navigate: guardedNavigate } = useNavigationGuard();
 
   const imageUri = useScanStore((state) => state.imageUri);
   const scanResult = useScanStore((state) => state.scanResult);
@@ -338,6 +287,7 @@ export default function HomeScreen() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [routineToDelete, setRoutineToDelete] = useState<any>(null);
+
 
   // Scroll lock: only one horizontal carousel scrolls at a time
   const activeScrollRef = useRef<'routines' | 'scans' | null>(null);
@@ -516,7 +466,17 @@ export default function HomeScreen() {
                 <Text style={[styles.greetHi, { color: isDark ? '#ffffff' : '#1a1a1a' }]}>Hi User,</Text>
                 <Text style={[styles.greetSub, { color: isDark ? 'rgba(255,255,255,0.68)' : 'rgba(0,0,0,0.6)' }]}>your overall skin today</Text>
               </View>
-              <View style={[styles.streakPill, { backgroundColor: isDark ? '#000000' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
+              <Pressable
+                onPress={() => router.push('/streak')}
+                style={({ pressed }) => [
+                  styles.streakPill,
+                  {
+                    backgroundColor: isDark ? '#000000' : '#ffffff',
+                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                    opacity: pressed ? 0.8 : 1,
+                  }
+                ]}
+              >
                 <LottieView
                   source={fireAnimation}
                   autoPlay={true}
@@ -525,7 +485,7 @@ export default function HomeScreen() {
                   style={{ width: 21, height: 21, backgroundColor: 'transparent' }}
                 />
                 <Text style={[styles.streakTxt, { fontSize: 15, color: isDark ? '#ffffff' : '#1a1a1a' }]}>Day 5</Text>
-              </View>
+              </Pressable>
             </View>
 
             {/* Horizontally Slidable Score + Guidance block (Optimized FlatList) */}
@@ -572,58 +532,86 @@ export default function HomeScreen() {
               />
             </View>
 
-            {/* Slideable metrics grid (3 circles in a row per page) */}
-            <View style={styles.metricsWrapper}>
-              <Animated.FlatList
-                ref={flatRef as any}
-                data={dynamicMetricsPages}
-                keyExtractor={(_, idx) => idx.toString()}
-                horizontal
-                pagingEnabled
-                snapToInterval={PAGE_WIDTH}
-                snapToAlignment="center"
-                decelerationRate="fast"
-                disableIntervalMomentum={true}
-                showsHorizontalScrollIndicator={false}
-                scrollEventThrottle={16}
-                onScroll={metricsScrollHandler}
-                initialNumToRender={1}
-                maxToRenderPerBatch={2}
-                windowSize={3}
-                removeClippedSubviews={true}
-                getItemLayout={(_, index) => (
-                  { length: PAGE_WIDTH, offset: PAGE_WIDTH * index, index }
-                )}
-                onMomentumScrollEnd={e => {
-                  const idx = Math.round(e.nativeEvent.contentOffset.x / PAGE_WIDTH);
-                  setPageIndex(Math.min(Math.max(idx, 0), dynamicMetricsPages.length - 1));
-                }}
-                style={{ width: PAGE_WIDTH, flexGrow: 0 }}
-                renderItem={({ item }) => (
-                  <View style={{ width: PAGE_WIDTH, flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 4 }}>
-                    {item.map((metric: { id: string; name: string; score: number; accent: string }) => (
-                      <AnimatedMetricNode
-                        key={metric.id}
-                        metric={metric}
-                        isDark={isDark}
-                        pageWidth={PAGE_WIDTH}
-                      />
-                    ))}
-                  </View>
-                )}
-              />
+            {/* ── Your Daily Insights Section ───────────────────── */}
+            <View style={{ marginTop: 10, paddingHorizontal: 0 }}>
+              <Text style={{
+                fontSize: 20,
+                fontWeight: '800',
+                color: isDark ? '#ffffff' : '#1a1a1a',
+                marginBottom: 14,
+              }}>Your Daily Insights</Text>
+
+              {/* Insight Card */}
+              <View style={[
+                styles.emptyRoutineCard,
+                isDark ? styles.cardDark : styles.cardLight,
+                { marginBottom: 4 }
+              ]}>
+                <View style={[styles.emptyIconCircle, isDark ? styles.iconBgDark : styles.iconBgLight]}>
+                  <Sparkles size={24} color={isDark ? "#a1a1aa" : "#6b7280"} />
+                </View>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={[styles.emptyRoutineTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
+                    Insight overview
+                  </Text>
+                  <Text style={{
+                    fontSize: moderateScale(13, 0.3),
+                    fontWeight: '700',
+                    lineHeight: 18,
+                    color: isDark ? '#d4d4d8' : '#374151',
+                    marginTop: verticalScale(2),
+                  }}>
+                    {`Your skin has shown consistent improvement over the past week. Hydration levels are up and redness has visibly reduced — keep up your evening routine.`}
+                  </Text>
+                </View>
+              </View>
             </View>
 
-            {/* Connecting Dots */}
-            <View style={styles.dotsRow}>
-              <ConnectingDots
-                count={dynamicMetricsPages.length}
-                scrollX={metricsScrollX}
-                itemWidth={PAGE_WIDTH}
-                isDark={isDark}
-              />
+            {/* ── Your Daily Journal Section ───────────────────── */}
+
+            <View style={{ marginTop: 10, paddingHorizontal: 0 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <Text style={{
+                  fontSize: 20,
+                  fontWeight: '800',
+                  color: isDark ? '#ffffff' : '#1a1a1a',
+                  letterSpacing: -0.4,
+                }}>Your Daily Journal</Text>
+                <Pressable
+                  onPress={() => router.push('/daily-journal')}
+                  style={{
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    paddingHorizontal: 14,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: isDark ? '#ffffff' : '#000000' }}>View all</Text>
+                </Pressable>
+              </View>
+
+              <Pressable
+                onPress={() => router.push('/daily-journal')}
+                style={({ pressed }) => [
+                  styles.emptyRoutineCard,
+                  isDark ? styles.cardDark : styles.cardLight,
+                  { opacity: pressed ? 0.85 : 1 },
+                ]}
+              >
+                <View style={[styles.emptyIconCircle, isDark ? styles.iconBgDark : styles.iconBgLight]}>
+                  <BookOpen size={24} color={isDark ? "#a1a1aa" : "#6b7280"} />
+                </View>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={[styles.emptyRoutineTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
+                    No journal added
+                  </Text>
+                  <Text style={[styles.emptyRoutineSubtitle, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
+                    Start tracking your daily skincare thoughts and notes.
+                  </Text>
+                </View>
+              </Pressable>
             </View>
-            
+
             {/* Your Routines Header & Empty/Filled Cards */}
             <View style={{ marginTop: 28, paddingHorizontal: 0 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -699,7 +687,7 @@ export default function HomeScreen() {
               )}
             </View>
 
-            {/* ── Recent Scans Section ───────────────────── */}
+            {/* ── Recent Photos Section ───────────────────── */}
             <View style={{ marginTop: 28, paddingHorizontal: 0 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingHorizontal: 0 }}>
                 <Text style={{
@@ -707,7 +695,7 @@ export default function HomeScreen() {
                   fontWeight: '800',
                   color: isDark ? '#ffffff' : '#1a1a1a',
                   letterSpacing: -0.4,
-                }}>Recent Scans</Text>
+                }}>Recent Photos</Text>
                 <Pressable
                   onPress={() => router.push('/(tabs)/scan')}
                   style={{
@@ -747,9 +735,10 @@ export default function HomeScreen() {
                 scrollEnabled={activeScrollRef.current === null || activeScrollRef.current === 'scans'}
                 renderItem={({ item: scan }) => (
                   <Pressable
-                    onPress={() => router.push(`/scan/${scan.id}` as any)}
+                    onPress={() => guardedNavigate(`/scan/${scan.id}`)}
                     style={[
                       styles.recentScanSlideCard,
+                      { width: SCREEN_WIDTH - 40 },
                       isDark ? styles.cardDark : styles.cardLight,
                     ]}
                   >
@@ -762,7 +751,7 @@ export default function HomeScreen() {
 
                       {/* Top-Right "View More" pill */}
                       <Pressable
-                        onPress={() => router.push(`/scan/${scan.id}` as any)}
+                        onPress={() => guardedNavigate(`/scan/${scan.id}`)}
                         style={[
                           styles.viewMorePillTopRight,
                           { backgroundColor: isDark ? 'rgba(24, 24, 27, 0.85)' : 'rgba(255, 255, 255, 0.9)' }
@@ -1043,55 +1032,53 @@ const styles = StyleSheet.create({
   emptyRoutineCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
+    padding: scale(16),
+    borderRadius: moderateScale(16, 0.3),
   },
   emptyIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: moderateScale(44, 0.3),
+    height: moderateScale(44, 0.3),
+    borderRadius: moderateScale(22, 0.3),
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: scale(12),
   },
   emptyRoutineTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15, 0.3),
     fontWeight: '700',
   },
   emptyRoutineSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-    lineHeight: 16,
+    fontSize: moderateScale(12, 0.3),
+    marginTop: verticalScale(2),
   },
   createRoutineBtnSmall: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
+    gap: scale(4),
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(8),
+    borderRadius: moderateScale(10, 0.3),
   },
   createRoutineBtnTextSmall: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: moderateScale(12, 0.3),
     fontWeight: '700',
   },
 
   /* Routine Card Preview */
   routineCardPreview: {
-    padding: 14,
-    borderRadius: 14,
+    padding: scale(14),
+    borderRadius: moderateScale(14, 0.3),
   },
   routineTitlePreview: {
-    fontSize: 15,
+    fontSize: moderateScale(15, 0.3),
     fontWeight: '600',
   },
 
   /* Slideable Recent Scan Card */
   recentScanSlideCard: {
-    width: '100%',
-    height: 280,
-    borderRadius: 22,
+    height: verticalScale(260),
+    borderRadius: moderateScale(22, 0.3),
     overflow: 'hidden',
     borderWidth: 1.5,
   },

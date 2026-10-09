@@ -89,6 +89,7 @@ interface DraggableScrollDownCircleProps {
   modalOpen: boolean;
   isDark: boolean;
   isFullScreenModal?: boolean;
+  bottomOffset?: number;
 }
 
 export function DraggableScrollDownCircle({
@@ -97,6 +98,7 @@ export function DraggableScrollDownCircle({
   modalOpen,
   isDark,
   isFullScreenModal = false,
+  bottomOffset = 0,
 }: DraggableScrollDownCircleProps) {
   const insets = useSafeAreaInsets();
   const keyboardHeightRef = useRef(0);
@@ -163,7 +165,7 @@ export function DraggableScrollDownCircle({
 
         const circleSize = 48;
         const paddingX = 16;
-        const paddingY = 24;
+        const paddingY = isFullScreenModal ? 24 : 0;
         
         const currentX = (circlePan.x as any)._value;
         const currentY = (circlePan.y as any)._value;
@@ -174,7 +176,7 @@ export function DraggableScrollDownCircle({
         const minX = paddingX;
         const maxX = mWidth - circleSize - paddingX;
         const minY = isFullScreenModal ? insets.top + 16 : insets.top + 70; 
-        const maxY = mHeight - circleSize - paddingY - (isFullScreenModal ? insets.bottom + 80 : 0) - (isFullScreenModal ? keyboardHeightRef.current : 0);
+        const maxY = mHeight - circleSize - paddingY - bottomOffset - 72 - (isFullScreenModal ? keyboardHeightRef.current : 0);
         
         const isLeft = currentX < (mWidth / 2) - (circleSize / 2);
         currentSide.current = isLeft ? 'left' : 'right';
@@ -210,13 +212,13 @@ export function DraggableScrollDownCircle({
     modalHeightRef.current = height;
     
     const paddingX = 16;
-    const paddingY = 24;
+    const paddingY = isFullScreenModal ? 24 : 0;
     const circleSize = 48;
     
     const minX = paddingX;
     const maxX = width - circleSize - paddingX;
     const minY = isFullScreenModal ? insets.top + 16 : insets.top + 70; 
-    const maxY = height - circleSize - paddingY - (isFullScreenModal ? insets.bottom + 80 : 0) - (isFullScreenModal ? keyboardHeightRef.current : 0);
+    const maxY = height - circleSize - paddingY - bottomOffset - 72 - (isFullScreenModal ? keyboardHeightRef.current : 0);
     
     const targetX = currentSide.current === 'left' ? minX : maxX;
     const targetY = minY + currentYRatio.current * (maxY - minY);

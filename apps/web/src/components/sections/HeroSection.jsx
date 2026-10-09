@@ -1,23 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import HighlightPhrase from "@/components/HighlightPhrase";
+import WaitlistForm from "@/components/WaitlistForm";
 
 export default function HeroSection() {
-  const router = useRouter();
   const { t } = useLanguage();
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (email.trim()) {
-      router.push(`/checkout?email=${encodeURIComponent(email.trim())}`);
-    }
-  };
 
   return (
     <div className="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 xl:gap-12 items-center relative z-10">
@@ -44,7 +32,7 @@ export default function HeroSection() {
             />
           </div>
           <span className="text-[11px] sm:text-xs md:text-sm font-medium text-zinc-700 dark:text-zinc-300 tracking-tight inline-flex items-center whitespace-nowrap">
-            <span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">4,192</strong> on waitlist</span><span className="inline-block w-[5px] h-[5px] md:w-[6px] md:h-[6px] aspect-square rounded-full bg-[#937abd] border-[1.5px] border-black dark:border-white shrink-0 mx-1 md:mx-1.5" /><span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">500</strong> early members secured</span>
+            <span className="whitespace-nowrap"><strong className="font-semibold text-zinc-950 dark:text-white">4,192</strong> on waitlist</span><span className="inline-block w-[5px] h-[5px] md:w-[6px] md:h-[6px] aspect-square rounded-full bg-[#937abd] border-[1.5px] border-black dark:border-white shrink-0 mx-1 md:mx-1.5" /><span className="whitespace-nowrap">Launching <strong className="font-semibold text-zinc-950 dark:text-white">November 2026</strong></span>
           </span>
         </div>
 
@@ -71,38 +59,13 @@ export default function HeroSection() {
         </p>
 
         {/* Email Capture / Call To Action Form - Pill Shaped */}
-        {!submitted ? (
-          <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto lg:mx-0 mb-1.5">
-            <div className="flex items-center p-1.5 bg-zinc-50/80 dark:bg-zinc-900 hover:bg-white dark:hover:bg-zinc-900 focus-within:bg-white dark:focus-within:bg-zinc-900 rounded-full border border-zinc-200/90 dark:border-zinc-700 focus-within:border-[3px] focus-within:border-black dark:focus-within:border-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter email address"
-                className="flex-1 min-w-0 px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 bg-transparent outline-hidden text-left"
-              />
-              <button
-                type="submit"
-                className="px-5 py-2.5 text-sm font-semibold text-white bg-[#937abd] rounded-full hover:bg-[#856db0] active:scale-[0.98] transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] flex items-center justify-center gap-2 cursor-pointer shrink-0"
-              >
-                <span>{t("nav.earlyAccess") || "Get Early Access"}</span>
-                <ArrowRight size={14} />
-              </button>
-            </div>
-          </form>
-        ) : (
-          <div className="w-full max-w-md mx-auto lg:mx-0 p-3.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 flex items-center justify-center lg:justify-start gap-3 mb-1.5 shadow-xs">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span className="text-sm font-semibold">
-              You’re on the early access waitlist! We will notify you soon.
-            </span>
-          </div>
-        )}
+        <div className="w-full max-w-md mx-auto lg:mx-0 mb-1.5">
+          <WaitlistForm source="hero" placeholder="Enter email address" />
+        </div>
 
         {/* Microcopy: Tightened gap */}
         <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium text-center lg:text-left lg:pl-3">
-          Only 108 early member spots remaining.
+          Only 108 waitlist members remaining.
         </p>
       </div>
 

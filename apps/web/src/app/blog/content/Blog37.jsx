@@ -1,3 +1,4 @@
+﻿import BlogWaitlistForm from '@/components/blog/BlogWaitlistForm';
 import Link from "next/link";
 import { ArrowUpRight, ArrowRight } from "lucide-react";
 
@@ -136,23 +137,7 @@ export default function Blog37() {
         </div>
 
         <div className="w-full max-w-md mx-auto pt-1">
-          <form action="/#early-access" className="space-y-3">
-            <div className="flex items-center p-1.5 bg-zinc-50/90 dark:bg-zinc-900 rounded-full border border-zinc-300 dark:border-zinc-700 focus-within:border-[3px] focus-within:border-black dark:focus-within:border-white shadow-[0_2px_14px_rgba(0,0,0,0.04)] transition-all">
-              <input
-                type="email"
-                required
-                placeholder="Enter your email address"
-                className="flex-1 min-w-0 px-4 py-2.5 text-sm sm:text-base text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 bg-transparent outline-hidden text-left"
-              />
-              <button
-                type="submit"
-                className="px-5 sm:px-6 py-2.5 text-sm sm:text-base font-semibold text-white bg-[#937abd] hover:bg-[#856db0] rounded-full transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2 cursor-pointer shrink-0"
-              >
-                <span>Join Waitlist</span>
-                <ArrowRight size={16} />
-              </button>
-            </div>
-          </form>
+          <BlogWaitlistForm source="blog_blog37" />
         </div>
       </div>
     </div>

@@ -21,6 +21,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.skinstory.app",
+      "versionCode": 7,
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ]
@@ -42,7 +43,8 @@
         }
       ],
       "expo-font",
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,

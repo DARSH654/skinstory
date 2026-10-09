@@ -132,14 +132,15 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <section id="data-retention">
-            <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Data Retention &amp; Storage</h2>
+          <section id="data-deletion">
+            <span id="data-retention" className="sr-only" />
+            <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Data Retention, Storage &amp; Deletion</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
                 We store your data securely on encrypted cloud servers. While your account remains active, we keep your profile details, daily lifestyle logs, skin scores, and facial photos so you can track your skin progress over time. You have 100% control to execute data deletion for any individual photo or daily log at any time, which removes it from your timeline immediately and permanently wipes it from our active databases.
               </p>
               <p>
-                Closing or deleting your account is completely free. When you request account deletion, all your personal profile details, facial photos, scan scores, and lifestyle logs are permanently deleted from our servers within 30 days. The only items retained are basic payment transaction receipts (such as App Store, Google Play Store, Stripe, or Razorpay order IDs) solely to comply with government tax and auditing laws.
+                Closing or deleting your account is completely free. You can delete your account directly inside the mobile app from your Profile screen (&quot;Delete Account&quot;) or by emailing <a href="mailto:privacy@getskinstory.com" className="font-semibold text-zinc-800 dark:text-zinc-200 hover:underline">privacy@getskinstory.com</a>. When you request account deletion, all your personal profile details, facial photos, scan scores, and lifestyle logs are permanently deleted from our servers within 30 days. The only items retained are basic payment transaction receipts solely to comply with government tax and auditing laws.
               </p>
             </div>
           </section>

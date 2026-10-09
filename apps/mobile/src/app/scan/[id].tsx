@@ -231,12 +231,7 @@ export default function ScanDetailScreen() {
 
   const CARD_TYPES = [
     "insights",
-    "q_stress",
-    "q_water",
-    "q_sleep",
-    "q_junk",
     "focus",
-    "routine",
     "compliment",
   ];
 
@@ -381,62 +376,7 @@ export default function ScanDetailScreen() {
       );
     }
 
-    // ── 4 Lifestyle Question Cards — shared renderer ──
-    const QUESTIONS: Record<string, { prefix: string; highlight: string; subtitle: string; ansKey: string; options: string[] }> = {
-      q_stress: {
-        prefix: "Stress ", highlight: "Check",
-        subtitle: "How stressed have you been today?",
-        ansKey: "q_stress",
-        options: ["Completely calm & relaxed","Mild stress, manageable","Moderately stressed","Quite stressed today","Extremely overwhelmed"],
-      },
-      q_water: {
-        prefix: "Water ", highlight: "Intake",
-        subtitle: "How much water have you had today?",
-        ansKey: "q_water",
-        options: ["Less than 500ml","Around 1L","Around 1.5L","Around 2L","More than 2L"],
-      },
-      q_sleep: {
-        prefix: "Sleep ", highlight: "Quality",
-        subtitle: "How was your sleep last night?",
-        ansKey: "q_sleep",
-        options: ["Less than 5 hours","5–6 hours, restless","6–7 hours, okay","7–8 hours, good","8+ hours, excellent"],
-      },
-      q_junk: {
-        prefix: "Today's ", highlight: "Diet",
-        subtitle: "How clean was your diet today?",
-        ansKey: "q_junk",
-        options: ["Ate a lot of junk food","Mostly junk, some healthy","Mix of both","Mostly healthy","Very clean diet"],
-      },
-    };
 
-    if (type in QUESTIONS) {
-      const q     = QUESTIONS[type];
-      const sel   = answers[q.ansKey] || null;
-      const INNER_H = CARD_H - 44 - 50 - 36;
-      const optH    = Math.floor(INNER_H / q.options.length) - 6;
-
-      return (
-        <View style={[s.card, { height:CARD_H, backgroundColor:bg, borderColor:bdr }]}>
-          {renderHighlightTitle(q.prefix, q.highlight, 8)}
-          <Text style={{ fontSize:14, fontWeight:"600", color:ts, marginBottom:16 }}>
-            {q.subtitle}
-          </Text>
-          <View style={{ flex: 1, justifyContent: "space-between" }}>
-            {q.options.map((item, idx) => (
-              <View
-                key={item}
-                style={{
-                  flex: 1,
-                  marginBottom: idx === q.options.length - 1 ? 0 : 10,
-                }}
-              >
-                {render3DOption(item, item, sel === item, () => setAnswer(q.ansKey, item), optH, 0)}
-              </View>
-            ))}
-          </View>
-        </View>
-      );
-    }
 
     if (type === "focus") {
       const bulletBorder = isDark ? "rgba(255,255,255,0.75)" : "#111111";
@@ -491,42 +431,7 @@ export default function ScanDetailScreen() {
       );
     }
 
-    if (type === "routine") {
-      const routineOptions = [
-        { label:"Morning & evening routine", value:"Morning & Evening" },
-        { label:"Morning routine only", value:"Morning" },
-        { label:"Evening routine only", value:"Evening" },
-        { label:"Morning, evening & night routine", value:"Morning, Evening & Night" },
-        { label:"No - Skipped routine today", value:"No" },
-      ];
-      const sel = answers["q_routine"] || null;
 
-      // 5 options — compute dynamic height same as question cards
-      const INNER_H = CARD_H - 44 - 50 - 36;
-      const optH    = Math.floor(INNER_H / routineOptions.length) - 6;
-
-      return (
-        <View style={[s.card, { height:CARD_H, backgroundColor:bg, borderColor:bdr }]}>
-          {renderHighlightTitle("Routine ", "Compliance", 8)}
-          <Text style={{ fontSize:14, fontWeight:"600", color:ts, marginBottom:16 }}>
-            {"Are you following your skincare routine today?"}
-          </Text>
-          <View style={{ flex: 1, justifyContent: "space-between" }}>
-            {routineOptions.map((opt, idx) => (
-              <View
-                key={opt.value}
-                style={{
-                  flex: 1,
-                  marginBottom: idx === routineOptions.length - 1 ? 0 : 10,
-                }}
-              >
-                {render3DOption(opt.value, opt.label, sel === opt.value, () => setAnswer("q_routine", opt.value), optH, 0)}
-              </View>
-            ))}
-          </View>
-        </View>
-      );
-    }
 
     if (type === "compliment") return (
       <View style={[s.card, { height:CARD_H, backgroundColor:bg, borderColor:bdr, padding: 22 }]}>

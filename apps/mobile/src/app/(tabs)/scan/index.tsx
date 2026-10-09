@@ -8,7 +8,6 @@ import {
   Linking, 
   ScrollView, 
   Image, 
-  ActivityIndicator,
   Modal,
   TextInput,
   TouchableOpacity,
@@ -17,15 +16,14 @@ import {
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
+import { useNavigationGuard } from '@/hooks/useNavigationGuard';
 import { useCameraPermissions } from 'expo-camera';
 import Header from '@/components/layout/Header';
 import { Colors } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useScanStore, SkinConcern } from '@/store/scanStore';
+import { useScanStore } from '@/store/scanStore';
 import { 
-  CheckCircle2, 
   AlertCircle, 
-  Sparkles, 
   ChevronRight, 
   SlidersHorizontal,
   LayoutList,
@@ -35,49 +33,25 @@ import {
   Calendar,
   X,
   Check,
-  Filter
+  Filter,
+  Sparkles
 } from 'lucide-react-native';
 import { MOCK_SCANS } from '@/constants/mockScans';
 
 
 
-const SEVERITY_COLOR: Record<string, string> = {
-  None:     '#10b981',
-  Mild:     '#f59e0b',
-  Moderate: '#f97316',
-  Severe:   '#ef4444',
-};
 
-function ConcernRow({ concern, isDark }: { concern: SkinConcern; isDark: boolean }) {
-  const color = SEVERITY_COLOR[concern.severity] ?? '#6b7280';
-  return (
-    <View style={styles.concernRow}>
-      <View style={[styles.severityDot, { backgroundColor: color }]} />
-      <Text style={[styles.concernName, isDark ? styles.textDark : styles.textLight]}>
-        {concern.name}
-      </Text>
-      <View style={[styles.badge, { backgroundColor: `${color}20` }]}>
-        <Text style={[styles.badgeText, { color }]}>{concern.severity}</Text>
-      </View>
-    </View>
-  );
-}
 
 export default function ScanLandingScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const router = useRouter();
+  const { navigate: guardedNavigate } = useNavigationGuard();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const hasPermission = permission?.granted ?? false;
 
-  // Zustand Store
-  const imageUri = useScanStore(state => state.imageUri);
-  const scanResult = useScanStore(state => state.scanResult);
-  const isLoading = useScanStore(state => state.isLoading);
-  const error = useScanStore(state => state.error);
-  const runAnalysis = useScanStore(state => state.runAnalysis);
-  const clearImage = useScanStore(state => state.clearImage);
+  // Zustand Store (kept for potential future use)
 
   // Layout View State: 'grid' | 'list'
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -205,34 +179,7 @@ export default function ScanLandingScreen() {
     return true;
   });
 
-  // Scanning animation
-  const scanLineAnim = useRef(new Animated.Value(0)).current;
 
-  React.useEffect(() => {
-    if (isLoading) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(scanLineAnim, {
-            toValue: 1,
-            duration: 2000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scanLineAnim, {
-            toValue: 0,
-            duration: 2000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      scanLineAnim.stopAnimation();
-    }
-  }, [isLoading]);
-
-  const translateY = scanLineAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 200],
-  });
 
   // Toast State (for permission denied)
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -326,18 +273,16 @@ export default function ScanLandingScreen() {
     }
   };
 
-  const result = scanResult;
 
   return (
     <View style={[styles.container, isDark ? styles.bgDark : styles.bgLight]}>
       <Header title="Scan Skin" />
       
       <ScrollView 
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 0 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 24 }]}
         showsVerticalScrollIndicator={false}
       >
-        {!imageUri ? (
-          <View style={styles.historyContent}>
+        <View style={styles.historyContent}>
             {/* Header section with Title "Your Scans" & Action Controls */}
             <View style={styles.historyTopSection}>
               <View style={styles.historyHeaderRow}>
@@ -448,7 +393,7 @@ export default function ScanLandingScreen() {
                   {filteredScans.map((scan) => (
                     <Pressable
                       key={scan.id}
-                      onPress={() => router.push(`/scan/${scan.id}` as any)}
+                      onPress={() => guardedNavigate(`/scan/${scan.id}`)}
                       style={[styles.scanBoxGrid, isDark ? styles.cardDark : styles.cardLight]}
                     >
                       <View style={styles.scanBoxGridImageWrapper}>
@@ -473,7 +418,7 @@ export default function ScanLandingScreen() {
                   {filteredScans.map((scan) => (
                     <Pressable
                       key={scan.id}
-                      onPress={() => router.push(`/scan/${scan.id}` as any)}
+                      onPress={() => guardedNavigate(`/scan/${scan.id}`)}
                       style={[styles.scanBoxListCard, isDark ? styles.cardDark : styles.cardLight]}
                     >
                       <View style={styles.scanBoxListImageWrapper}>
@@ -521,109 +466,6 @@ export default function ScanLandingScreen() {
               </View>
             )}
           </View>
-        ) : (
-          <View style={styles.scanContainer}>
-            {/* Round Scanning Card */}
-            <View style={[styles.previewCard, { borderColor: isDark ? '#a855f7' : Colors.light.primary }]}>
-              <Image source={{ uri: imageUri }} style={styles.previewImage} />
-              
-              {/* Scan line visualizer */}
-              {isLoading && (
-                <Animated.View style={[
-                  styles.scanLine, 
-                  { transform: [{ translateY }] }
-                ]} />
-              )}
-
-              {/* Status HUD overlay */}
-              {isLoading && (
-                <View style={styles.scanningBanner}>
-                  <ActivityIndicator size="small" color="#ffffff" style={{ marginRight: 8 }} />
-                  <Text style={styles.scanningText}>Analyzing Skin...</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Controls */}
-            {!isLoading && (
-              <View style={styles.actionsPanel}>
-                <Pressable 
-                  style={styles.resetButton} 
-                  onPress={() => { clearImage(); router.push('/camera'); }}
-                >
-                  <Text style={styles.resetButtonText}>Scan Again</Text>
-                </Pressable>
-              </View>
-            )}
-
-            {/* Results Output */}
-            {result && (
-              <View style={styles.resultsContainer}>
-                <View style={styles.resultsHeader}>
-                  <CheckCircle2 size={24} color="#10b981" style={{ marginRight: 8 }} />
-                  <Text style={[styles.resultsTitle, isDark ? styles.textDark : styles.textLight]}>
-                    Analysis Complete
-                  </Text>
-                </View>
-
-                {/* Overall Score */}
-                {result.overall_score >= 0 && (
-                  <View style={[styles.scoreCard, isDark ? styles.cardDark : styles.cardLight]}>
-                    <View style={styles.scoreRow}>
-                      <Sparkles size={20} color="#a855f7" style={{ marginRight: 8 }} />
-                      <Text style={styles.cardHeader}>OVERALL SKIN HEALTH</Text>
-                    </View>
-                    <View style={styles.scoreCircleRow}>
-                      <View style={styles.scoreCircle}>
-                        <Text style={styles.scoreNumber}>{result.overall_score}</Text>
-                        <Text style={styles.scoreUnit}>/100</Text>
-                      </View>
-                      <View style={styles.scoreInfo}>
-                        <Text style={[styles.skinTypeLabel, isDark ? styles.textDark : styles.textLight]}>
-                          Skin Type
-                        </Text>
-                        <Text style={styles.skinTypeValue}>{result.skin_type}</Text>
-                        <Text style={[styles.summaryText, isDark ? { color: '#9ca3af' } : { color: '#6b7280' }]}>
-                          {result.summary}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                )}
-
-                {/* Concerns */}
-                {result.concerns?.length > 0 && (
-                  <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
-                    <Text style={styles.cardHeader}>SKIN CONCERNS</Text>
-                    {result.concerns.map((c, i) => (
-                      <ConcernRow key={i} concern={c} isDark={isDark} />
-                    ))}
-                  </View>
-                )}
-
-                {/* Recommendations */}
-                {result.recommendations?.length > 0 && (
-                  <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
-                    <Text style={styles.cardHeader}>RECOMMENDATIONS</Text>
-                    {result.recommendations.map((rec, i) => (
-                      <View key={i} style={styles.recRow}>
-                        <ChevronRight size={16} color="#a855f7" style={{ marginRight: 6, marginTop: 2 }} />
-                        <Text style={[styles.recText, isDark ? { color: '#d1d5db' } : { color: '#374151' }]}>
-                          {rec}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Powered by Gemini badge */}
-                <View style={styles.metaBox}>
-                  <Text style={styles.metaText}>✨ Powered by Gemini AI Vision</Text>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
       </ScrollView>
 
       {toastMessage ? (

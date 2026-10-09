@@ -13,6 +13,7 @@ import {
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+// import { fetchRoutineById, mapSupabaseRoutine } from '@/services/routineService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Clock, ArrowLeft, ArrowRight, ExternalLink, Package, Images as LucideImages } from 'lucide-react-native';
 import { Colors } from '@/constants/theme';
@@ -38,11 +39,14 @@ export default function RoutineViewerScreen() {
     useCallback(() => {
       const loadRoutine = async () => {
         try {
-          const storedRoutinesJson = await AsyncStorage.getItem('routines');
-          const storedRoutines = storedRoutinesJson ? JSON.parse(storedRoutinesJson) : [];
-          const foundRoutine = storedRoutines.find((r: any) => r.id === id);
-          if (foundRoutine) {
-            setRoutine(foundRoutine);
+          // Backend fetch commented out for Google Play review:
+          // const row = await fetchRoutineById(id as string);
+          // setRoutine(mapSupabaseRoutine(row));
+          const stored = await AsyncStorage.getItem('routines');
+          const list = stored ? JSON.parse(stored) : [];
+          const found = list.find((r: any) => String(r.id) === String(id));
+          if (found) {
+            setRoutine(found);
           }
         } catch (e) {
           console.error("Error loading routine", e);

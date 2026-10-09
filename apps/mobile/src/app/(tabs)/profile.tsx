@@ -11,6 +11,7 @@ import {
   Platform,
   Animated,
   Modal,
+  Linking,
 } from 'react-native';
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -34,6 +35,7 @@ import {
   Trash2,
   AlertTriangle,
   MessageSquareHeart,
+  RotateCcw,
 } from 'lucide-react-native';
 import { CustomClockIcon } from '@/components/custom-icons';
 import { useRouter } from 'expo-router';
@@ -386,10 +388,10 @@ export default function ProfileScreen() {
             Support & Feedback
           </Text>
           <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
-            {/* FAQ - Opens Dedicated Screen */}
+            {/* FAQ - Redirects to Website */}
             <Pressable
               style={styles.option}
-              onPress={() => router.push('/faq' as any)}
+              onPress={() => Linking.openURL('https://www.getskinstory.com/faq')}
             >
               <View style={styles.optionLeft}>
                 <HelpCircle size={20} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={2} />
@@ -449,7 +451,7 @@ export default function ProfileScreen() {
             {/* Privacy Policy */}
             <Pressable
               style={styles.option}
-              onPress={() => router.push('/privacy-policy' as any)}
+              onPress={() => Linking.openURL('https://www.getskinstory.com/privacy-policy')}
             >
               <View style={styles.optionLeft}>
                 <ShieldCheck size={20} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={2} />
@@ -465,12 +467,28 @@ export default function ProfileScreen() {
             {/* Terms of Service */}
             <Pressable
               style={styles.option}
-              onPress={() => router.push('/terms-of-service' as any)}
+              onPress={() => Linking.openURL('https://www.getskinstory.com/terms-of-service')}
             >
               <View style={styles.optionLeft}>
                 <FileText size={20} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={2} />
                 <Text style={[styles.optionText, isDark ? styles.textDark : styles.textLight]}>
                   Terms of Service
+                </Text>
+              </View>
+              <ChevronRight size={18} color={isDark ? '#71717a' : '#9ca3af'} />
+            </Pressable>
+
+            <View style={[styles.divider, isDark ? styles.dividerDark : styles.dividerLight]} />
+
+            {/* Refund & Cancellation */}
+            <Pressable
+              style={styles.option}
+              onPress={() => Linking.openURL('https://www.getskinstory.com/refund-cancellation')}
+            >
+              <View style={styles.optionLeft}>
+                <RotateCcw size={20} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={2} />
+                <Text style={[styles.optionText, isDark ? styles.textDark : styles.textLight]}>
+                  Refund &amp; Cancellation
                 </Text>
               </View>
               <ChevronRight size={18} color={isDark ? '#71717a' : '#9ca3af'} />

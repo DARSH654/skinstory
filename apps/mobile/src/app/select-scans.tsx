@@ -236,14 +236,14 @@ export default function SelectScansScreen() {
           { paddingBottom: insets.bottom + 80 },
         ]}
       >
-        {/* Inline Header Row (Side-by-side title + controls) */}
-        <View style={styles.headerInlineRow}>
+        {/* Inline Header: Title on line 1, controls on next line to prevent overlap */}
+        <View style={styles.headerContainer}>
           <Text style={[styles.headerTitleInline, { color: isDark ? '#ffffff' : '#111827' }]}>
-            Select Scans
+            Select Photos
           </Text>
 
-          {/* Right controls: Timeline filter + Grid/List toggle */}
-          <View style={styles.headerRightActions}>
+          {/* Controls Row: Timeline filter + Grid/List toggle on the next line */}
+          <View style={styles.headerControlsRow}>
             {/* Timeline filter */}
             <View style={{ position: 'relative', zIndex: 100 }}>
               <Pressable
@@ -254,9 +254,9 @@ export default function SelectScansScreen() {
                   {getTimelineLabel()}
                 </Text>
                 {isTimelineDropdownOpen ? (
-                  <ChevronUp size={13} color={isDark ? '#a1a1aa' : '#6b7280'} />
+                  <ChevronUp size={14} color={isDark ? '#a1a1aa' : '#6b7280'} />
                 ) : (
-                  <ChevronDown size={13} color={isDark ? '#a1a1aa' : '#6b7280'} />
+                  <ChevronDown size={14} color={isDark ? '#a1a1aa' : '#6b7280'} />
                 )}
               </Pressable>
 
@@ -310,7 +310,7 @@ export default function SelectScansScreen() {
                     : styles.toggleInactiveBtn,
                 ]}
               >
-                <LayoutGrid size={15} color={viewMode === 'grid' ? (isDark ? '#fff' : '#111') : (isDark ? '#a1a1aa' : '#6b7280')} />
+                <LayoutGrid size={16} color={viewMode === 'grid' ? (isDark ? '#fff' : '#111') : (isDark ? '#a1a1aa' : '#6b7280')} />
                 {viewMode === 'grid' && (
                   <Text style={[styles.toggleBtnText, { color: isDark ? '#fff' : '#111' }]}>
                     Grid
@@ -326,7 +326,7 @@ export default function SelectScansScreen() {
                     : styles.toggleInactiveBtn,
                 ]}
               >
-                <LayoutList size={15} color={viewMode === 'list' ? (isDark ? '#fff' : '#111') : (isDark ? '#a1a1aa' : '#6b7280')} />
+                <LayoutList size={16} color={viewMode === 'list' ? (isDark ? '#fff' : '#111') : (isDark ? '#a1a1aa' : '#6b7280')} />
                 {viewMode === 'list' && (
                   <Text style={[styles.toggleBtnText, { color: isDark ? '#fff' : '#111' }]}>
                     List
@@ -615,14 +615,14 @@ export default function SelectScansScreen() {
           </Animated.View>
         )}
 
-        {/* Bottom Actions Row: Compare Scans Button + Chevron Toggle Circle on the Right Side */}
+        {/* Bottom Actions Row: Compare Photos Button + Chevron Toggle Circle on the Right Side */}
         <View style={styles.bottomActionsRow}>
           <Pressable
             onPress={handleCompare}
             disabled={selectedIds.length !== 2}
             style={[styles.compareBtn, { opacity: selectedIds.length !== 2 ? 0.45 : 1 }]}
           >
-            <Text style={styles.compareBtnText}>Compare Scans</Text>
+            <Text style={styles.compareBtnText}>Compare Photos</Text>
           </Pressable>
 
           {selectedIds.length > 0 && (
@@ -645,23 +645,22 @@ export default function SelectScansScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
-  // Inline Header inside ScrollView
-  headerInlineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  // Header inside ScrollView
+  headerContainer: {
     marginBottom: 16,
     zIndex: 100,
   },
   headerTitleInline: {
-    fontSize: 19,
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    marginBottom: 12,
   },
-  headerRightActions: {
+  headerControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    zIndex: 100,
   },
 
   // Filter chip

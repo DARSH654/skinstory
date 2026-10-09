@@ -274,7 +274,7 @@ export default function AppTabs() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="progress" options={{ title: 'Progress' }} />
+      <Tabs.Screen name="progress" options={{ title: 'Insights' }} />
       <Tabs.Screen name="routine" options={{ title: 'Routine' }} />
       <Tabs.Screen name="scan" options={{ title: 'Scan' }} />
       <Tabs.Screen name="profile" options={{ href: null }} />

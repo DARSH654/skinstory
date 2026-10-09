@@ -474,7 +474,7 @@ export default function RoutineScreen() {
       <ScrollView 
         ref={mainScrollViewRef} 
         style={styles.container} 
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }} 
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 4 }} 
         showsVerticalScrollIndicator={false}
         {...mainScrollHandlers}
       >

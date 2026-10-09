@@ -39,7 +39,7 @@ export default function RefundPage() {
                 . For a one-time pre-order payment of $4.99, users receive an email containing a digital scratch card that unlocks a unique referral code for up to 6 months of premium access upon application launch.
               </p>
               <p>
-                Pre-launch pre-orders are eligible for a full refund within 14 days of purchase, provided the digital scratch card sent to your email has not been scratched or revealed.
+                Pre-launch pre-orders are eligible for a full refund within 7 days of purchase, provided the digital scratch card sent to your email has not been scratched or revealed.
               </p>
             </div>
           </section>
@@ -51,7 +51,7 @@ export default function RefundPage() {
                 When Skin Story officially launches, we will offer standard recurring subscription plans on a weekly, monthly, and annual basis. In-app purchases and subscriptions made via the Apple App Store or Google Play Store are processed through their respective billing infrastructure and governed by store refund standards.
               </p>
               <p>
-                Direct web purchases processed via independent payment infrastructure (Stripe and Razorpay) also carry a 14-day money-back guarantee. Please note that this 14-day refund guarantee is strictly limited to one time per user account to prevent abuse.
+                Direct web purchases processed via independent payment infrastructure (Stripe and Razorpay) also carry a 7-day money-back guarantee. Please note that this 7-day refund guarantee is strictly limited to one time per user account to prevent abuse.
               </p>
             </div>
           </section>
@@ -84,7 +84,7 @@ export default function RefundPage() {
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">How to Request a Refund</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
-                To request a refund for an unredeemed pre-launch pre-order or direct web purchase within the 14-day window, please email our billing team at{" "}
+                To request a refund for an unredeemed pre-launch pre-order or direct web purchase within the 7-day window, please email our billing team at{" "}
                 <a href="mailto:billing@getskinstory.com" className="font-semibold text-zinc-800 dark:text-zinc-200 hover:underline hover:underline-offset-2">
                   billing@getskinstory.com
                 </a>

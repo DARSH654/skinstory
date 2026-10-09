@@ -85,8 +85,8 @@ export default function TermsOfServicePage() {
               </p>
               <ul className="list-disc list-inside space-y-2 text-zinc-800 dark:text-zinc-200 font-medium">
                 <li><strong>General &amp; Technical Queries:</strong> Resolved within 24 to 48 hours.</li>
-                <li><strong>Billing &amp; Refund Requests:</strong> Processed within 2 to 5 business days.</li>
-                <li><strong>Legal &amp; Compliance Enquiries:</strong> Handled within 4 to 7 business days.</li>
+                <li><strong>Billing &amp; Refund Requests:</strong> Processed within 5 to 7 business days.</li>
+                <li><strong>Legal &amp; Compliance Enquiries:</strong> Handled within 7 to 14 business days.</li>
               </ul>
             </div>
           </section>
@@ -137,13 +137,13 @@ export default function TermsOfServicePage() {
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white mb-3">Subscriptions &amp; Payment Terms</h2>
             <div className="space-y-4 text-base sm:text-[17px] leading-relaxed text-zinc-800 dark:text-zinc-200">
               <p>
-                During our pre-launch phase, eligible waitlist members can secure early access through our $4.99 pre-order offer, which includes a digital scratch card sent via email unlocking up to 6 months of premium access upon application launch. Upon official launch, Skin Story features standard recurring subscription plans billed automatically on a weekly, monthly, or annual basis until canceled.
+                During our pre-launch phase, eligible waitlist members can secure a big discount through our $4.99 pre-order offer, which includes a digital scratch card sent via email unlocking up to 6 months of premium access upon application launch. Upon official launch, Skin Story features standard recurring subscription plans billed automatically on a weekly, monthly, or annual basis until canceled.
               </p>
               <p>
                 Paid transactions are securely processed through official mobile app store billing gateways (Apple App Store and Google Play Store) or independent payment infrastructure providers (Stripe and Razorpay). You may cancel recurring subscriptions at any time through your mobile device account settings or web billing dashboard without cancellation fees.
               </p>
               <p>
-                Pre-orders and initial web subscriptions carry a 14-day money-back guarantee, provided pre-order digital scratch cards remain unrevealed and unscratched. Digital cards revealed in email, redeemed referral codes, and accounts terminated due to severe misconduct or Terms violations are strictly non-refundable. For complete details, billing dispute resolution, and step-by-step instructions, please review our full{" "}
+                Pre-orders and initial web subscriptions carry a 7-day money-back guarantee, provided pre-order digital scratch cards remain unrevealed and unscratched. Digital cards revealed in email, redeemed referral codes, and accounts terminated due to severe misconduct or Terms violations are strictly non-refundable. For complete details, billing dispute resolution, and step-by-step instructions, please review our full{" "}
                 <Link href="/refund-cancellation" className="font-semibold text-zinc-800 dark:text-zinc-200 hover:underline hover:underline-offset-2">
                   Refund &amp; Cancellation Policy
                 </Link>

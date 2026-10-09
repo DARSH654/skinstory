@@ -32,8 +32,37 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 
+import React, { useState, useEffect } from 'react';
+// import { supabase } from '@/lib/supabase';
+// import AuthModal from '@/components/auth/AuthModal';
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Authentication unwired for Google Play review (commented out)
+  /*
+  useEffect(() => {
+    // Initial check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        setShowAuthModal(true);
+      }
+    });
+
+    // Listen for auth changes (sign in / sign out)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setShowAuthModal(true);
+      } else {
+        setShowAuthModal(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+  */
+
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
     Outfit_500Medium,
@@ -63,7 +92,15 @@ export default function RootLayout() {
               <Stack.Screen name="select-scans" />
               <Stack.Screen name="scan/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="routine/start" options={{ headerShown: false, animation: 'fade' }} />
+              <Stack.Screen name="streak" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="badges" options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="daily-journal" options={{ headerShown: false, animation: 'slide_from_right' }} />
             </Stack>
+            {/* <AuthModal
+              visible={showAuthModal}
+              onClose={() => setShowAuthModal(false)}
+              onSuccess={() => setShowAuthModal(false)}
+            /> */}
           </ThemeProvider>
         </BottomSheetModalProvider>
       </GestureHandlerRootView>

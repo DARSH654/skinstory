@@ -85,7 +85,7 @@ const faqCategories = [
     faqs: [
       {
         q: "How do I reach the right support team for my inquiry?",
-        a: "For general app help, email support@getskinstory.com. For privacy inquiries, email privacy@getskinstory.com. For billing and refund requests, email billing@getskinstory.com. For terms and legal questions, email legal@getskinstory.com.",
+        a: "For general app help, email support@getskinstory.com. For privacy inquiries, email privacy@getskinstory.com. For billing and refund requests, email billing@getskinstory.com. For terms and legal questions, email legal@getskinstory.com. Our respective team will reach out to you within a certain period of time.",
         relatedLinks: [
           { title: "How to Request a Refund", href: "/refund-cancellation#request-refund" },
           { title: "Read Privacy Policy", href: "/privacy-policy#introduction" },
@@ -101,7 +101,7 @@ const faqCategories = [
       },
       {
         q: "What are the expected response times for support inquiries?",
-        a: "General and technical queries are resolved within 24 to 48 hours. Billing and refund requests are processed within 2 to 5 business days. Legal and compliance inquiries are handled within 4 to 7 business days.",
+        a: "General and technical queries are resolved within 24 to 48 hours. Billing and refund requests are processed within 5 to 7 business days. Legal and compliance inquiries are handled within 7 to 14 business days.",
         relatedLinks: [
           { title: "Support Response Times SLA", href: "/terms-of-service#support-response-times" },
         ],
@@ -113,11 +113,11 @@ const faqCategories = [
     label: "Pre-Launch Offer",
     faqs: [
       {
-        q: "How does the $4.99 Pre-Launch Offer work?",
+        q: "How does the Pre-Launch Offer work?",
         a: "Joining the waitlist is 100% free. Waitlist members have the exclusive opportunity to secure a Pre-Launch Offer for a one-time payment of $4.99 to receive a digital scratch card in their email, unlocking up to 6 months of premium access upon application launch.",
         relatedLinks: [
           { title: "About Pre-Launch Orders", href: "/refund-cancellation#pre-launch" },
-          { title: "14-Day Money-Back Guarantee", href: "/refund-cancellation#pre-launch" },
+          { title: "7-Day Money-Back Guarantee", href: "/refund-cancellation#pre-launch" },
         ],
       },
       {
@@ -135,7 +135,7 @@ const faqCategories = [
     faqs: [
       {
         q: "Are pre-orders and subscriptions refundable?",
-        a: "Pre-orders and direct web purchases carry a 14-day money-back guarantee, provided the digital scratch card sent to your email has not been scratched or revealed. In-app store purchases follow Apple App Store and Google Play Store policies.",
+        a: "Pre-orders and direct web purchases carry a 7-day money-back guarantee, provided the digital scratch card sent to your email has not been scratched or revealed. In-app store purchases follow Apple App Store and Google Play Store policies.",
         relatedLinks: [
           { title: "About Pre-Launch Orders", href: "/refund-cancellation#pre-launch" },
           { title: "In-App Purchases & Subscriptions", href: "/refund-cancellation#subscriptions" },
@@ -149,8 +149,8 @@ const faqCategories = [
         ],
       },
       {
-        q: "What is the 14-day money-back guarantee policy?",
-        a: "Pre-orders and direct web purchases processed via Stripe or Razorpay carry a full 14-day money-back guarantee, provided the digital scratch card sent to your email has not been scratched or revealed. This ensures you can try our pre-launch offer with zero risk.",
+        q: "What is the 7-day money-back guarantee policy?",
+        a: "Pre-orders and direct web purchases processed via Stripe or Razorpay carry a full 7-day money-back guarantee, provided the digital scratch card sent to your email has not been scratched or revealed. This ensures you can try our pre-launch offer with zero risk.",
         relatedLinks: [
           { title: "About Pre-Launch Orders", href: "/refund-cancellation#pre-launch" },
           { title: "Direct Web Purchase Guarantee", href: "/refund-cancellation#subscriptions" },
@@ -158,7 +158,7 @@ const faqCategories = [
       },
       {
         q: "How do I request a refund for an eligible purchase?",
-        a: "To request a refund within the 14-day window, email billing@getskinstory.com with your account email address and purchase receipt. Approved refunds are credited back to your original payment method within 5–10 business days.",
+        a: "To request a refund within the 7-day window, email billing@getskinstory.com with your account email address and purchase receipt. Approved refunds are credited back to your original payment method within 5–10 business days.",
         relatedLinks: [
           { title: "How to Request a Refund", href: "/refund-cancellation#request-refund" },
           { title: "Read Billing Guidelines", href: "/refund-cancellation#request-refund" },
@@ -224,8 +224,8 @@ function FaqItem({ q, a, relatedLinks, isOpen, onToggle }) {
           : "border border-zinc-200 dark:border-zinc-800"
       }`}
     >
-      <div className="w-full text-left px-6 py-5 flex items-center justify-between gap-4 group">
-        <span className="text-base sm:text-lg font-medium text-zinc-900 dark:text-white leading-snug">
+      <div className="w-full text-left px-7 py-6 flex items-center justify-between gap-4 group">
+        <span className="text-lg sm:text-xl font-medium text-zinc-900 dark:text-white leading-snug">
           {q}
         </span>
         <span

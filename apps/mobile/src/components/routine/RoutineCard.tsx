@@ -85,7 +85,7 @@ export default function RoutineCard({
   cardWidth,
 }: RoutineCardProps) {
   const stepsCount = routine?.stepsCount || (routine?.stepData ? Object.keys(routine.stepData).length : 1);
-  const routineCode = routine?.id?.slice(-6).toUpperCase() || '429172';
+  const routineCode = routine?.shareCode || routine?.id?.slice(-6).toUpperCase() || '------';
   const routineImage = getRoutineImage(routine);
   const routineSubtitle = getRoutineSubtitle(routine);
 
@@ -108,7 +108,13 @@ export default function RoutineCard({
 
   return (
     <Pressable
-      style={[styles.cardOuter, cardWidth ? { width: cardWidth } : null]}
+      style={[
+        styles.cardOuter,
+        cardWidth ? { width: cardWidth } : null,
+        isDark
+          ? { shadowOpacity: 0, elevation: 0 }
+          : { shadowOpacity: 0.22, elevation: 6 },
+      ]}
       onPress={onPress}
     >
       <View style={styles.cardInnerContainer}>
@@ -224,9 +230,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
     shadowRadius: 10,
-    elevation: 6,
   },
   cardInnerContainer: {
     borderRadius: 22,
