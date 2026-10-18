@@ -128,7 +128,7 @@ export default function RoutineCard({
             locations={[0, 0.45, 1]}
             style={styles.cardGradientOverlay}
           >
-            {/* Top Row: Author Pill + Start Routine Button */}
+            {/* Top Row: Author Pill */}
             <View style={styles.cardTopRow}>
               <View style={styles.authorPill}>
                 {avatarSource ? (
@@ -140,16 +140,6 @@ export default function RoutineCard({
                   {authorHandle}
                 </Text>
               </View>
-
-              <Pressable
-                style={styles.startRoutineBtn}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  onStartRoutine?.();
-                }}
-              >
-                <Text style={styles.startRoutineBtnText}>Start Routine</Text>
-              </Pressable>
             </View>
 
             {/* Middle Section: Title in 1 Line + Subtitle in Light Purple Backdrop */}

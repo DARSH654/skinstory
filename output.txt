@@ -1,0 +1,46 @@
+================================================================================
+GORHOM BOTTOM-SHEET INVESTIGATION & OFFICIAL RESEARCH DATA
+================================================================================
+
+1. LOGS TIMING PROOF (From Live Android Device Run):
+- First Click:
+  - "Continue" pressed: 0ms
+  - JS present() invoked: 12.1ms
+  - Native Portal Allocation & Mount: ~100-300ms
+  - Dynamic content measured by layout engine (onLayout): 748.5ms
+  - Slide animation start (onAnimate): 890.6ms
+  - Sheet settled (onChange index 0): 1143.8ms
+- Second Click (when native views are already in memory):
+  - onLayout: 237.5ms
+  - onAnimate: 283.6ms
+  - onChange: 535.9ms
+
+2. OFFICIAL LIBRARY SOURCE & ARCHITECTURE FINDINGS:
+(From https://github.com/gorhom/react-native-bottom-sheet)
+- BottomSheetModal vs inline BottomSheet:
+  - `BottomSheetModal` uses `@gorhom/portal`. It starts with `INITIAL_STATE = { mount: false }`.
+  - When `.present()` is called, React state triggers `mount: true`, mounting the sheet into the portal root at runtime.
+  - When dynamic sizing (`enableDynamicSizing={true}`) is active without a pre-computed or fixed snap point, the sheet layout engine enters a waiting cycle:
+    1. `containerHeight` must be measured from root container.
+    2. Children views (TextInput, buttons, text) must be rendered in the native hierarchy.
+    3. `onLayout` or `onContentSizeChange` must fire back from Android native thread into JS.
+    4. Reanimated worklet `useAnimatedLayout` updates `animatedContentHeight`.
+    5. Reanimated runs `useAnimatedDetents` to resolve the final detent position.
+    6. Only after detents are non-sentinel does Reanimated begin the spring animation `animateToPosition()`.
+  - On Android, calculating and transmitting view hierarchy measurements over the bridge/Fabric takes ~600-750ms when views are first created.
+
+3. OFFICIAL RECOMMENDATIONS & BEST PRACTICES:
+(From Gorhom documentation, GitHub Issues #426, #925, #1573, #1704, and Callstack Performance Guidelines):
+
+A. Snappoints with enableDynamicSizing:
+   - Official docs state: "Setting this prop to true will result in adding a new snap point to the provided snap points and will be sorted accordingly."
+   - If an initial estimated `snapPoints={['50%']}` or fixed detent is provided while `enableDynamicSizing` is computing, Reanimated can start the entry animation immediately to that detent, then smoothly adjust to the content height once measured, rather than blocking the entire slide animation at index -1 until 748ms.
+
+B. BottomSheetView vs BottomSheetScrollView:
+   - For content that doesn't exceed screen height, `BottomSheetView` calculates `contentHeight` directly on the outer container `onLayout` (single pass).
+   - `BottomSheetScrollView` delegates measurement to `handleContentSizeChange` from native ScrollView content size, which takes 2 native passes on Android.
+
+C. Portal Pre-warming / Pre-mounting:
+   - As documented in Gorhom discussion #426, BottomSheetModal's `present()` performs mount-on-demand.
+   - For zero-latency presentations, calling `present()` on screen mount and immediately keeping it closed or utilizing inline `BottomSheet` with `index={-1}` pre-allocates the native view tree so subsequent presentations run at cached speed (~150-200ms instead of 890ms).
+================================================================================

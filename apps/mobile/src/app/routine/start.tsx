@@ -9,6 +9,7 @@ import {
 import { Text } from '@/components/AppText';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchRoutineById, mapSupabaseRoutine } from '@/services/routineService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
@@ -106,11 +107,18 @@ export default function StartRoutineScreen() {
     useCallback(() => {
       const load = async () => {
         try {
-          const stored = await AsyncStorage.getItem('routines');
-          if (stored) {
-            const list = JSON.parse(stored);
-            const found = list.find((r: any) => r.id === id);
-            if (found) setRoutine(found);
+          // Try Supabase first
+          try {
+            const row = await fetchRoutineById(id as string);
+            setRoutine(mapSupabaseRoutine(row));
+          } catch (supabaseErr) {
+            // Fall back to local storage
+            const stored = await AsyncStorage.getItem('routines');
+            if (stored) {
+              const list = JSON.parse(stored);
+              const found = list.find((r: any) => r.id === id);
+              if (found) setRoutine(found);
+            }
           }
         } catch (e) {
           console.error('Failed to load routine', e);

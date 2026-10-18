@@ -27,7 +27,7 @@ export default function RoutineFilterModal({
   filterMinSteps,
   filterMinDos,
   filterMinDonts,
-  hasChanges,
+  hasChanges: parentHasChanges,
   hasAnyApplied,
   onClose,
   onStepsChange,
@@ -39,6 +39,40 @@ export default function RoutineFilterModal({
   const insets = useSafeAreaInsets();
   // Header: safeAreaTop + ~52px content/padding + 16px content paddingTop + 48px searchBar + 1px gap
   const dropdownTop = Math.max(insets.top, 16) + 52 + 16 + 48 + 1;
+
+  // Local draft state to isolate typing from the parent RoutineScreen re-renders
+  const [localSteps, setLocalSteps] = React.useState(filterMinSteps);
+  const [localDos, setLocalDos] = React.useState(filterMinDos);
+  const [localDonts, setLocalDonts] = React.useState(filterMinDonts);
+
+  React.useEffect(() => {
+    if (visible) {
+      setLocalSteps(filterMinSteps);
+      setLocalDos(filterMinDos);
+      setLocalDonts(filterMinDonts);
+    }
+  }, [visible, filterMinSteps, filterMinDos, filterMinDonts]);
+
+  const hasChanges = (
+    localSteps !== filterMinSteps ||
+    localDos !== filterMinDos ||
+    localDonts !== filterMinDonts ||
+    parentHasChanges
+  );
+
+  const handleApply = () => {
+    onStepsChange(localSteps);
+    onDosChange(localDos);
+    onDontsChange(localDonts);
+    onApply();
+  };
+
+  const handleReset = () => {
+    setLocalSteps("");
+    setLocalDos("");
+    setLocalDonts("");
+    onReset();
+  };
 
   return (
     <Modal
@@ -63,10 +97,11 @@ export default function RoutineFilterModal({
           <View style={styles.filterRow}>
             <Text style={[styles.filterLabel, isDark ? styles.textDark : styles.textLight]}>Minimum Steps</Text>
             <TextInput
+              key={`filter-steps-${visible ? 'open' : 'closed'}`}
               style={[styles.filterInput, isDark ? styles.inputBgDark : styles.inputBgLight, isDark ? styles.inputTextDark : styles.inputTextLight]}
               keyboardType="numeric"
-              value={filterMinSteps}
-              onChangeText={onStepsChange}
+              defaultValue={localSteps}
+              onChangeText={setLocalSteps}
               placeholder="0"
               placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
               selectionColor={isDark ? '#a78bfa' : '#9333ea'}
@@ -76,10 +111,11 @@ export default function RoutineFilterModal({
           <View style={styles.filterRow}>
             <Text style={[styles.filterLabel, isDark ? styles.textDark : styles.textLight]}>Minimum Do's</Text>
             <TextInput
+              key={`filter-dos-${visible ? 'open' : 'closed'}`}
               style={[styles.filterInput, isDark ? styles.inputBgDark : styles.inputBgLight, isDark ? styles.inputTextDark : styles.inputTextLight]}
               keyboardType="numeric"
-              value={filterMinDos}
-              onChangeText={onDosChange}
+              defaultValue={localDos}
+              onChangeText={setLocalDos}
               placeholder="0"
               placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
               selectionColor={isDark ? '#a78bfa' : '#9333ea'}
@@ -89,10 +125,11 @@ export default function RoutineFilterModal({
           <View style={styles.filterRow}>
             <Text style={[styles.filterLabel, isDark ? styles.textDark : styles.textLight]}>Minimum Don'ts</Text>
             <TextInput
+              key={`filter-donts-${visible ? 'open' : 'closed'}`}
               style={[styles.filterInput, isDark ? styles.inputBgDark : styles.inputBgLight, isDark ? styles.inputTextDark : styles.inputTextLight]}
               keyboardType="numeric"
-              value={filterMinDonts}
-              onChangeText={onDontsChange}
+              defaultValue={localDonts}
+              onChangeText={setLocalDonts}
               placeholder="0"
               placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
               selectionColor={isDark ? '#a78bfa' : '#9333ea'}
@@ -102,18 +139,18 @@ export default function RoutineFilterModal({
           <View style={styles.modalActions}>
             {/* Clear: enabled only when filters are applied */}
             <Pressable
-              onPress={onReset}
-              disabled={!hasAnyApplied}
+              onPress={handleReset}
+              disabled={!hasAnyApplied && !localSteps && !localDos && !localDonts}
               style={[
                 styles.actionBtn,
                 isDark ? styles.clearBtnDark : styles.clearBtnLight,
-                !hasAnyApplied && styles.disabledClearBtn,
+                (!hasAnyApplied && !localSteps && !localDos && !localDonts) && styles.disabledClearBtn,
               ]}
             >
               <Text style={[
                 styles.clearBtnText,
                 isDark ? styles.clearTextDark : styles.clearTextLight,
-                !hasAnyApplied && styles.disabledClearText,
+                (!hasAnyApplied && !localSteps && !localDos && !localDonts) && styles.disabledClearText,
               ]}>
                 Clear
               </Text>
@@ -121,7 +158,7 @@ export default function RoutineFilterModal({
 
             {/* Apply: enabled only when inputs differ from current applied state */}
             <Pressable
-              onPress={onApply}
+              onPress={handleApply}
               disabled={!hasChanges}
               style={[
                 styles.actionBtn,

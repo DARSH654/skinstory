@@ -24,6 +24,8 @@ import { BlurView } from 'expo-blur';
 import { 
   ArrowLeftRight,
   ChevronDown,
+  ChevronUp,
+  Plus,
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   Maximize2,
@@ -156,6 +158,7 @@ export default function ProgressScreen() {
   // Receive selected scan IDs from select-scans picker
   const params = useLocalSearchParams<{ compareScanIds?: string }>();
   const [compareIds, setCompareIds] = useState<string[]>(['1', '2']);
+  const [isChatsExpanded, setIsChatsExpanded] = useState<boolean>(true);
 
   // Refs for auto-scroll to compare section
   const mainScrollRef = useRef<ScrollView>(null);
@@ -400,7 +403,7 @@ export default function ProgressScreen() {
                 params: { selectedIds: JSON.stringify(compareIds) },
               })
             }
-            style={[styles.selectScanBtn, { backgroundColor: isDark ? '#000000' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', borderWidth: 1 }]}
+            style={[styles.selectScanBtn, { backgroundColor: isDark ? '#1c1c1e' : '#ffffff', borderColor: isDark ? '#27272a' : 'rgba(0,0,0,0.1)', borderWidth: 1 }]}
           >
             <Text style={[styles.selectScanText, { color: colors.text }]}>Select Photos</Text>
             <ChevronDown size={16} color={colors.text} />
@@ -484,9 +487,79 @@ export default function ProgressScreen() {
             />
           </View>
         </View>
+        {/* Your Chats Section */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.chatTitleWithChevron}>
+            <Text style={[styles.sectionTitleOutside, { color: colors.text }]}>Your Chats</Text>
+            <TouchableOpacity
+              onPress={() => setIsChatsExpanded((prev) => !prev)}
+              activeOpacity={0.7}
+              style={[
+                styles.chevronToggleBtn,
+                {
+                  backgroundColor: isDark ? '#27272a' : '#ffffff',
+                  borderColor: isDark ? '#3f3f46' : '#d1d5db',
+                  borderWidth: 1.5,
+                },
+              ]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {isChatsExpanded ? (
+                <ChevronDown size={17} color={isDark ? '#ffffff' : '#1f2937'} strokeWidth={2.4} />
+              ) : (
+                <ChevronRightIcon size={17} color={isDark ? '#ffffff' : '#1f2937'} strokeWidth={2.4} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <Pressable
+            onPress={() => {
+              if (isNavigating.current) return;
+              isNavigating.current = true;
+              router.push('/new-chat' as any);
+              setTimeout(() => {
+                isNavigating.current = false;
+              }, 1000);
+            }}
+            style={[
+              styles.selectScanBtn,
+              {
+                backgroundColor: isDark ? '#1c1c1e' : '#ffffff',
+                borderColor: isDark ? '#27272a' : 'rgba(0,0,0,0.1)',
+                borderWidth: 1,
+              },
+            ]}
+          >
+            <Plus size={16} color={colors.text} strokeWidth={2.4} />
+            <Text style={[styles.selectScanText, { color: colors.text }]}>New Chat</Text>
+          </Pressable>
+        </View>
+
+        {isChatsExpanded && (
+          <View
+            style={[
+              styles.card,
+              styles.chatSubCard,
+              {
+                backgroundColor: isDark ? '#1c1c1e' : '#f8f8fa',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                borderWidth: 1,
+                paddingVertical: 18,
+                paddingHorizontal: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+              },
+            ]}
+          >
+            <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '500', textAlign: 'center' }}>
+              No recent chats yet. Tap New Chat to begin!
+            </Text>
+          </View>
+        )}
+
         {/* Insight Report Section */}
         <View style={styles.insightTitleRow}>
-          <Text style={[styles.sectionTitleOutside, { color: colors.text }]}>Your Insights</Text>
+          <Text style={[styles.sectionTitleOutside, { color: colors.text }]}>Your Personalized Insight Reports</Text>
         </View>
 
         {INSIGHT_CARDS.map((card) => (
@@ -559,6 +632,43 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 2,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 4,
+  },
+  chatTitleWithChevron: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  chevronToggleBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  chatSubCard: {
+    padding: 10,
+    marginTop: 8,
+  },
+  chatInnerCard: {
+    borderRadius: 16,
+    paddingVertical: 22,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   insightHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -602,7 +712,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   sectionTitleOutside: {
-    fontSize: 18,             // Bigger section title
+    fontSize: 20,             // Increased font size
     fontWeight: '800',
     letterSpacing: -0.3,
   },

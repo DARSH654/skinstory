@@ -133,9 +133,7 @@ export default function SelectScansScreen() {
 
   // Auto-expand panel ONLY when transitioning from 0 to 1 selected items
   useEffect(() => {
-    console.log('[DEBUG-SELECT-SCANS] selectedIds changed:', selectedIds, 'prevCount:', prevSelectedLengthRef.current);
     if (prevSelectedLengthRef.current === 0 && selectedIds.length === 1) {
-      console.log('[DEBUG-SELECT-SCANS] First scan selected -> Auto-expanding comparison panel.');
       setIsPanelExpanded(true);
       panelAnim.stopAnimation();
       Animated.timing(panelAnim, {
@@ -148,19 +146,15 @@ export default function SelectScansScreen() {
   }, [selectedIds.length]);
 
   const togglePanel = () => {
-    console.log('[DEBUG-SELECT-SCANS] togglePanel clicked! Current isPanelExpanded:', isPanelExpanded);
     const nextState = !isPanelExpanded;
     setIsPanelExpanded(nextState);
     const targetValue = nextState ? 1 : 0;
-    console.log('[DEBUG-SELECT-SCANS] Animating panelAnim to targetValue:', targetValue);
     panelAnim.stopAnimation();
     Animated.timing(panelAnim, {
       toValue: targetValue,
       duration: 220,
       useNativeDriver: false,
-    }).start(({ finished }) => {
-      console.log('[DEBUG-SELECT-SCANS] Panel animation completed. Finished:', finished, 'Final isPanelExpanded:', nextState);
-    });
+    }).start();
   };
 
   const getTimelineLabel = () => {
@@ -194,7 +188,6 @@ export default function SelectScansScreen() {
   });
 
   const toggleScan = (id: string) => {
-    console.log('[DEBUG-SELECT-SCANS] toggleScan called for scan ID:', id);
     setSelectedIds((prev) => {
       let next: string[];
       if (prev.includes(id)) {
@@ -204,7 +197,6 @@ export default function SelectScansScreen() {
       } else {
         next = [...prev, id];
       }
-      console.log('[DEBUG-SELECT-SCANS] Updated selectedIds array:', next);
       return next;
     });
   };
@@ -220,10 +212,10 @@ export default function SelectScansScreen() {
   const beforeScan = selectedIds[0] ? MOCK_SCANS.find((s) => s.id === selectedIds[0]) : null;
   const afterScan  = selectedIds[1] ? MOCK_SCANS.find((s) => s.id === selectedIds[1]) : null;
 
-  // Animated panel height: expands to 175 when items are selected and expanded
+  // Animated panel height
   const panelContentHeight = panelAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 175],
+    outputRange: [0, 185],
   });
 
   return (
@@ -236,13 +228,13 @@ export default function SelectScansScreen() {
           { paddingBottom: insets.bottom + 80 },
         ]}
       >
-        {/* Inline Header: Title on line 1, controls on next line to prevent overlap */}
+        {/* Inline Header: Title and controls on the same line */}
         <View style={styles.headerContainer}>
           <Text style={[styles.headerTitleInline, { color: isDark ? '#ffffff' : '#111827' }]}>
             Select Photos
           </Text>
 
-          {/* Controls Row: Timeline filter + Grid/List toggle on the next line */}
+          {/* Controls: Timeline filter + Grid/List toggle */}
           <View style={styles.headerControlsRow}>
             {/* Timeline filter */}
             <View style={{ position: 'relative', zIndex: 100 }}>
@@ -288,7 +280,7 @@ export default function SelectScansScreen() {
                     >
                       <Text style={[
                         styles.dropdownItemText,
-                        { color: timelineFilter === item.key ? Colors.light.primary : (isDark ? '#ffffff' : '#111827') },
+                        { color: isDark ? '#ffffff' : '#111827' },
                         timelineFilter === item.key && { fontWeight: '700' },
                       ]}>
                         {item.label}
@@ -471,10 +463,11 @@ export default function SelectScansScreen() {
                     Start Date (YYYY-MM-DD)
                   </Text>
                   <TextInput
+                    key={`select-scan-start-date-${isCustomModalOpen ? 'open' : 'closed'}`}
                     style={[styles.dateInput, isDark ? styles.inputDark : styles.inputLight]}
                     placeholder="e.g. 2026-07-01 or 2026-7-1"
                     placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-                    value={startDate}
+                    defaultValue={startDate}
                     onChangeText={setStartDate}
                     autoCapitalize="none"
                   />
@@ -485,10 +478,11 @@ export default function SelectScansScreen() {
                     End Date (YYYY-MM-DD)
                   </Text>
                   <TextInput
+                    key={`select-scan-end-date-${isCustomModalOpen ? 'open' : 'closed'}`}
                     style={[styles.dateInput, isDark ? styles.inputDark : styles.inputLight]}
                     placeholder="e.g. 2026-07-28 or 2026-7-28"
                     placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-                    value={endDate}
+                    defaultValue={endDate}
                     onChangeText={setEndDate}
                     autoCapitalize="none"
                   />
@@ -585,8 +579,8 @@ export default function SelectScansScreen() {
                 )}
               </View>
 
-              {/* Thicker & Bigger Arrow divider */}
-              <View style={styles.timelineDividerThick}>
+              {/* Arrow divider with circle badge in between */}
+              <View style={[styles.timelineDividerThick, { backgroundColor: isDark ? '#27272a' : '#f4f4f5' }]}>
                 <View style={[styles.timelineLineThick, { backgroundColor: isDark ? '#52525b' : '#cbd5e1' }]} />
                 <View style={[styles.timelineArrowHeadThick, { borderLeftColor: isDark ? '#52525b' : '#cbd5e1' }]} />
               </View>
@@ -627,7 +621,7 @@ export default function SelectScansScreen() {
 
           {selectedIds.length > 0 && (
             <Pressable onPress={togglePanel} style={styles.handleCircleBtn}>
-              <View style={[styles.handleIconBgCircle, { backgroundColor: isDark ? '#27272a' : '#f4f4f5' }]}>
+              <View style={[styles.handleIconBgCircle, { backgroundColor: isDark ? '#27272a' : '#ffffff' }]}>
                 {isPanelExpanded ? (
                   <ChevronDown size={26} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={3} />
                 ) : (
@@ -647,19 +641,21 @@ const styles = StyleSheet.create({
 
   // Header inside ScrollView
   headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
     zIndex: 100,
   },
   headerTitleInline: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.4,
-    marginBottom: 12,
   },
   headerControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
     zIndex: 100,
   },
 
@@ -708,8 +704,8 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 8,
   },
-  itemActiveLight: { backgroundColor: 'rgba(168,85,247,0.12)' },
-  itemActiveDark:  { backgroundColor: 'rgba(168,85,247,0.25)' },
+  itemActiveLight: { backgroundColor: '#f4f4f5' },
+  itemActiveDark:  { backgroundColor: '#27272a' },
   dropdownItemText: { fontSize: 12, fontWeight: '500', textAlign: 'center' },
 
   // View toggle pill
@@ -1058,26 +1054,31 @@ const styles = StyleSheet.create({
   timelineRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     paddingBottom: 16,
-    gap: 20,
+    gap: 10,
+    width: '100%',
   },
   timelineSlot: {
+    flex: 1,
     alignItems: 'center',
   },
   slotImageContainer: {
     position: 'relative',
-    alignItems: 'center',
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   timelineThumbBig: {
-    width: 155,
-    height: 155,
-    borderRadius: 22,
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
   },
   timelineEmptyBig: {
-    width: 155,
-    height: 155,
-    borderRadius: 22,
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
     borderWidth: 2,
     borderStyle: 'dashed',
     alignItems: 'center',
@@ -1098,21 +1099,24 @@ const styles = StyleSheet.create({
   },
   timelineLabelText: { color: '#ffffff', fontSize: 10, fontWeight: '800' },
   timelineDividerThick: {
-    flexDirection: 'row',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
-    width: 44,
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   timelineLineThick: {
-    flex: 1,
-    height: 3,
+    width: 14,
+    height: 2.5,
     borderRadius: 1.5,
   },
   timelineArrowHeadThick: {
     width: 0,
     height: 0,
-    borderTopWidth: 7,
-    borderBottomWidth: 7,
-    borderLeftWidth: 10,
+    borderTopWidth: 5,
+    borderBottomWidth: 5,
+    borderLeftWidth: 7,
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
   },

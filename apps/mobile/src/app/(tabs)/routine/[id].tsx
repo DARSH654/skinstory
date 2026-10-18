@@ -13,12 +13,14 @@ import {
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-// import { fetchRoutineById, mapSupabaseRoutine } from '@/services/routineService';
+import { fetchRoutineById, mapSupabaseRoutine } from '@/services/routineService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Clock, ArrowLeft, ArrowRight, ExternalLink, Package, Images as LucideImages } from 'lucide-react-native';
 import { Colors } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
+
+import RoutineDetailSkeleton from '@/components/routine/RoutineDetailSkeleton';
 
 export default function RoutineViewerScreen() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
@@ -39,14 +41,19 @@ export default function RoutineViewerScreen() {
     useCallback(() => {
       const loadRoutine = async () => {
         try {
-          // Backend fetch commented out for Google Play review:
-          // const row = await fetchRoutineById(id as string);
-          // setRoutine(mapSupabaseRoutine(row));
-          const stored = await AsyncStorage.getItem('routines');
-          const list = stored ? JSON.parse(stored) : [];
-          const found = list.find((r: any) => String(r.id) === String(id));
-          if (found) {
-            setRoutine(found);
+          // Try Supabase first
+          try {
+            const row = await fetchRoutineById(id as string);
+            setRoutine(mapSupabaseRoutine(row));
+          } catch (supabaseErr) {
+            // Supabase unavailable — fall back to local
+            console.log("Supabase fetch failed, using local storage", supabaseErr);
+            const stored = await AsyncStorage.getItem('routines');
+            const list = stored ? JSON.parse(stored) : [];
+            const found = list.find((r: any) => String(r.id) === String(id));
+            if (found) {
+              setRoutine(found);
+            }
           }
         } catch (e) {
           console.error("Error loading routine", e);
@@ -63,11 +70,7 @@ export default function RoutineViewerScreen() {
   const totalSteps = stepsKeys.length;
 
   if (loading) {
-    return (
-      <View style={[styles.container, isDark ? styles.bgDark : styles.bgLight, styles.centerAll]}>
-        <Text style={isDark ? styles.textDark : styles.textLight}>Loading...</Text>
-      </View>
-    );
+    return <RoutineDetailSkeleton isDark={isDark} />;
   }
 
   if (!routine) {

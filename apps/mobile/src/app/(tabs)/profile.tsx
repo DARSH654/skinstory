@@ -140,22 +140,27 @@ export default function ProfileScreen() {
   const [avatarUri, setAvatarUri] = React.useState<string | null>(null);
   const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');
+  const nameRef = React.useRef('');
+  const emailRef = React.useRef('');
   const [isPublic, setIsPublic] = React.useState(false);
   const [notificationsOn, setNotificationsOn] = React.useState(true);
   const [showPublicModal, setShowPublicModal] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
-  const [deleteInput, setDeleteInput] = React.useState('');
+  const [canDelete, setCanDelete] = React.useState(false);
+  const deleteInputRef = React.useRef('');
 
   // Support Form Modal State
   const [showSupportModal, setShowSupportModal] = React.useState(false);
-  const [supportName, setSupportName] = React.useState('');
-  const [supportEmail, setSupportEmail] = React.useState('');
-  const [supportIssue, setSupportIssue] = React.useState('');
+  const [hasSupportIssue, setHasSupportIssue] = React.useState(false);
+  const supportNameRef = React.useRef('');
+  const supportEmailRef = React.useRef('');
+  const supportIssueRef = React.useRef('');
 
   // Feedback Form Modal State
   const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
-  const [feedbackText, setFeedbackText] = React.useState('');
+  const [hasFeedbackText, setHasFeedbackText] = React.useState(false);
+  const feedbackTextRef = React.useRef('');
 
   const primary = Colors.light.primary;
 
@@ -166,8 +171,14 @@ export default function ProfileScreen() {
         const stored = await AsyncStorage.getItem('user_profile');
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (parsed.name) setName(parsed.name);
-          if (parsed.email) setEmail(parsed.email);
+          if (parsed.name) {
+            setName(parsed.name);
+            nameRef.current = parsed.name;
+          }
+          if (parsed.email) {
+            setEmail(parsed.email);
+            emailRef.current = parsed.email;
+          }
           if (parsed.avatarUri) setAvatarUri(parsed.avatarUri);
         }
       } catch (e) {
@@ -192,18 +203,18 @@ export default function ProfileScreen() {
 
   const handleNameChange = (text: string) => {
     const limited = text.slice(0, 20);
-    setName(limited);
-    saveProfileData(limited, email, avatarUri);
+    nameRef.current = limited;
+    saveProfileData(limited, emailRef.current, avatarUri);
   };
 
   const handleEmailChange = (text: string) => {
-    setEmail(text);
-    saveProfileData(name, text, avatarUri);
+    emailRef.current = text;
+    saveProfileData(nameRef.current, text, avatarUri);
   };
 
   const handleAvatarChange = (uri: string | null) => {
     setAvatarUri(uri);
-    saveProfileData(name, email, uri);
+    saveProfileData(nameRef.current, emailRef.current, uri);
   };
 
   const setScheme = (newScheme: 'light' | 'dark' | 'system') => {
@@ -281,10 +292,11 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, isDark ? styles.textDark : styles.textLight]}>Name</Text>
           <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
             <TextInput
+              key={`profile-name-input-${name ? 'loaded' : 'empty'}`}
               style={[styles.fieldInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
               placeholder="Enter your name"
               placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-              value={name}
+              defaultValue={name}
               onChangeText={handleNameChange}
               maxLength={20}
               returnKeyType="next"
@@ -296,10 +308,11 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, isDark ? styles.textDark : styles.textLight, { marginTop: 22 }]}>Email</Text>
           <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
             <TextInput
+              key={`profile-email-input-${email ? 'loaded' : 'empty'}`}
               style={[styles.fieldInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
               placeholder="Enter your email"
               placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-              value={email}
+              defaultValue={email}
               onChangeText={handleEmailChange}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -408,9 +421,10 @@ export default function ProfileScreen() {
             <Pressable
               style={styles.option}
               onPress={() => {
-                setSupportName(name);
-                setSupportEmail(email);
-                setSupportIssue('');
+                supportNameRef.current = nameRef.current || name;
+                supportEmailRef.current = emailRef.current || email;
+                supportIssueRef.current = '';
+                setHasSupportIssue(false);
                 setShowSupportModal(true);
               }}
             >
@@ -429,7 +443,8 @@ export default function ProfileScreen() {
             <Pressable
               style={styles.option}
               onPress={() => {
-                setFeedbackText('');
+                feedbackTextRef.current = '';
+                setHasFeedbackText(false);
                 setShowFeedbackModal(true);
               }}
             >
@@ -510,7 +525,8 @@ export default function ProfileScreen() {
             <Pressable
               style={[styles.accountBtn, styles.deleteBtn]}
               onPress={() => {
-                setDeleteInput('');
+                deleteInputRef.current = '';
+                setCanDelete(false);
                 setShowDeleteModal(true);
               }}
             >
@@ -650,11 +666,18 @@ export default function ProfileScreen() {
             </Text>
 
             <TextInput
+              key={`profile-delete-${showDeleteModal ? 'open' : 'closed'}`}
               style={[styles.deleteInput, isDark ? styles.deleteInputDark : styles.deleteInputLight]}
               placeholder="delete"
               placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-              value={deleteInput}
-              onChangeText={setDeleteInput}
+              defaultValue={deleteInputRef.current}
+              onChangeText={(val) => {
+                deleteInputRef.current = val;
+                const matches = val.trim().toLowerCase() === 'delete';
+                if (matches !== canDelete) {
+                  setCanDelete(matches);
+                }
+              }}
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -662,7 +685,11 @@ export default function ProfileScreen() {
             <View style={styles.modalBtnRow}>
               <Pressable
                 style={[styles.modalActionBtn, isDark ? styles.cancelBtnDark : styles.cancelBtnLight]}
-                onPress={() => setShowDeleteModal(false)}
+                onPress={() => {
+                  deleteInputRef.current = '';
+                  setCanDelete(false);
+                  setShowDeleteModal(false);
+                }}
               >
                 <Text style={[styles.cancelBtnText, isDark ? styles.textDark : styles.textLight]}>
                   Cancel
@@ -672,17 +699,19 @@ export default function ProfileScreen() {
               <Pressable
                 style={[
                   styles.modalActionBtn,
-                  { backgroundColor: deleteInput.trim().toLowerCase() === 'delete' ? '#ef4444' : (isDark ? '#27272a' : '#e5e7eb') },
+                  { backgroundColor: canDelete ? '#ef4444' : (isDark ? '#27272a' : '#e5e7eb') },
                 ]}
-                disabled={deleteInput.trim().toLowerCase() !== 'delete'}
+                disabled={!canDelete}
                 onPress={() => {
-                  if (deleteInput.trim().toLowerCase() === 'delete') {
+                  if (canDelete) {
+                    deleteInputRef.current = '';
+                    setCanDelete(false);
                     setShowDeleteModal(false);
                     Alert.alert('Account Deleted', 'Your account and data have been scheduled for deletion.');
                   }
                 }}
               >
-                <Text style={[styles.confirmBtnText, { color: deleteInput.trim().toLowerCase() === 'delete' ? '#ffffff' : (isDark ? '#71717a' : '#9ca3af') }]}>Delete</Text>
+                <Text style={[styles.confirmBtnText, { color: canDelete ? '#ffffff' : (isDark ? '#71717a' : '#9ca3af') }]}>Delete</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -727,11 +756,12 @@ export default function ProfileScreen() {
               <Text style={[styles.formFieldLabel, isDark ? styles.textDark : styles.textLight]}>Name</Text>
               <View style={[styles.formFieldCard, isDark ? styles.cardDark : styles.cardLight]}>
                 <TextInput
+                  key={`support-name-${showSupportModal ? 'open' : 'closed'}`}
                   style={[styles.formFieldInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
                   placeholder="Enter your name"
                   placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-                  value={supportName}
-                  onChangeText={setSupportName}
+                  defaultValue={supportNameRef.current}
+                  onChangeText={(val) => { supportNameRef.current = val; }}
                   autoCorrect={false}
                 />
               </View>
@@ -740,11 +770,12 @@ export default function ProfileScreen() {
               <Text style={[styles.formFieldLabel, isDark ? styles.textDark : styles.textLight, { marginTop: 14 }]}>Email</Text>
               <View style={[styles.formFieldCard, isDark ? styles.cardDark : styles.cardLight]}>
                 <TextInput
+                  key={`support-email-${showSupportModal ? 'open' : 'closed'}`}
                   style={[styles.formFieldInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
                   placeholder="Enter your email"
                   placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-                  value={supportEmail}
-                  onChangeText={setSupportEmail}
+                  defaultValue={supportEmailRef.current}
+                  onChangeText={(val) => { supportEmailRef.current = val; }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -755,11 +786,18 @@ export default function ProfileScreen() {
               <Text style={[styles.formFieldLabel, isDark ? styles.textDark : styles.textLight, { marginTop: 14 }]}>Your Message</Text>
               <View style={[styles.formFieldCard, isDark ? styles.cardDark : styles.cardLight]}>
                 <TextInput
+                  key={`support-issue-${showSupportModal ? 'open' : 'closed'}`}
                   style={[styles.formFieldInput, styles.largeFormMessageInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
                   placeholder="Describe your issue in detail..."
                   placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-                  value={supportIssue}
-                  onChangeText={setSupportIssue}
+                  defaultValue={supportIssueRef.current}
+                  onChangeText={(val) => {
+                    supportIssueRef.current = val;
+                    const has = val.trim().length > 0;
+                    if (has !== hasSupportIssue) {
+                      setHasSupportIssue(has);
+                    }
+                  }}
                   multiline
                   textAlignVertical="top"
                 />
@@ -779,15 +817,19 @@ export default function ProfileScreen() {
                 <Pressable
                   style={[
                     styles.modalActionBtn,
-                    { backgroundColor: supportIssue.trim().length > 0 ? primary : (isDark ? '#27272a' : '#e5e7eb') },
+                    { backgroundColor: hasSupportIssue ? primary : (isDark ? '#27272a' : '#e5e7eb') },
                   ]}
-                  disabled={supportIssue.trim().length === 0}
+                  disabled={!hasSupportIssue}
                   onPress={() => {
+                    supportNameRef.current = '';
+                    supportEmailRef.current = '';
+                    supportIssueRef.current = '';
+                    setHasSupportIssue(false);
                     setShowSupportModal(false);
                     Alert.alert('Request Sent', 'Thank you! Our support team has received your request and will contact you shortly.');
                   }}
                 >
-                  <Text style={[styles.confirmBtnText, { color: supportIssue.trim().length > 0 ? '#ffffff' : (isDark ? '#71717a' : '#9ca3af') }]}>
+                  <Text style={[styles.confirmBtnText, { color: hasSupportIssue ? '#ffffff' : (isDark ? '#71717a' : '#9ca3af') }]}>
                     Submit
                   </Text>
                 </Pressable>
@@ -834,11 +876,18 @@ export default function ProfileScreen() {
               {/* Feedback Description Area (Bigger) */}
               <View style={[styles.formFieldCard, isDark ? styles.cardDark : styles.cardLight]}>
                 <TextInput
+                  key={`feedback-text-${showFeedbackModal ? 'open' : 'closed'}`}
                   style={[styles.formFieldInput, styles.largeFeedbackTextarea, isDark ? styles.inputTextDark : styles.inputTextLight]}
                   placeholder="Write your suggestions, bugs, or thoughts here..."
                   placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-                  value={feedbackText}
-                  onChangeText={setFeedbackText}
+                  defaultValue={feedbackTextRef.current}
+                  onChangeText={(val) => {
+                    feedbackTextRef.current = val;
+                    const has = val.trim().length > 0;
+                    if (has !== hasFeedbackText) {
+                      setHasFeedbackText(has);
+                    }
+                  }}
                   multiline
                   textAlignVertical="top"
                 />
@@ -857,15 +906,17 @@ export default function ProfileScreen() {
                 <Pressable
                   style={[
                     styles.modalActionBtn,
-                    { backgroundColor: feedbackText.trim().length > 0 ? primary : (isDark ? '#27272a' : '#e5e7eb') },
+                    { backgroundColor: hasFeedbackText ? primary : (isDark ? '#27272a' : '#e5e7eb') },
                   ]}
-                  disabled={feedbackText.trim().length === 0}
+                  disabled={!hasFeedbackText}
                   onPress={() => {
+                    feedbackTextRef.current = '';
+                    setHasFeedbackText(false);
                     setShowFeedbackModal(false);
                     Alert.alert('Feedback Received', 'Thank you for helping us improve Skin Story!');
                   }}
                 >
-                  <Text style={[styles.confirmBtnText, { color: feedbackText.trim().length > 0 ? '#ffffff' : (isDark ? '#71717a' : '#9ca3af') }]}>
+                  <Text style={[styles.confirmBtnText, { color: hasFeedbackText ? '#ffffff' : (isDark ? '#71717a' : '#9ca3af') }]}>
                     Submit
                   </Text>
                 </Pressable>

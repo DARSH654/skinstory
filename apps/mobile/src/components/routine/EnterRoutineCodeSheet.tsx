@@ -36,7 +36,8 @@ const EnterRoutineCodeSheet = forwardRef<EnterRoutineCodeSheetRef, EnterRoutineC
 }, ref) => {
   const insets = useSafeAreaInsets();
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-  const [addCodeValue, setAddCodeValue] = useState("");
+  const [hasCode, setHasCode] = useState(false);
+  const addCodeValueRef = useRef("");
   const [toastMessage, setToastMessage] = useState("");
 
   const toastSlideAnim = useRef(new Animated.Value(-80)).current;
@@ -156,16 +157,18 @@ const EnterRoutineCodeSheet = forwardRef<EnterRoutineCodeSheetRef, EnterRoutineC
   };
 
   const handleEnterCode = () => {
-    if (addCodeValue.length === 0) return;
+    const code = addCodeValueRef.current.trim();
+    if (code.length === 0) return;
     
-    if (addCodeValue.length < 6) {
+    if (code.length < 6) {
       showToast("Enter a 6-digit code");
       return;
     }
     
     Keyboard.dismiss();
     bottomSheetModalRef.current?.dismiss();
-    setAddCodeValue("");
+    addCodeValueRef.current = "";
+    setHasCode(false);
     onSuccess("Routine code successfully added!");
   };
 
@@ -180,6 +183,8 @@ const EnterRoutineCodeSheet = forwardRef<EnterRoutineCodeSheetRef, EnterRoutineC
       backdropComponent={renderBackdrop}
       onDismiss={() => {
         Keyboard.dismiss();
+        addCodeValueRef.current = "";
+        setHasCode(false);
         onDismiss?.();
       }}
       handleStyle={styles.handleContainer}
@@ -194,6 +199,7 @@ const EnterRoutineCodeSheet = forwardRef<EnterRoutineCodeSheetRef, EnterRoutineC
         </Text>
         
         <BottomSheetTextInput
+          key="routine-code-input"
           style={[
             styles.sheetInput,
             isDark ? styles.sheetInputDark : styles.sheetInputLight,
@@ -201,13 +207,17 @@ const EnterRoutineCodeSheet = forwardRef<EnterRoutineCodeSheetRef, EnterRoutineC
           ]}
           placeholder="E.G. A3F9B2"
           placeholderTextColor={isDark ? "#52525b" : "#9ca3af"}
-          value={addCodeValue}
+          defaultValue={addCodeValueRef.current}
           maxLength={6}
           autoCapitalize="characters"
           textAlign="center"
           onChangeText={(val) => {
             const sanitized = val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-            setAddCodeValue(sanitized);
+            addCodeValueRef.current = sanitized;
+            const filled = sanitized.length > 0;
+            if (filled !== hasCode) {
+              setHasCode(filled);
+            }
           }}
           onSubmitEditing={handleEnterCode}
         />
@@ -221,8 +231,8 @@ const EnterRoutineCodeSheet = forwardRef<EnterRoutineCodeSheetRef, EnterRoutineC
           </Pressable>
           <Pressable 
             onPress={handleEnterCode}
-            disabled={addCodeValue.length === 0}
-            style={[styles.sheetActionBtn, styles.sheetBtnEnter, addCodeValue.length === 0 && styles.disabledBtn]}
+            disabled={!hasCode}
+            style={[styles.sheetActionBtn, styles.sheetBtnEnter, !hasCode && styles.disabledBtn]}
           >
             <Text style={styles.sheetBtnEnterText}>Enter</Text>
           </Pressable>

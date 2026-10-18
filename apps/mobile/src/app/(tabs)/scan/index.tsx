@@ -26,8 +26,6 @@ import {
   AlertCircle, 
   ChevronRight, 
   SlidersHorizontal,
-  LayoutList,
-  LayoutGrid,
   ChevronDown,
   ChevronUp,
   Calendar,
@@ -52,9 +50,6 @@ export default function ScanLandingScreen() {
   const hasPermission = permission?.granted ?? false;
 
   // Zustand Store (kept for potential future use)
-
-  // Layout View State: 'grid' | 'list'
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Skin Type Filter State
   const [skinTypeFilter, setSkinTypeFilter] = useState<string>('All');
@@ -287,7 +282,7 @@ export default function ScanLandingScreen() {
             <View style={styles.historyTopSection}>
               <View style={styles.historyHeaderRow}>
                 <Text style={[styles.historyTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
-                  Your Scans
+                  Your Photos
                 </Text>
 
                 <View style={styles.headerRightActions}>
@@ -335,7 +330,7 @@ export default function ScanLandingScreen() {
                           >
                             <Text style={[
                               styles.dropdownItemText,
-                              { color: timelineFilter === item.key ? Colors.light.primary : (isDark ? '#ffffff' : '#111827') },
+                              { color: isDark ? '#ffffff' : '#111827' },
                               timelineFilter === item.key && { fontWeight: '700' }
                             ]}>
                               {item.label}
@@ -345,105 +340,35 @@ export default function ScanLandingScreen() {
                       </View>
                     )}
                   </View>
-
-                  {/* View Mode Toggle (Pill Shape: Grid vs List) */}
-                  <View style={[styles.viewToggleGroupPill, isDark ? styles.viewToggleDark : styles.viewToggleLight]}>
-                    <Pressable
-                      onPress={() => setViewMode('grid')}
-                      style={[
-                        styles.toggleBtnPill,
-                        viewMode === 'grid'
-                          ? (isDark ? styles.toggleActiveDark : styles.toggleActiveLight)
-                          : styles.toggleInactiveBtnPill,
-                      ]}
-                    >
-                      <LayoutGrid size={15} color={viewMode === 'grid' ? (isDark ? '#ffffff' : '#111827') : (isDark ? '#a1a1aa' : '#6b7280')} />
-                      {viewMode === 'grid' && (
-                        <Text style={[styles.toggleBtnText, { color: isDark ? '#ffffff' : '#111827' }]}>
-                          Grid
-                        </Text>
-                      )}
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setViewMode('list')}
-                      style={[
-                        styles.toggleBtnPill,
-                        viewMode === 'list'
-                          ? (isDark ? styles.toggleActiveDark : styles.toggleActiveLight)
-                          : styles.toggleInactiveBtnPill,
-                      ]}
-                    >
-                      <LayoutList size={15} color={viewMode === 'list' ? (isDark ? '#ffffff' : '#111827') : (isDark ? '#a1a1aa' : '#6b7280')} />
-                      {viewMode === 'list' && (
-                        <Text style={[styles.toggleBtnText, { color: isDark ? '#ffffff' : '#111827' }]}>
-                          List
-                        </Text>
-                      )}
-                    </Pressable>
-                  </View>
                 </View>
               </View>
             </View>
 
-            {/* Scans Render (Grid vs List Layout) */}
+            {/* Scans Render (Always 2-Column Grid Layout) */}
             {filteredScans.length > 0 ? (
-              viewMode === 'grid' ? (
-                /* Grid View (2-Column Grid matching Select Scans style) */
-                <View style={styles.scansGrid}>
-                  {filteredScans.map((scan) => (
-                    <Pressable
-                      key={scan.id}
-                      onPress={() => guardedNavigate(`/scan/${scan.id}`)}
-                      style={[styles.scanBoxGrid, isDark ? styles.cardDark : styles.cardLight]}
-                    >
-                      <View style={styles.scanBoxGridImageWrapper}>
-                        <Image source={scan.image} style={styles.scanBoxGridImage} resizeMode="cover" />
+              <View style={styles.scansGrid}>
+                {filteredScans.map((scan) => (
+                  <Pressable
+                    key={scan.id}
+                    onPress={() => guardedNavigate(`/scan/${scan.id}`)}
+                    style={[styles.scanBoxGrid, isDark ? styles.cardDark : styles.cardLight]}
+                  >
+                    <View style={styles.scanBoxGridImageWrapper}>
+                      <Image source={scan.image} style={styles.scanBoxGridImage} resizeMode="cover" />
 
-                        {/* Top-Right Chevron Arrow Button redirecting to Scan Details */}
-                        <View style={styles.scanChevronBadgeTopRight}>
-                          <ChevronRight size={15} color="#ffffff" strokeWidth={2.8} />
-                        </View>
+                      {/* Top-Right Chevron Arrow Button redirecting to Scan Details */}
+                      <View style={styles.scanChevronBadgeTopRight}>
+                        <ChevronRight size={15} color="#ffffff" strokeWidth={2.8} />
+                      </View>
 
-                        {/* Date Pill at bottom left — dark translucent background */}
-                        <View style={styles.datePillBottomLeft}>
-                          <Text style={styles.datePillText}>{scan.date}</Text>
-                        </View>
+                      {/* Date Pill at bottom left — dark translucent background */}
+                      <View style={styles.datePillBottomLeft}>
+                        <Text style={styles.datePillText}>{scan.date}</Text>
                       </View>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : (
-                /* List View (1-Column Large Cards) */
-                <View style={styles.scansList}>
-                  {filteredScans.map((scan) => (
-                    <Pressable
-                      key={scan.id}
-                      onPress={() => guardedNavigate(`/scan/${scan.id}`)}
-                      style={[styles.scanBoxListCard, isDark ? styles.cardDark : styles.cardLight]}
-                    >
-                      <View style={styles.scanBoxListImageWrapper}>
-                        <Image source={scan.image} style={styles.scanBoxListImage} resizeMode="cover" />
-                      </View>
-                      <View style={styles.scanBoxListBody}>
-                        <View style={{ gap: 4, flex: 1 }}>
-                          <Text style={[styles.scanBoxListDate, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
-                            {scan.date}
-                          </Text>
-                          <Text style={[styles.scanBoxListTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
-                            Overall Skin Scan
-                          </Text>
-                          <View style={[styles.scoreBadgePill, { backgroundColor: isDark ? 'rgba(147, 122, 189, 0.2)' : 'rgba(147, 122, 189, 0.12)' }]}>
-                            <Text style={styles.scoreBadgePillText}>
-                              Score {scan.score}
-                            </Text>
-                          </View>
-                        </View>
-                        <ChevronRight size={18} color={isDark ? '#71717a' : '#9ca3af'} />
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-              )
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
             ) : (
               /* Empty state if filtering yields no scans */
               <View style={styles.emptyScansContainer}>
@@ -516,10 +441,11 @@ export default function ScanLandingScreen() {
                     Start Date (YYYY-MM-DD)
                   </Text>
                   <TextInput
+                    key={`scan-start-date-${isCustomModalOpen ? 'open' : 'closed'}`}
                     style={[styles.dateInput, isDark ? styles.inputDark : styles.inputLight]}
                     placeholder="e.g. 2026-07-01 or 2026-7-1"
                     placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-                    value={startDate}
+                    defaultValue={startDate}
                     onChangeText={setStartDate}
                     autoCapitalize="none"
                   />
@@ -530,10 +456,11 @@ export default function ScanLandingScreen() {
                     End Date (YYYY-MM-DD)
                   </Text>
                   <TextInput
+                    key={`scan-end-date-${isCustomModalOpen ? 'open' : 'closed'}`}
                     style={[styles.dateInput, isDark ? styles.inputDark : styles.inputLight]}
                     placeholder="e.g. 2026-07-28 or 2026-7-28"
                     placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-                    value={endDate}
+                    defaultValue={endDate}
                     onChangeText={setEndDate}
                     autoCapitalize="none"
                   />
@@ -1062,10 +989,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   menuItemActiveLight: {
-    backgroundColor: 'rgba(168, 85, 247, 0.12)',
+    backgroundColor: '#f4f4f5',
   },
   menuItemActiveDark: {
-    backgroundColor: 'rgba(168, 85, 247, 0.25)',
+    backgroundColor: '#27272a',
   },
   dropdownItemText: {
     fontSize: 12,

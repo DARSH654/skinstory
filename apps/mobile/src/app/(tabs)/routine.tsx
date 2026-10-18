@@ -26,7 +26,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import Header from '@/components/layout/Header';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BlurView } from 'expo-blur';
+import { fetchRoutines, deleteRoutine, mapSupabaseRoutine } from '@/services/routineService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useFocusEffect } from 'expo-router';
@@ -36,6 +36,7 @@ import EnterRoutineCodeSheet, { EnterRoutineCodeSheetRef } from '@/components/ro
 import RoutineFilterModal from '@/components/routine/RoutineFilterModal';
 import RoutineDeleteModal from '@/components/routine/RoutineDeleteModal';
 import RoutineCard from '@/components/routine/RoutineCard';
+import RoutineCardSkeleton from '@/components/routine/RoutineCardSkeleton';
 
 const levenshtein = (a: string, b: string): number => {
   const matrix = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
@@ -116,6 +117,7 @@ export default function RoutineScreen() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [routines, setRoutines] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const fabMenuAnim = useRef(new Animated.Value(0)).current;
 
@@ -151,15 +153,31 @@ export default function RoutineScreen() {
     React.useCallback(() => {
       const loadData = async () => {
         try {
-          const stored = await AsyncStorage.getItem('routines');
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            parsed.sort((a: any, b: any) => {
-              const timeA = new Date(a.createdAt || a.updatedAt || parseInt(a.id) || 0).getTime();
-              const timeB = new Date(b.createdAt || b.updatedAt || parseInt(b.id) || 0).getTime();
+          // Try Supabase first
+          try {
+            const rows = await fetchRoutines();
+            const mapped = rows.map(mapSupabaseRoutine);
+            mapped.sort((a: any, b: any) => {
+              const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+              const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
               return timeB - timeA;
             });
-            setRoutines(parsed);
+            setRoutines(mapped);
+            // Sync to AsyncStorage for offline access
+            await AsyncStorage.setItem('routines', JSON.stringify(mapped));
+          } catch (supabaseErr) {
+            // Supabase unavailable (no auth / offline) — fall back to local
+            console.log("Supabase fetch failed, using local storage", supabaseErr);
+            const stored = await AsyncStorage.getItem('routines');
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              parsed.sort((a: any, b: any) => {
+                const timeA = new Date(a.createdAt || a.updatedAt || parseInt(a.id) || 0).getTime();
+                const timeB = new Date(b.createdAt || b.updatedAt || parseInt(b.id) || 0).getTime();
+                return timeB - timeA;
+              });
+              setRoutines(parsed);
+            }
           }
           const storedProfile = await AsyncStorage.getItem('user_profile');
           if (storedProfile) {
@@ -167,6 +185,8 @@ export default function RoutineScreen() {
           }
         } catch (e) {
           console.error("Failed to load routines or profile", e);
+        } finally {
+          setIsLoading(false);
         }
       };
       loadData();
@@ -361,6 +381,12 @@ export default function RoutineScreen() {
       setRoutines(newRoutines);
       try {
         await AsyncStorage.setItem('routines', JSON.stringify(newRoutines));
+        // Also delete from Supabase
+        try {
+          await deleteRoutine(routineToDelete.id);
+        } catch (supabaseErr) {
+          console.log("Supabase delete failed (offline or not authed)", supabaseErr);
+        }
       } catch (e) {
         console.error("Failed to delete routine", e);
       }
@@ -481,30 +507,38 @@ export default function RoutineScreen() {
         <Header title="Routines" />
         
         <View style={styles.content}>
-          {routines.length > 0 ? (
+          {/* Search Bar Container always visible by default */}
+          <View style={[styles.searchContainer, isDark ? styles.searchBgDark : styles.searchBgLight]}>
+            <Search size={20} color={isDark ? "#71717a" : "#9ca3af"} style={styles.searchIcon} />
+            <TextInput
+              key="routine-search-input"
+              style={[styles.searchInput, isDark ? styles.textDark : styles.textLight]}
+              placeholder="Search routines..."
+              placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
+              defaultValue={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <Pressable 
+              onPress={openFilter} 
+              style={({ pressed }) => [
+                styles.filterBtn,
+                isFilterApplied 
+                  ? { backgroundColor: Colors.light.primary } 
+                  : (pressed ? (isDark ? { backgroundColor: '#27272a' } : { backgroundColor: '#f3f4f6' }) : null)
+              ]}
+            >
+              <SlidersHorizontal size={18} color={isFilterApplied ? "#ffffff" : (isDark ? "#71717a" : "#9ca3af")} />
+            </Pressable>
+          </View>
+
+          {isLoading ? (
+            <View style={styles.routineList}>
+              <RoutineCardSkeleton isDark={isDark} />
+              <RoutineCardSkeleton isDark={isDark} />
+              <RoutineCardSkeleton isDark={isDark} />
+            </View>
+          ) : routines.length > 0 ? (
             <>
-              {/* Search Bar Container */}
-              <View style={[styles.searchContainer, isDark ? styles.searchBgDark : styles.searchBgLight]}>
-                <Search size={20} color={isDark ? "#71717a" : "#9ca3af"} style={styles.searchIcon} />
-                <TextInput
-                  style={[styles.searchInput, isDark ? styles.textDark : styles.textLight]}
-                  placeholder="Search routines..."
-                  placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                <Pressable 
-                  onPress={openFilter} 
-                  style={({ pressed }) => [
-                    styles.filterBtn,
-                    isFilterApplied 
-                      ? { backgroundColor: Colors.light.primary } 
-                      : (pressed ? (isDark ? { backgroundColor: '#27272a' } : { backgroundColor: '#f3f4f6' }) : null)
-                  ]}
-                >
-                  <SlidersHorizontal size={18} color={isFilterApplied ? "#ffffff" : (isDark ? "#71717a" : "#9ca3af")} />
-                </Pressable>
-              </View>
 
               {filteredRoutines.length > 0 ? (
                 <View style={styles.routineList}>
@@ -562,6 +596,7 @@ export default function RoutineScreen() {
         modalOpen={true}
         isDark={isDark}
         isFullScreenModal={false}
+        bottomOffset={20}
       />
 
       {/* Delete Confirmation Modal */}
@@ -769,8 +804,8 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    borderRadius: 24, // Pill shape
+    paddingHorizontal: 16,
     height: 48,
     borderWidth: 1,
     zIndex: 10,
@@ -797,7 +832,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 4,
-    borderRadius: 8,
+    borderRadius: 16, // Pill shape
   },
   textLight: { color: '#111827' },
   textDark: { color: '#ffffff' },
@@ -828,7 +863,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 21,
     fontWeight: '700',
-    fontFamily: 'Outfit_700Bold',
+    fontFamily: 'Montserrat_700Bold',
     marginBottom: 8,
     textAlign: 'center',
     alignSelf: 'center',
@@ -856,7 +891,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 15,
-    fontFamily: 'Outfit_600SemiBold',
+    fontFamily: 'Montserrat_600SemiBold',
   },
   actionButtonsContainer: {
     flexDirection: 'row',
@@ -955,7 +990,7 @@ const styles = StyleSheet.create({
     color: '#2d3748',
     fontSize: 12,
     fontWeight: '700',
-    fontFamily: 'Outfit_700Bold',
+    fontFamily: 'Montserrat_700Bold',
   },
   stepsPill: {
     backgroundColor: '#ffffff',
@@ -973,7 +1008,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
-    fontFamily: 'Outfit_700Bold',
+    fontFamily: 'Montserrat_700Bold',
   },
   cardMiddleSection: {
     marginBottom: 2,
@@ -993,7 +1028,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     color: 'rgba(255, 255, 255, 0.88)',
-    fontFamily: 'Outfit_400Regular',
     textShadowColor: 'rgba(0, 0, 0, 0.4)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
@@ -1023,7 +1057,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.6,
-    fontFamily: 'Outfit_700Bold',
+    fontFamily: 'Montserrat_700Bold',
   },
   cardActionGroup: {
     flexDirection: 'row',
@@ -1311,19 +1345,18 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   fabFloatingBox: {
-    borderRadius: 16,
+    borderRadius: 24, // Pill shape
     borderWidth: 1,
     overflow: 'hidden',
-    minWidth: 160,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   fabBoxLight: {
     backgroundColor: '#ffffff',
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   fabBoxDark: {
     backgroundColor: '#1c1c1e',
@@ -1332,13 +1365,13 @@ const styles = StyleSheet.create({
   fabMenuItemPressable: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 13,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    gap: 10,
+    gap: 6,
   },
   fabMenuText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   lottieOverlay: {
     position: 'absolute',

@@ -175,8 +175,9 @@ export function DraggableScrollDownCircle({
         
         const minX = paddingX;
         const maxX = mWidth - circleSize - paddingX;
-        const minY = isFullScreenModal ? insets.top + 16 : insets.top + 70; 
-        const maxY = mHeight - circleSize - paddingY - bottomOffset - 72 - (isFullScreenModal ? keyboardHeightRef.current : 0);
+        const minY = isFullScreenModal ? insets.top + 16 : insets.top + 70;
+        const bottomLimit = bottomOffset > 0 ? bottomOffset : 72;
+        const maxY = mHeight - circleSize - paddingY - bottomLimit - (isFullScreenModal ? keyboardHeightRef.current : 0);
         
         const isLeft = currentX < (mWidth / 2) - (circleSize / 2);
         currentSide.current = isLeft ? 'left' : 'right';
@@ -217,8 +218,9 @@ export function DraggableScrollDownCircle({
     
     const minX = paddingX;
     const maxX = width - circleSize - paddingX;
-    const minY = isFullScreenModal ? insets.top + 16 : insets.top + 70; 
-    const maxY = height - circleSize - paddingY - bottomOffset - 72 - (isFullScreenModal ? keyboardHeightRef.current : 0);
+    const minY = isFullScreenModal ? insets.top + 16 : insets.top + 70;
+    const bottomLimit = bottomOffset > 0 ? bottomOffset : 72;
+    const maxY = height - circleSize - paddingY - bottomLimit - (isFullScreenModal ? keyboardHeightRef.current : 0);
     
     const targetX = currentSide.current === 'left' ? minX : maxX;
     const targetY = minY + currentYRatio.current * (maxY - minY);

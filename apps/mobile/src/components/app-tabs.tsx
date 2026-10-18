@@ -25,22 +25,20 @@ function TabItem({ routeName, isFocused, isDark, onPress, label, Icon }: any) {
 
   const pillBgColor = isDark ? '#2d253c' : '#e8e3f1';
 
+  const focusAnim = useSharedValue(isFocused ? 1 : 0);
+
+  useEffect(() => {
+    focusAnim.value = withTiming(isFocused ? 1 : 0, { duration: 150 });
+  }, [isFocused]);
+
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
-        { scale: withTiming(isFocused ? 1 : 0.6, { duration: 150 }) },
+        { scale: 0.6 + focusAnim.value * 0.4 },
       ],
-      opacity: withTiming(isFocused ? 1 : 0, { duration: 150 }),
+      opacity: focusAnim.value,
     };
-  }, [isFocused]);
-
-  const animatedIconStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { scale: isFocused ? withSequence(withTiming(1.12, { duration: 100 }), withTiming(1, { duration: 150 })) : withTiming(1, { duration: 150 }) },
-      ],
-    };
-  }, [isFocused]);
+  });
 
   return (
     <Pressable
@@ -50,15 +48,17 @@ function TabItem({ routeName, isFocused, isDark, onPress, label, Icon }: any) {
       style={styles.tabItem}
     >
       <View style={styles.iconContainer}>
-        <Animated.View
-          style={[
-            StyleSheet.absoluteFill,
-            styles.iconActivePill,
-            { backgroundColor: pillBgColor },
-            animatedStyle,
-          ]}
-        />
-        <Animated.View style={animatedIconStyle}>
+        {isFocused && (
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              styles.iconActivePill,
+              { backgroundColor: pillBgColor },
+              animatedStyle,
+            ]}
+          />
+        )}
+        <View>
           {Icon && (
             <Icon 
               size={29} 
@@ -66,7 +66,7 @@ function TabItem({ routeName, isFocused, isDark, onPress, label, Icon }: any) {
               strokeWidth={isFocused ? 2.2 : 1.8} 
             />
           )}
-        </Animated.View>
+        </View>
       </View>
       <Text style={[
         styles.tabLabel,
@@ -89,11 +89,13 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   }
 
   return (
-    <View style={[
-      styles.container, 
-      { paddingBottom: insets.bottom },
-      isDark ? styles.tabBarDark : styles.tabBarLight
-    ]}>
+    <View 
+      style={[
+        styles.container, 
+        { paddingBottom: insets.bottom },
+        isDark ? styles.tabBarDark : styles.tabBarLight
+      ]}
+    >
       <View style={styles.tabBar}>
         {state.routes.map((route: any, index: number) => {
           const { options } = descriptors[route.key];

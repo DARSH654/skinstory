@@ -118,10 +118,11 @@ export default function OnboardingPage4() {
                   left: 0,
                 }]}>
                   <TextInput
+                    key="onboarding-name-input"
                     style={styles.input}
                     placeholder="Enter your name"
                     placeholderTextColor="#b0b0b0"
-                    value={localName}
+                    defaultValue={localName}
                     onChangeText={handleTextChange}
                     maxLength={15}
                     autoFocus

@@ -121,6 +121,7 @@ export function CaptionText({ style, ...props }: TextProps) {
 // lineHeight scales with Android system font and cannot be capped
 // by maxFontSizeMultiplier. Removing it makes spacing immune to all devices.
 // ─────────────────────────────────────────────────────────────────────────────
+// Note: In future we will use Outfit font.
 const styles = StyleSheet.create({
   base: {
     includeFontPadding: false,

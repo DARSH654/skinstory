@@ -21,6 +21,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { Plus, Trash2, Pencil, X, List, AlignLeft, Eye, ExternalLink, AlertCircle, Package } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createRoutine as supabaseCreateRoutine, updateRoutine as supabaseUpdateRoutine, mapSupabaseRoutine } from '@/services/routineService';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
@@ -48,22 +49,30 @@ export default function CreateRoutineScreen() {
   const [drafts, setDrafts] = useState<Record<number, any>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [originalData, setOriginalData] = useState({ title: "", stepData: {} });
+  const isSavingRef = useRef(false);
 
   // Modals state
   const [modalOpen, setModalOpen] = useState(false);
   const [activeStep, setActiveStep] = useState<number | null>(null);
   
-  const [actionTitle, setActionTitle] = useState("");
-  const [actionDesc, setActionDesc] = useState("");
+  const [hasProductName, setHasProductName] = useState(false);
+  const [isActionSaveEnabled, setIsActionSaveEnabled] = useState(false);
+  const actionFormRef = useRef({
+    actionTitle: "",
+    actionDesc: "",
+    actionFormat: "paragraph" as "paragraph" | "pointers",
+    actionPointers: [""] as string[],
+    productName: "",
+    productDesc: "",
+    productImage: "",
+    productLink: "",
+    dos: [""] as string[],
+    donts: [""] as string[],
+  });
   const [actionFormat, setActionFormat] = useState<"paragraph" | "pointers">("paragraph");
   const [actionPointers, setActionPointers] = useState<string[]>([""]);
-  
-  const [productName, setProductName] = useState("");
-  const [productDesc, setProductDesc] = useState("");
   const [productImage, setProductImage] = useState("");
-  const [productLink, setProductLink] = useState("");
   const [previewImageOpen, setPreviewImageOpen] = useState(false);
-  
   const [dos, setDos] = useState([""]);
   const [donts, setDonts] = useState([""]);
 
@@ -98,6 +107,9 @@ export default function CreateRoutineScreen() {
   const [unsavedWarningOpen, setUnsavedWarningOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const discardAnim = useRef(new Animated.Value(0.9)).current;
+
+  // Action Button Layout Measurement for DraggableScrollDownCircle
+  const [actionBtnHeight, setActionBtnHeight] = useState(0);
 
   // Top Toast State for Add Action Bottom Sheet
   const [sheetTopToastMessage, setSheetTopToastMessage] = useState("");
@@ -196,18 +208,30 @@ export default function CreateRoutineScreen() {
         setSteps([1]);
         setOriginalData({ title: "", stepData: {} });
         setDrafts({});
-        setActionTitle("");
-        setActionDesc("");
+        actionFormRef.current = {
+          actionTitle: "",
+          actionDesc: "",
+          actionFormat: "paragraph",
+          actionPointers: [""],
+          productName: "",
+          productDesc: "",
+          productImage: "",
+          productLink: "",
+          dos: [""],
+          donts: [""],
+        };
         setActionFormat("paragraph");
         setActionPointers([""]);
-        setProductName("");
-        setProductDesc("");
         setProductImage("");
-        setProductLink("");
+        setHasProductName(false);
+        setIsActionSaveEnabled(false);
         setDos([""]);
         setDonts([""]);
         setEditingId(null);
+        isSavingRef.current = false;
         AsyncStorage.removeItem('routine_drafts').catch(() => {});
+      } else {
+        isSavingRef.current = false;
       }
     }, [editId])
   );
@@ -454,17 +478,24 @@ export default function CreateRoutineScreen() {
     })
   ).current;
 
+  const checkActionSaveValidity = (title: string, desc: string, format: "paragraph" | "pointers", pointers: string[]) => {
+    const hasTitle = title.trim().length > 0;
+    const hasBody = format === "paragraph" ? desc.trim().length > 0 : pointers.some(p => p.trim().length > 0);
+    return hasTitle && hasBody;
+  };
+
   const saveCurrentDraft = () => {
     if (activeStep !== null) {
+      const f = actionFormRef.current;
       const currentDraft = {
-        actionTitle,
-        actionDesc,
+        actionTitle: f.actionTitle,
+        actionDesc: f.actionDesc,
         actionFormat,
         actionPointers: actionPointers.filter(p => p.trim() !== ""),
-        productName,
-        productDesc,
+        productName: f.productName,
+        productDesc: f.productDesc,
         productImage,
-        productLink,
+        productLink: f.productLink,
         dos: dos.filter(d => d.trim() !== ""),
         donts: donts.filter(d => d.trim() !== "")
       };
@@ -489,40 +520,52 @@ export default function CreateRoutineScreen() {
     const saved = stepData[step];
     const draft = drafts[step];
 
-    if (saved) {
-      setActionTitle(saved.actionTitle || "");
-      setActionDesc(saved.actionDesc || "");
-      setActionFormat(saved.actionFormat || "paragraph");
-      setActionPointers(saved.actionPointers?.length > 0 ? [...saved.actionPointers, ""] : [""]);
-      setProductName(saved.productName || "");
-      setProductDesc(saved.productDesc || "");
-      setProductImage(saved.productImage || "");
-      setProductLink(saved.productLink || "");
-      setDos(saved.dos?.length > 0 ? [...saved.dos, ""] : [""]);
-      setDonts(saved.donts?.length > 0 ? [...saved.donts, ""] : [""]);
-    } else if (draft) {
-      setActionTitle(draft.actionTitle || "");
-      setActionDesc(draft.actionDesc || "");
-      setActionFormat(draft.actionFormat || "paragraph");
-      setActionPointers(draft.actionPointers?.length > 0 ? [...draft.actionPointers, ""] : [""]);
-      setProductName(draft.productName || "");
-      setProductDesc(draft.productDesc || "");
-      setProductImage(draft.productImage || "");
-      setProductLink(draft.productLink || "");
-      setDos(draft.dos?.length > 0 ? [...draft.dos, ""] : [""]);
-      setDonts(draft.donts?.length > 0 ? [...draft.donts, ""] : [""]);
-    } else {
-      setActionTitle("");
-      setActionDesc("");
-      setActionFormat("paragraph");
-      setActionPointers([""]);
-      setProductName("");
-      setProductDesc("");
-      setProductImage("");
-      setProductLink("");
-      setDos([""]);
-      setDonts([""]);
-    }
+    const initialData = saved || draft || {
+      actionTitle: "",
+      actionDesc: "",
+      actionFormat: "paragraph",
+      actionPointers: [],
+      productName: "",
+      productDesc: "",
+      productImage: "",
+      productLink: "",
+      dos: [],
+      donts: [],
+    };
+
+    const initialFormat = initialData.actionFormat || "paragraph";
+    const initialPointers = initialData.actionPointers?.length > 0 ? [...initialData.actionPointers, ""] : [""];
+    const initialDos = initialData.dos?.length > 0 ? [...initialData.dos, ""] : [""];
+    const initialDonts = initialData.donts?.length > 0 ? [...initialData.donts, ""] : [""];
+
+    actionFormRef.current = {
+      actionTitle: initialData.actionTitle || "",
+      actionDesc: initialData.actionDesc || "",
+      actionFormat: initialFormat,
+      actionPointers: initialPointers,
+      productName: initialData.productName || "",
+      productDesc: initialData.productDesc || "",
+      productImage: initialData.productImage || "",
+      productLink: initialData.productLink || "",
+      dos: initialDos,
+      donts: initialDonts,
+    };
+
+    setActionFormat(initialFormat);
+    setActionPointers(initialPointers);
+    setProductImage(initialData.productImage || "");
+    setDos(initialDos);
+    setDonts(initialDonts);
+    setHasProductName((initialData.productName || "").trim().length > 0);
+    setIsActionSaveEnabled(
+      checkActionSaveValidity(
+        initialData.actionTitle || "",
+        initialData.actionDesc || "",
+        initialFormat,
+        initialPointers
+      )
+    );
+
     setModalOpen(true);
     actionSheetRef.current?.present();
   };
@@ -601,17 +644,18 @@ export default function CreateRoutineScreen() {
 
   const saveAction = () => {
     if (activeStep !== null) {
+      const f = actionFormRef.current;
       setStepData(prev => ({
         ...prev,
         [activeStep]: {
-          actionTitle,
-          actionDesc,
+          actionTitle: f.actionTitle.trim(),
+          actionDesc: f.actionDesc.trim(),
           actionFormat,
           actionPointers: actionPointers.filter(p => p.trim() !== ""),
-          productName,
-          productDesc,
+          productName: f.productName.trim(),
+          productDesc: f.productDesc.trim(),
           productImage,
-          productLink,
+          productLink: f.productLink.trim(),
           dos: dos.filter(d => d.trim() !== ""),
           donts: donts.filter(d => d.trim() !== "")
         }
@@ -672,6 +716,7 @@ export default function CreateRoutineScreen() {
   };
 
   const handleCreateRoutine = async () => {
+    if (isSavingRef.current) return;
     if (!title.trim()) {
       showToast("Please add your routine name");
       return;
@@ -680,6 +725,8 @@ export default function CreateRoutineScreen() {
       showToast("Please add at least one action step");
       return;
     }
+
+    isSavingRef.current = true;
 
     try {
       const existingRoutinesJson = await AsyncStorage.getItem('routines');
@@ -700,9 +747,20 @@ export default function CreateRoutineScreen() {
           return r;
         });
         await AsyncStorage.setItem('routines', JSON.stringify(updatedRoutines));
+        // Also update in Supabase
+        try {
+          await supabaseUpdateRoutine(editingId, {
+            title: title.trim(),
+            coverImageUri: coverImage || undefined,
+            stepData: stepData,
+          });
+        } catch (supabaseErr) {
+          console.log("Supabase update failed (offline or not authed)", supabaseErr);
+        }
       } else {
+        const localId = Date.now().toString();
         const newRoutine = {
-          id: Date.now().toString(),
+          id: localId,
           title: title.trim(),
           coverImage: coverImage || "",
           stepsCount: Object.keys(stepData).length,
@@ -710,6 +768,20 @@ export default function CreateRoutineScreen() {
           createdAt: new Date().toISOString()
         };
         await AsyncStorage.setItem('routines', JSON.stringify([newRoutine, ...existingRoutines]));
+        // Also create in Supabase
+        try {
+          const supabaseRow = await supabaseCreateRoutine({
+            title: title.trim(),
+            coverImageUri: coverImage || undefined,
+            stepData: stepData,
+          });
+          // Update local with Supabase UUID so future edits/deletes sync correctly
+          const mapped = mapSupabaseRoutine(supabaseRow);
+          const updatedList = [mapped, ...existingRoutines];
+          await AsyncStorage.setItem('routines', JSON.stringify(updatedList));
+        } catch (supabaseErr) {
+          console.log("Supabase create failed (offline or not authed)", supabaseErr);
+        }
       }
 
       await AsyncStorage.removeItem('routine_drafts'); // flush all drafts on creation
@@ -717,9 +789,11 @@ export default function CreateRoutineScreen() {
       setOriginalData({ title: title.trim(), stepData });
       showToast(editingId ? "Routine updated successfully!" : "Routine created successfully!");
       setTimeout(() => {
+        isSavingRef.current = false;
         router.push('/routine');
       }, 500);
     } catch (e) {
+      isSavingRef.current = false;
       showToast("Failed to save routine");
     }
   };
@@ -797,10 +871,11 @@ export default function CreateRoutineScreen() {
           New Routine Name
         </Text>
         <TextInput
+          key="routine-main-title"
           style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
           placeholder="e.g. Morning Skincare"
           placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-          value={title}
+          defaultValue={title}
           onChangeText={setTitle}
           maxLength={50}
         />
@@ -924,7 +999,10 @@ export default function CreateRoutineScreen() {
             <Plus size={16} color={isDark ? "#d4d4d8" : "#4b5563"} />
             <Text style={[styles.addStepText, isDark ? styles.textDark : styles.textLight]}>Add step</Text>
           </Pressable>
-          <Pressable onPress={handleCreateRoutine} style={styles.createBtn}>
+          <Pressable 
+            onPress={handleCreateRoutine} 
+            style={styles.createBtn}
+          >
             <Text style={styles.createBtnText}>{editingId ? "Save Changes" : "Create Routine"}</Text>
           </Pressable>
         </View>
@@ -937,6 +1015,7 @@ export default function CreateRoutineScreen() {
         modalOpen={true}
         isDark={isDark}
         isFullScreenModal={false}
+        bottomOffset={20}
       />
 
       {/* Toast Notification */}
@@ -1246,11 +1325,23 @@ export default function CreateRoutineScreen() {
             Action Title
           </Text>
           <BottomSheetTextInput
+            key={`action-title-step-${activeStep}`}
             style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
             placeholder="e.g. Apply Vitamin C"
             placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-            value={actionTitle}
-            onChangeText={setActionTitle}
+            defaultValue={actionFormRef.current.actionTitle}
+            onChangeText={(val) => {
+              actionFormRef.current.actionTitle = val;
+              const valid = checkActionSaveValidity(
+                val,
+                actionFormRef.current.actionDesc,
+                actionFormat,
+                actionPointers
+              );
+              if (valid !== isActionSaveEnabled) {
+                setIsActionSaveEnabled(valid);
+              }
+            }}
             maxLength={99}
             onFocus={() => {
               setTimeout(() => {
@@ -1267,18 +1358,34 @@ export default function CreateRoutineScreen() {
             <Pressable 
               onPress={() => {
                 if (actionFormat === "paragraph") {
-                  if (actionDesc.trim() !== "") {
-                    setActionPointers([actionDesc.trim(), ""]);
-                  } else {
-                    setActionPointers([""]);
-                  }
+                  const currentDesc = actionFormRef.current.actionDesc;
+                  const newPointers = currentDesc.trim() !== "" ? [currentDesc.trim(), ""] : [""];
+                  actionFormRef.current.actionFormat = "pointers";
+                  actionFormRef.current.actionPointers = newPointers;
+                  setActionPointers(newPointers);
                   setActionFormat("pointers");
+                  setIsActionSaveEnabled(
+                    checkActionSaveValidity(
+                      actionFormRef.current.actionTitle,
+                      actionFormRef.current.actionDesc,
+                      "pointers",
+                      newPointers
+                    )
+                  );
                 } else {
                   const filtered = actionPointers.filter(p => p.trim() !== "");
-                  if (filtered.length > 0) {
-                    setActionDesc(filtered.join("\n"));
-                  }
+                  const newDesc = filtered.length > 0 ? filtered.join("\n") : "";
+                  actionFormRef.current.actionFormat = "paragraph";
+                  actionFormRef.current.actionDesc = newDesc;
                   setActionFormat("paragraph");
+                  setIsActionSaveEnabled(
+                    checkActionSaveValidity(
+                      actionFormRef.current.actionTitle,
+                      newDesc,
+                      "paragraph",
+                      actionPointers
+                    )
+                  );
                 }
               }}
               style={{ padding: 4 }}
@@ -1293,6 +1400,7 @@ export default function CreateRoutineScreen() {
 
           {actionFormat === "paragraph" ? (
             <BottomSheetTextInput
+              key={`action-desc-step-${activeStep}`}
               multiline
               style={[
                 styles.input, 
@@ -1302,8 +1410,19 @@ export default function CreateRoutineScreen() {
               ]}
               placeholder="Describe what to do in this step..."
               placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-              value={actionDesc}
-              onChangeText={setActionDesc}
+              defaultValue={actionFormRef.current.actionDesc}
+              onChangeText={(val) => {
+                actionFormRef.current.actionDesc = val;
+                const valid = checkActionSaveValidity(
+                  actionFormRef.current.actionTitle,
+                  val,
+                  "paragraph",
+                  actionPointers
+                );
+                if (valid !== isActionSaveEnabled) {
+                  setIsActionSaveEnabled(valid);
+                }
+              }}
               maxLength={1000}
               onFocus={() => {
                 setTimeout(() => {
@@ -1319,6 +1438,7 @@ export default function CreateRoutineScreen() {
                     {index + 1}.
                   </Text>
                   <BottomSheetTextInput
+                    key={`action-ptr-step-${activeStep}-${index}`}
                     multiline
                     style={[
                       styles.input, 
@@ -1335,8 +1455,30 @@ export default function CreateRoutineScreen() {
                     ]}
                     placeholder={index === 0 ? "e.g. Apply on damp skin" : "Add another pointer..."}
                     placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                    value={item}
-                    onChangeText={(val) => handleListUpdate(setActionPointers, actionPointers, index, val, "actionPointers")}
+                    defaultValue={item}
+                    onChangeText={(val) => {
+                      let newList = [...actionPointers];
+                      newList[index] = val;
+                      while (newList.length > 0 && newList[newList.length - 1] === "") {
+                        newList.pop();
+                      }
+                      if (newList.filter(i => i.trim() !== "").length >= LIST_LIMITS.actionPointers) {
+                        showToast(`Max ${LIST_LIMITS.actionPointers} action pointers per step`);
+                      } else {
+                        newList.push("");
+                      }
+                      actionFormRef.current.actionPointers = newList;
+                      setActionPointers(newList);
+                      const valid = checkActionSaveValidity(
+                        actionFormRef.current.actionTitle,
+                        actionFormRef.current.actionDesc,
+                        "pointers",
+                        newList
+                      );
+                      if (valid !== isActionSaveEnabled) {
+                        setIsActionSaveEnabled(valid);
+                      }
+                    }}
                     maxLength={1000}
                     onFocus={() => {
                       setTimeout(() => {
@@ -1354,11 +1496,18 @@ export default function CreateRoutineScreen() {
             Product Name <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
           </Text>
           <BottomSheetTextInput
+            key={`product-name-step-${activeStep}`}
             style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
             placeholder="e.g. Glow Recipe Dew Drops"
             placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-            value={productName}
-            onChangeText={setProductName}
+            defaultValue={actionFormRef.current.productName}
+            onChangeText={(val) => {
+              actionFormRef.current.productName = val;
+              const has = val.trim().length > 0;
+              if (has !== hasProductName) {
+                setHasProductName(has);
+              }
+            }}
             maxLength={99}
             onFocus={() => {
               setTimeout(() => {
@@ -1368,12 +1517,13 @@ export default function CreateRoutineScreen() {
           />
 
           {/* Conditionally Rendered Product Fields */}
-          {productName.trim() !== "" && (
+          {hasProductName && (
             <>
               <Text style={[styles.label, styles.uppercaseLabel, isDark ? styles.textSubDark : styles.textSubLight]}>
                 Product Description <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
               </Text>
               <BottomSheetTextInput
+                key={`product-desc-step-${activeStep}`}
                 multiline
                 style={[
                   styles.input, 
@@ -1383,8 +1533,10 @@ export default function CreateRoutineScreen() {
                 ]}
                 placeholder="Short description of the product..."
                 placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                value={productDesc}
-                onChangeText={setProductDesc}
+                defaultValue={actionFormRef.current.productDesc}
+                onChangeText={(val) => {
+                  actionFormRef.current.productDesc = val;
+                }}
                 maxLength={99}
                 onFocus={() => {
                   setTimeout(() => {
@@ -1404,6 +1556,7 @@ export default function CreateRoutineScreen() {
                       onPress={(e) => {
                         e.stopPropagation();
                         setProductImage("");
+                        actionFormRef.current.productImage = "";
                       }}
                       style={styles.removeImageBtn}
                     >
@@ -1425,11 +1578,14 @@ export default function CreateRoutineScreen() {
                 Product Link <Text style={{ textTransform: 'none', fontWeight: '400' }}>(optional)</Text>
               </Text>
               <BottomSheetTextInput
+                key={`product-link-step-${activeStep}`}
                 style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
                 placeholder="https://..."
                 placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                value={productLink}
-                onChangeText={setProductLink}
+                defaultValue={actionFormRef.current.productLink}
+                onChangeText={(val) => {
+                  actionFormRef.current.productLink = val;
+                }}
                 autoCapitalize="none"
                 keyboardType="url"
                 onFocus={() => {
@@ -1451,6 +1607,7 @@ export default function CreateRoutineScreen() {
             <View key={`do-${index}`} style={{ flexDirection: 'row', gap: 8 }}>
               <Text style={{ width: 24, textAlign: 'right', color: '#16a34a', fontWeight: '600', marginTop: 14 }}>{index + 1}.</Text>
               <BottomSheetTextInput
+                key={`dos-step-${activeStep}-${index}`}
                 multiline
                 style={[
                   styles.input, 
@@ -1469,8 +1626,21 @@ export default function CreateRoutineScreen() {
                 ]}
                 placeholder={index === 0 ? "e.g. Apply on damp skin" : "Add another do..."}
                 placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                value={item}
-                onChangeText={(val) => handleListUpdate(setDos, dos, index, val, "dos")}
+                defaultValue={item}
+                onChangeText={(val) => {
+                  let newList = [...dos];
+                  newList[index] = val;
+                  while (newList.length > 0 && newList[newList.length - 1] === "") {
+                    newList.pop();
+                  }
+                  if (newList.filter(i => i.trim() !== "").length >= LIST_LIMITS.dos) {
+                    showToast(`Max ${LIST_LIMITS.dos} do's per step`);
+                  } else {
+                    newList.push("");
+                  }
+                  actionFormRef.current.dos = newList;
+                  setDos(newList);
+                }}
                 maxLength={1000}
                 onFocus={() => {
                   setTimeout(() => {
@@ -1491,6 +1661,7 @@ export default function CreateRoutineScreen() {
             <View key={`dont-${index}`} style={{ flexDirection: 'row', gap: 8 }}>
               <Text style={{ width: 24, textAlign: 'right', color: '#ef4444', fontWeight: '600', marginTop: 14 }}>{index + 1}.</Text>
               <BottomSheetTextInput
+                key={`donts-step-${activeStep}-${index}`}
                 multiline
                 style={[
                   styles.input, 
@@ -1509,8 +1680,21 @@ export default function CreateRoutineScreen() {
                 ]}
                 placeholder={index === 0 ? "e.g. Avoid eye area" : "Add another don't..."}
                 placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
-                value={item}
-                onChangeText={(val) => handleListUpdate(setDonts, donts, index, val, "donts")}
+                defaultValue={item}
+                onChangeText={(val) => {
+                  let newList = [...donts];
+                  newList[index] = val;
+                  while (newList.length > 0 && newList[newList.length - 1] === "") {
+                    newList.pop();
+                  }
+                  if (newList.filter(i => i.trim() !== "").length >= LIST_LIMITS.donts) {
+                    showToast(`Max ${LIST_LIMITS.donts} don'ts per step`);
+                  } else {
+                    newList.push("");
+                  }
+                  actionFormRef.current.donts = newList;
+                  setDonts(newList);
+                }}
                 maxLength={1000}
                 onFocus={() => {
                   setTimeout(() => {
@@ -1522,13 +1706,19 @@ export default function CreateRoutineScreen() {
           ))}
 
           {/* Save Action Button inside ScrollView */}
-          <View style={{ marginTop: 12, marginBottom: 0 }}>
+          <View 
+            style={{ marginTop: 12, marginBottom: 0 }}
+            onLayout={(e) => {
+              const h = e.nativeEvent.layout.height;
+              if (h > 0) setActionBtnHeight(h);
+            }}
+          >
             <Pressable 
               onPress={saveAction} 
-              disabled={!actionTitle.trim() || (actionFormat === "paragraph" ? !actionDesc.trim() : actionPointers.filter(p => p.trim() !== "").length === 0)}
+              disabled={!isActionSaveEnabled}
               style={[
                 styles.createBtn, 
-                (!actionTitle.trim() || (actionFormat === "paragraph" ? !actionDesc.trim() : actionPointers.filter(p => p.trim() !== "").length === 0)) && { opacity: 0.5 }
+                !isActionSaveEnabled && { opacity: 0.5 }
               ]}
             >
               <Text style={styles.createBtnText}>Save Action Step {activeStep}</Text>
@@ -1544,6 +1734,7 @@ export default function CreateRoutineScreen() {
           modalOpen={modalOpen}
           isDark={isDark}
           isFullScreenModal={true}
+          bottomOffset={actionBtnHeight > 0 ? actionBtnHeight + 12 : 72}
         />
       </BottomSheetModal>
       <Modal visible={previewImageOpen} transparent={true} animationType="fade" onRequestClose={() => setPreviewImageOpen(false)}>

@@ -89,8 +89,8 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
   const brandPrimary = Colors[isDark ? 'dark' : 'light'].primary;
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const emailRef = React.useRef('');
+  const passwordRef = React.useRef('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -99,7 +99,7 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
   const [emailSent, setEmailSent] = useState(false);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (resendTimer > 0) {
       interval = setInterval(() => {
         setResendTimer((prev) => prev - 1);
@@ -113,7 +113,9 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
   }, [resendTimer]);
 
   const handleEmailAuth = async () => {
-    if (!email || !password) {
+    const emailVal = emailRef.current.trim();
+    const passwordVal = passwordRef.current;
+    if (!emailVal || !passwordVal) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -121,11 +123,11 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
     setLoading(true);
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ email: emailVal, password: passwordVal });
         if (error) throw error;
         Alert.alert('Success', 'Check your email to confirm registration!');
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: emailVal, password: passwordVal });
         if (error) throw error;
       }
       onSuccess();
@@ -138,7 +140,8 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
   };
 
   const handleSendResetPassword = async () => {
-    if (!email) {
+    const emailVal = emailRef.current.trim();
+    if (!emailVal) {
       Alert.alert('Error', 'Please enter your email address.');
       return;
     }
@@ -148,7 +151,7 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(emailVal);
       if (error) throw error;
       setEmailSent(true);
       setResendTimer(15);
@@ -235,7 +238,9 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
 
             {/* Pill "Skip Login/Sign Up" button */}
             <Pressable
-              onPress={onClose}
+              onPress={() => {
+                onClose();
+              }}
               style={[styles.skipPillBtn, isDark ? styles.skipPillDark : styles.skipPillLight]}
             >
               <Text style={[styles.skipPillText, isDark ? styles.textDark : styles.textLight]}>
@@ -258,11 +263,12 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
               {/* Email Input */}
               <Text style={[styles.fieldLabel, isDark ? styles.textDark : styles.textLight]}>Email</Text>
               <TextInput
+                key="auth-forgot-email"
                 style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
                 placeholder="Enter your email"
                 placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                value={email}
-                onChangeText={setEmail}
+                defaultValue={emailRef.current}
+                onChangeText={(val) => { emailRef.current = val; }}
                 autoCapitalize="none"
                 keyboardType="email-address"
               />
@@ -340,11 +346,12 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
               {/* Email Label & Input */}
               <Text style={[styles.fieldLabel, isDark ? styles.textDark : styles.textLight]}>Email</Text>
               <TextInput
+                key={`auth-email-${mode}`}
                 style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
                 placeholder="Enter your email"
                 placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                value={email}
-                onChangeText={setEmail}
+                defaultValue={emailRef.current}
+                onChangeText={(val) => { emailRef.current = val; }}
                 autoCapitalize="none"
                 keyboardType="email-address"
               />
@@ -364,11 +371,12 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
               {/* Password Input with Pill Eye Icon Toggle */}
               <View style={[styles.passwordInputContainer, isDark ? styles.inputDark : styles.inputLight]}>
                 <TextInput
+                  key={`auth-password-${mode}`}
                   style={[styles.passwordInput, isDark ? styles.passwordInputDark : styles.passwordInputLight]}
                   placeholder="Enter your password"
                   placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                  value={password}
-                  onChangeText={setPassword}
+                  defaultValue={passwordRef.current}
+                  onChangeText={(val) => { passwordRef.current = val; }}
                   secureTextEntry={!showPassword}
                 />
                 <Pressable

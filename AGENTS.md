@@ -84,3 +84,10 @@ This file acts as the primary architectural map for the Skinstory monorepo. It p
    - Web uses Next.js 16 App Router conventions (`apps/web/src/app/`).
    - Mobile uses Expo Router file-based navigation (`apps/mobile/src/app/`).
    - Always edit existing components before adding duplicate helper files.
+   - **Android Text Inputs & TextAreas (Strict Architectural Rule - Mandatory)**:
+     - **Never** use rigidly controlled `value={state}` with `onChangeText={setState}` inside `<BottomSheetTextInput>`, `<Modal>`, or screen forms. Always use `defaultValue={initialValue}` paired with dynamic keys (e.g. `key={id}` or `key={isOpen ? 'open' : 'closed'}`) to prevent native Android cursor jumping and character reversal.
+     - **Decouple Keystrokes from Parent Re-renders**: **Never** call a parent-level `setState` directly on every keystroke/backspace in forms, sheets, or modals. Doing so re-renders the sheet/modal mid-keystroke, destroying Android's IME/Gboard input connection and dropping backspaces or restoring deleted characters (`diff: 0`).
+     - **The Standard Pattern**:
+       1. Store live draft text in a `useRef` (e.g. `inputRef.current = val`).
+       2. Only trigger `useState` when validation state changes (e.g., `isSaveEnabled`, `hasContent`), NOT on raw string updates.
+       3. On Submit/Save, read the finalized values directly from the ref (`ref.current`).

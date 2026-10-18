@@ -1,10 +1,9 @@
+import '@/lib/globalNavigationGuard';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { View } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold } from '@expo-google-fonts/outfit';
 import { Stack } from 'expo-router';
-
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
 
 const CustomLightTheme = {
   ...DefaultTheme,
@@ -31,23 +30,27 @@ const CustomDarkTheme = {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import React, { useState, useEffect } from 'react';
-// import { supabase } from '@/lib/supabase';
-// import AuthModal from '@/components/auth/AuthModal';
+import { supabase } from '@/lib/supabase';
+import AuthModal from '@/components/auth/AuthModal';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Authentication unwired for Google Play review (commented out)
-  /*
+  // Authentication re-enabled with Supabase
   useEffect(() => {
     // Initial check
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (!session) {
         setShowAuthModal(true);
       }
+      setAuthChecked(true);
+    }).catch(() => {
+      setAuthChecked(true);
     });
 
     // Listen for auth changes (sign in / sign out)
@@ -57,11 +60,11 @@ export default function RootLayout() {
       } else {
         setShowAuthModal(false);
       }
+      setAuthChecked(true);
     });
 
     return () => subscription.unsubscribe();
   }, []);
-  */
 
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -75,33 +78,35 @@ export default function RootLayout() {
     Montserrat_800ExtraBold: require('../../assets/fonts/Montserrat_800ExtraBold.ttf'),
   });
 
-  if (!fontsLoaded) {
-    return <View style={{ flex: 1, backgroundColor: '#FFFFFF' }} />;
+  if (!fontsLoaded || !authChecked) {
+    return <View style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#121212' : '#F5F5F7' }} />;
   }
 
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <BottomSheetModalProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
-            <AnimatedSplashOverlay />
-             <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="camera" />
-              <Stack.Screen name="insight" />
-              <Stack.Screen name="select-scans" />
-              <Stack.Screen name="scan/[id]" options={{ headerShown: false }} />
-              <Stack.Screen name="routine/start" options={{ headerShown: false, animation: 'fade' }} />
-              <Stack.Screen name="streak" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-              <Stack.Screen name="badges" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="daily-journal" options={{ headerShown: false, animation: 'slide_from_right' }} />
-            </Stack>
-            {/* <AuthModal
-              visible={showAuthModal}
-              onClose={() => setShowAuthModal(false)}
-              onSuccess={() => setShowAuthModal(false)}
-            /> */}
-          </ThemeProvider>
+          <KeyboardProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
+              <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="camera" />
+                <Stack.Screen name="insight" />
+                <Stack.Screen name="select-scans" />
+                <Stack.Screen name="scan/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="streak" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+                <Stack.Screen name="badges" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="daily-journal" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="add-journal-question" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="new-chat" options={{ headerShown: false, animation: 'slide_from_right' }} />
+              </Stack>
+              <AuthModal
+                visible={showAuthModal}
+                onClose={() => setShowAuthModal(false)}
+                onSuccess={() => setShowAuthModal(false)}
+              />
+            </ThemeProvider>
+          </KeyboardProvider>
         </BottomSheetModalProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
