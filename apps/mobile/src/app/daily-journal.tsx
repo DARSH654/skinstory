@@ -590,8 +590,6 @@ export default function DailyJournalScreen() {
         ) : (
           <Pressable
             onPress={() => {
-              (globalThis as any).__addNewClickTime = performance.now();
-              console.log('[PERF TIMING] "Add new" button clicked at:', (globalThis as any).__addNewClickTime.toFixed(2), 'ms');
               router.push('/add-journal-question' as any);
             }}
             style={({ pressed }) => [

@@ -40,7 +40,6 @@ export interface AddJournalQuestionDetailsSheetRef {
 export interface AddJournalQuestionDetailsSheetProps {
   selectedType: QuestionDataType | null;
   isDark: boolean;
-  isWarmingUp?: boolean;
   onSuccess?: () => void;
   onDismiss?: () => void;
 }
@@ -148,7 +147,6 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
 >(({
   selectedType = 'multi_select',
   isDark,
-  isWarmingUp = false,
   onSuccess,
   onDismiss,
 }, ref) => {
@@ -200,15 +198,8 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
     return () => sub.remove();
   }, [isPresented]);
 
-  const renderCountRef = useRef(0);
-  renderCountRef.current += 1;
-  const continueClick = (globalThis as any).__continueClickTime;
-  const timeFromContinue = continueClick ? (performance.now() - continueClick).toFixed(1) : 'N/A';
-  console.log(`[PERF ROOT-CAUSE] Sheet Render #${renderCountRef.current} (${timeFromContinue}ms from continue)`);
-
   useImperativeHandle(ref, () => ({
     present: () => {
-      console.log(`[PERF ROOT-CAUSE] Sheet present() triggered inside sheet component`);
       setIsPresented(true);
       setIsSaveEnabled(checkFormValid());
       bottomSheetModalRef.current?.present();
@@ -234,8 +225,6 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => {
-      if (isWarmingUp) return null;
-      console.log(`[PERF ROOT-CAUSE] Sheet Backdrop mounted`);
       return (
         <BottomSheetBackdrop
           {...props}
@@ -245,7 +234,7 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
         />
       );
     },
-    [isWarmingUp]
+    []
   );
 
   const screenHeight = Dimensions.get('window').height;
@@ -263,26 +252,14 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
         bottomInset={insets.bottom}
         backdropComponent={renderBackdrop}
         handleStyle={styles.handleContainer}
-        handleIndicatorStyle={
-          isWarmingUp 
-            ? { backgroundColor: 'transparent' } 
-            : [styles.dragHandle, isDark ? styles.dragHandleDark : styles.dragHandleLight]
-        }
-        backgroundStyle={
-          isWarmingUp 
-            ? { backgroundColor: 'transparent' } 
-            : [isDark ? styles.bgDark : styles.bgLight, styles.roundedTop]
-        }
-        onChange={(index) => {
-          const t = (globalThis as any).__continueClickTime;
-          const diff = t ? (performance.now() - t).toFixed(1) : 'N/A';
-          console.log(`[PERF ROOT-CAUSE] Sheet onChange -> index ${index} at ${diff}ms from continue`);
-        }}
-        onAnimate={(fromIndex, toIndex) => {
-          const t = (globalThis as any).__continueClickTime;
-          const diff = t ? (performance.now() - t).toFixed(1) : 'N/A';
-          console.log(`[PERF ROOT-CAUSE] Sheet onAnimate (${fromIndex} -> ${toIndex}) at ${diff}ms from continue`);
-        }}
+        handleIndicatorStyle={[
+          styles.dragHandle,
+          isDark ? styles.dragHandleDark : styles.dragHandleLight,
+        ]}
+        backgroundStyle={[
+          isDark ? styles.bgDark : styles.bgLight,
+          styles.roundedTop,
+        ]}
         onDismiss={() => {
           Keyboard.dismiss();
           setIsPresented(false);
@@ -291,14 +268,9 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
       >
         <BottomSheetScrollView
           ref={scrollViewRef}
-          contentContainerStyle={[styles.scrollContent, isWarmingUp && { opacity: 0 }]}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          onLayout={(e) => {
-            const t = (globalThis as any).__continueClickTime;
-            const diff = t ? (performance.now() - t).toFixed(1) : 'N/A';
-            console.log(`[PERF ROOT-CAUSE] Sheet Content onLayout: ${e.nativeEvent.layout.height.toFixed(1)}px at ${diff}ms from continue`);
-          }}
         >
           {/* Header: Center-aligned Title only */}
           <Text style={[styles.sheetTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
@@ -375,17 +347,9 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
               {/* + Add Option Button */}
               <Pressable
                 onPress={() => {
-                  console.log('[DEBUG AddJournalQuestionDetailsSheet] "+ Add Option" clicked!', {
-                    selectedType,
-                    currentOptionsCount: draftsRef.current[selectedType || 'multi_select']?.options?.length,
-                    draftsVersion,
-                  });
                   if (!selectedType) return;
                   draftsRef.current[selectedType].options.push('');
-                  setDraftsVersion((v) => {
-                    console.log('[DEBUG AddJournalQuestionDetailsSheet] Updating draftsVersion from:', v, 'to:', v + 1);
-                    return v + 1;
-                  });
+                  setDraftsVersion((v) => v + 1);
                 }}
                 style={({ pressed }) => [
                   styles.addOptionBtn,

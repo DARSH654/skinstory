@@ -193,9 +193,6 @@ export const DATA_TYPES: DataTypeOption[] = [
 ];
 
 export default function AddJournalQuestionScreen() {
-  const componentExecTime = performance.now();
-  const renderCountRef = useRef(0);
-  renderCountRef.current += 1;
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme();
@@ -205,20 +202,14 @@ export default function AddJournalQuestionScreen() {
 
   const primaryColor = Colors.light.primary;
 
-  const addNewClick = (globalThis as any).__addNewClickTime;
-  const clickTime = addNewClick || performance.now();
-  console.log(`[PERF ROOT-CAUSE] Screen Render #${renderCountRef.current} at ${(componentExecTime - clickTime).toFixed(1)}ms from click`);
-
-  useEffect(() => {
-    const mountTime = performance.now();
-    console.log(`[PERF ROOT-CAUSE] Screen useEffect (Native Mounted) at ${(mountTime - clickTime).toFixed(1)}ms from click`);
-  }, []);
-
   // By default, nothing is selected
   const [selectedType, setSelectedType] = useState<QuestionDataType | null>(null);
 
   // Slide open tracking for Android hardware back button
   const [isSlideOpen, setIsSlideOpen] = useState(false);
+
+  // Track click count on Continue button
+  const continueClickCountRef = useRef(0);
 
   // Long-press modal state
   const [modalItem, setModalItem] = useState<DataTypeOption | null>(null);
@@ -235,39 +226,10 @@ export default function AddJournalQuestionScreen() {
     return () => sub.remove();
   }, [isSlideOpen]);
 
-  // Invisible Warm-Up state to pre-measure BottomSheetModal height in background
-  const [isWarmingUp, setIsWarmingUp] = useState(false);
-  const warmUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // Toggle selection: clicking a selected card deselects it
   const handleCardPress = (type: QuestionDataType) => {
-    console.log(`[PERF ROOT-CAUSE] Card pressed: ${type}`);
-    if (warmUpTimerRef.current) {
-      clearTimeout(warmUpTimerRef.current);
-      warmUpTimerRef.current = null;
-    }
-
-    setSelectedType((prev) => {
-      const nextType = prev === type ? null : type;
-
-      // Trigger invisible warm-up when a card is selected
-      if (nextType) {
-        setIsWarmingUp(true);
-        // Small delay to allow state update to propagate selectedType to sheet
-        setTimeout(() => {
-          detailsSheetRef.current?.present();
-          warmUpTimerRef.current = setTimeout(() => {
-            detailsSheetRef.current?.dismiss();
-            setIsWarmingUp(false);
-            warmUpTimerRef.current = null;
-          }, 600);
-        }, 50);
-      } else {
-        setIsWarmingUp(false);
-      }
-
-      return nextType;
-    });
+    continueClickCountRef.current = 0;
+    setSelectedType((prev) => (prev === type ? null : type));
   };
 
   const handleOpenDetailModal = (item: DataTypeOption) => {
@@ -278,20 +240,10 @@ export default function AddJournalQuestionScreen() {
   const detailsSheetRef = useRef<AddJournalQuestionDetailsSheetRef>(null);
 
   const handleContinue = () => {
-    // If warm-up timer is still running when user clicks continue, cancel it
-    if (warmUpTimerRef.current) {
-      clearTimeout(warmUpTimerRef.current);
-      warmUpTimerRef.current = null;
-    }
-    setIsWarmingUp(false);
-
-    const t0 = performance.now();
-    (globalThis as any).__continueClickTime = t0;
-    console.log(`[PERF ROOT-CAUSE] "Continue" pressed. Calling present() immediately...`);
+    continueClickCountRef.current += 1;
     if (!selectedType) return;
     setIsSlideOpen(true);
     detailsSheetRef.current?.present();
-    console.log(`[PERF ROOT-CAUSE] present() call returned in ${(performance.now() - t0).toFixed(1)}ms`);
   };
 
   return (
@@ -605,7 +557,6 @@ export default function AddJournalQuestionScreen() {
         ref={detailsSheetRef}
         selectedType={selectedType}
         isDark={isDark}
-        isWarmingUp={isWarmingUp}
         onDismiss={() => setIsSlideOpen(false)}
       />
     </View>

@@ -86,7 +86,8 @@ function EyeOffIcon({ color = '#71717a' }: { color?: string }) {
 export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProps) {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
-  const brandPrimary = Colors[isDark ? 'dark' : 'light'].primary;
+  const themeColors = Colors[isDark ? 'dark' : 'light'];
+  const brandPrimary = themeColors.primary;
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const emailRef = React.useRef('');
@@ -241,7 +242,11 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
               onPress={() => {
                 onClose();
               }}
-              style={[styles.skipPillBtn, isDark ? styles.skipPillDark : styles.skipPillLight]}
+              style={[
+                styles.skipPillBtn,
+                isDark ? styles.skipPillDark : styles.skipPillLight,
+                { backgroundColor: themeColors.background },
+              ]}
             >
               <Text style={[styles.skipPillText, isDark ? styles.textDark : styles.textLight]}>
                 Skip Login/Sign Up
@@ -264,7 +269,11 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
               <Text style={[styles.fieldLabel, isDark ? styles.textDark : styles.textLight]}>Email</Text>
               <TextInput
                 key="auth-forgot-email"
-                style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
+                style={[
+                  styles.input,
+                  isDark ? styles.inputDark : styles.inputLight,
+                  { backgroundColor: themeColors.background },
+                ]}
                 placeholder="Enter your email"
                 placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
                 defaultValue={emailRef.current}
@@ -347,7 +356,11 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
               <Text style={[styles.fieldLabel, isDark ? styles.textDark : styles.textLight]}>Email</Text>
               <TextInput
                 key={`auth-email-${mode}`}
-                style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
+                style={[
+                  styles.input,
+                  isDark ? styles.inputDark : styles.inputLight,
+                  { backgroundColor: themeColors.background },
+                ]}
                 placeholder="Enter your email"
                 placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
                 defaultValue={emailRef.current}
@@ -358,9 +371,9 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
 
               {/* Password Label & Forgot Password Link */}
               <View style={styles.passwordLabelRow}>
-                <Text style={[styles.fieldLabel, isDark ? styles.textDark : styles.textLight]}>Password</Text>
+                <Text style={[styles.passwordLabel, isDark ? styles.textDark : styles.textLight]}>Password</Text>
                 {mode === 'signin' && (
-                  <Pressable onPress={() => setMode('forgot')}>
+                  <Pressable onPress={() => setMode('forgot')} hitSlop={6}>
                     <Text style={[styles.forgotPasswordNormal, isDark ? styles.textDark : styles.textLight]}>
                       Forgot password?
                     </Text>
@@ -369,7 +382,13 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
               </View>
 
               {/* Password Input with Pill Eye Icon Toggle */}
-              <View style={[styles.passwordInputContainer, isDark ? styles.inputDark : styles.inputLight]}>
+              <View
+                style={[
+                  styles.passwordInputContainer,
+                  isDark ? styles.inputDark : styles.inputLight,
+                  { backgroundColor: themeColors.background },
+                ]}
+              >
                 <TextInput
                   key={`auth-password-${mode}`}
                   style={[styles.passwordInput, isDark ? styles.passwordInputDark : styles.passwordInputLight]}
@@ -565,6 +584,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 6,
     fontFamily: 'Outfit_600SemiBold',
+    lineHeight: 18,
   },
   input: {
     height: 44,
@@ -574,7 +594,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 16,
   },
-  inputLight: { backgroundColor: '#f4f4f5', borderColor: '#e4e4e7', color: '#111827' },
+  inputLight: { backgroundColor: '#ffffff', borderColor: '#e4e4e7', color: '#111827' },
   inputDark: { backgroundColor: '#27272a', borderColor: '#3f3f46', color: '#ffffff' },
 
   passwordLabelRow: {
@@ -583,11 +603,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
+  passwordLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Outfit_600SemiBold',
+    lineHeight: 18,
+  },
   forgotPasswordNormal: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     textDecorationLine: 'underline',
-    fontFamily: 'Outfit_500Medium',
+    fontFamily: 'Outfit_600SemiBold',
+    lineHeight: 18,
   },
 
   passwordInputContainer: {
@@ -598,7 +625,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingLeft: 14,
     paddingRight: 8,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   passwordInput: {
     flex: 1,
@@ -640,6 +667,7 @@ const styles = StyleSheet.create({
   },
   termsLinkNormal: {
     fontWeight: '600',
+    fontFamily: 'Outfit_600SemiBold',
     textDecorationLine: 'underline',
   },
 
