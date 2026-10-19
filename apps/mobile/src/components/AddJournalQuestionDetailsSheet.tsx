@@ -4,8 +4,7 @@ import React, {
   useCallback, 
   useImperativeHandle, 
   forwardRef,
-  useEffect,
-  useMemo
+  useEffect
 } from 'react';
 import { 
   View, 
@@ -22,6 +21,8 @@ import {
   BottomSheetTextInput,
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
+  BottomSheetBackgroundProps,
+  useBottomSheetSpringConfigs,
 } from '@gorhom/bottom-sheet';
 import { Text } from '@/components/AppText';
 import { useRouter } from 'expo-router';
@@ -157,20 +158,6 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
   const scrollViewRef = useRef<any>(null);
 
   const primaryColor = Colors.light.primary;
-  const sheetBgColor = isDark ? '#121212' : '#FAF8F6';
-
-  // Smooth physics-based spring animation config for fluid dynamic resizing
-  const animationConfigs = useMemo(
-    () => ({
-      damping: 28,
-      stiffness: 260,
-      mass: 0.5,
-      overshootClamping: true,
-      restDisplacementThreshold: 0.1,
-      restSpeedThreshold: 0.1,
-    }),
-    []
-  );
 
   // Session-isolated Draft State for all 6 data types
   const draftsRef = useRef<Record<QuestionDataType, DataTypeDraft>>(DEFAULT_DRAFTS);
@@ -238,12 +225,19 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
     }
   };
 
+  const animationConfigs = useBottomSheetSpringConfigs({
+    damping: 35,
+    stiffness: 350,
+    mass: 1,
+    overshootClamping: true,
+  });
+
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => {
       return (
         <BottomSheetBackdrop
           {...props}
-          appearsOnIndex={0}
+          appearsOnIndex={-0.5}
           disappearsOnIndex={-1}
           pressBehavior="close"
         />
@@ -252,7 +246,23 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
     []
   );
 
-  const screenHeight = Dimensions.get('window').height;
+  const renderBackground = useCallback(
+    ({ style }: BottomSheetBackgroundProps) => (
+      <View
+        pointerEvents="none"
+        style={[
+          style,
+          styles.roundedTop,
+          {
+            backgroundColor: isDark ? '#121212' : '#FAF8F6',
+            bottom: -600,
+          },
+        ]}
+      />
+    ),
+    [isDark]
+  );
+
   const isValid = isSaveEnabled;
 
   return (
@@ -260,30 +270,17 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
       <BottomSheetModal
         ref={bottomSheetModalRef}
         enableDynamicSizing
-        maxDynamicContentSize={screenHeight * 0.95}
+        topInset={insets.top}
         enablePanDownToClose
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
-        bottomInset={insets.bottom}
         backdropComponent={renderBackdrop}
+        backgroundComponent={renderBackground}
         animationConfigs={animationConfigs}
-        style={{
-          backgroundColor: sheetBgColor,
-          borderTopLeftRadius: 32,
-          borderTopRightRadius: 32,
-          overflow: 'hidden',
-        }}
-        handleStyle={[
-          styles.handleContainer,
-          { backgroundColor: sheetBgColor, borderTopLeftRadius: 32, borderTopRightRadius: 32 },
-        ]}
+        handleStyle={styles.handleContainer}
         handleIndicatorStyle={[
           styles.dragHandle,
           isDark ? styles.dragHandleDark : styles.dragHandleLight,
-        ]}
-        backgroundStyle={[
-          isDark ? styles.bgDark : styles.bgLight,
-          styles.roundedTop,
         ]}
         onDismiss={() => {
           Keyboard.dismiss();
@@ -293,8 +290,11 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
       >
         <BottomSheetScrollView
           ref={scrollViewRef}
-          style={{ backgroundColor: sheetBgColor }}
-          contentContainerStyle={styles.scrollContent}
+          style={{ backgroundColor: isDark ? '#121212' : '#FAF8F6' }}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, 12) + 10 },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -376,9 +376,6 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
                   if (!selectedType) return;
                   draftsRef.current[selectedType].options.push('');
                   setDraftsVersion((v) => v + 1);
-                  requestAnimationFrame(() => {
-                    scrollViewRef.current?.scrollToEnd({ animated: true });
-                  });
                 }}
                 style={({ pressed }) => [
                   styles.addOptionBtn,
@@ -631,8 +628,6 @@ const styles = StyleSheet.create({
   roundedTop: {
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
   },
   bgLight: {
     backgroundColor: '#FAF8F6',
