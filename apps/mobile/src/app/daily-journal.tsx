@@ -32,7 +32,13 @@ import {
   Trash2,
   Ban,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles,
+  Droplets,
+  Moon,
+  Clock,
+  ArrowUpRight,
+  Loader2
 } from 'lucide-react-native';
 import { 
   BottomSheetModal, 
@@ -45,6 +51,16 @@ import Animated, {
   FadeOut, 
   FadeInDown,
   FadeOutUp,
+  SlideInRight,
+  SlideOutLeft,
+  SlideInLeft,
+  SlideOutRight,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSequence,
+  Easing,
 } from 'react-native-reanimated';
 import { Colors } from '@/constants/theme';
 import { MOCK_SCANS } from '@/constants/mockScans';
@@ -65,69 +81,69 @@ export const INITIAL_QUESTIONS: QuestionDef[] = [
     key: 'q_routine',
     prefix: 'Routine ',
     highlight: 'Compliance',
-    subtitle: 'Are you following your skincare routine today?',
+    subtitle: 'Did you complete your daily AM & PM skincare steps today?',
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
     options: [
-      { label: 'Morning & evening routine', value: 'Morning & Evening' },
-      { label: 'Morning routine only', value: 'Morning' },
-      { label: 'Evening routine only', value: 'Evening' },
-      { label: 'Morning, evening & night routine', value: 'Morning, Evening & Night' },
-      { label: 'No - Skipped routine today', value: 'No' },
+      { label: 'Morning & evening routine fully completed with moisturizer and active serums', value: 'Morning & Evening' },
+      { label: 'Morning routine only before heading out for work', value: 'Morning' },
+      { label: 'Evening routine only before sleeping', value: 'Evening' },
+      { label: 'Full AM, PM & night double-cleanse complete routine', value: 'Morning, Evening & Night' },
+      { label: 'No routine today - completely skipped', value: 'No' },
     ],
   },
   {
     key: 'q_water',
     prefix: 'Water ',
     highlight: 'Intake',
-    subtitle: 'How much water have you had today?',
+    subtitle: 'Daily hydration?',
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
     options: [
-      { label: 'Less than 500ml', value: 'Less than 500ml' },
-      { label: 'Around 1L', value: 'Around 1L' },
-      { label: 'Around 1.5L', value: 'Around 1.5L' },
-      { label: 'Around 2L', value: 'Around 2L' },
-      { label: 'More than 2L', value: 'More than 2L' },
+      { label: 'Under 500ml total intake', value: 'Less than 500ml' },
+      { label: 'Around 1 Liter throughout the day', value: 'Around 1L' },
+      { label: 'Around 1.5 Liters of water and electrolytes', value: 'Around 1.5L' },
+      { label: 'Around 2 Liters healthy goal reached', value: 'Around 2L' },
+      { label: 'Over 2.5 Liters fully hydrated and tracking', value: 'More than 2L' },
     ],
   },
   {
     key: 'q_sleep',
     prefix: 'Sleep ',
     highlight: 'Quality',
-    subtitle: 'How was your sleep last night?',
+    subtitle: 'How many continuous hours of restful, undisturbed deep sleep did you manage to get throughout the entire night?',
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 1,
     options: [
-      { label: 'Less than 5 hours', value: 'Less than 5 hours' },
-      { label: '5–6 hours, restless', value: '5–6 hours, restless' },
-      { label: '6–7 hours, okay', value: '6–7 hours, okay' },
-      { label: '7–8 hours, good', value: '7–8 hours, good' },
-      { label: '8+ hours, excellent', value: '8+ hours, excellent' },
+      { label: 'Under 5 hours, woke up feeling fatigued and unrested', value: 'Less than 5 hours' },
+      { label: '5 to 6 hours with intermittent wakeups and restlessness', value: '5–6 hours, restless' },
+      { label: '6 to 7 hours of standard adequate sleep', value: '6–7 hours, okay' },
+      { label: '7 to 8 hours of solid uninterrupted deep restorative rest', value: '7–8 hours, good' },
+      { label: '8+ hours of perfect, high quality rejuvenating deep sleep', value: '8+ hours, excellent' },
     ],
   },
   {
     key: 'q_stress',
     prefix: 'Stress ',
     highlight: 'Check',
-    subtitle: 'How stressed have you been today?',
+    subtitle: 'Reflecting across your entire day from morning until right now, how would you gauge your overall mental stress, work pressure, and cognitive exhaustion levels?',
     createdAt: Date.now() - 1000 * 60 * 60 * 12,
     options: [
-      { label: 'Completely calm & relaxed', value: 'Completely calm & relaxed' },
-      { label: 'Mild stress, manageable', value: 'Mild stress, manageable' },
-      { label: 'Moderately stressed', value: 'Moderately stressed' },
-      { label: 'Quite stressed today', value: 'Quite stressed today' },
-      { label: 'Extremely overwhelmed', value: 'Extremely overwhelmed' },
+      { label: 'Completely calm, peaceful, grounded and relaxed all day', value: 'Completely calm & relaxed' },
+      { label: 'Mild everyday stress, entirely manageable without issue', value: 'Mild stress, manageable' },
+      { label: 'Moderately stressed with occasional moments of anxiety', value: 'Moderately stressed' },
+      { label: 'Quite stressed with noticeable mental and physical tension', value: 'Quite stressed today' },
+      { label: 'Extremely overwhelmed, high burnout and exhaustion felt', value: 'Extremely overwhelmed' },
     ],
   },
   {
     key: 'q_sunscreen',
     prefix: 'Sunscreen ',
     highlight: 'Application',
-    subtitle: 'Did you apply and reapply SPF today?',
+    subtitle: 'Did you apply SPF?',
     createdAt: Date.now() - 1000 * 60 * 60 * 6,
     options: [
-      { label: 'Applied & reapplied every 2 hrs', value: 'Applied & Reapplied' },
-      { label: 'Applied once in morning', value: 'Applied once' },
-      { label: 'Stayed indoors all day', value: 'Indoors' },
-      { label: 'Forgot sunscreen today', value: 'Forgot' },
+      { label: 'Applied broad-spectrum SPF 50+ and regularly reapplied every 2 hours outdoors', value: 'Applied & Reapplied' },
+      { label: 'Applied once in the morning before leaving', value: 'Applied once' },
+      { label: 'Stayed indoors all day with minimal UV exposure', value: 'Indoors' },
+      { label: 'Completely forgot sunscreen today', value: 'Forgot' },
     ],
   },
 ];
@@ -216,87 +232,185 @@ export const DEMO_HISTORY_RECORDS: JournalHistoryRecord[] = [
     id: 'rec-1',
     dateStr: 'Today',
     dayName: 'Saturday',
-    isoDate: '2026-10-12',
+    isoDate: '2026-10-18',
     image: MOCK_SCANS[0]?.image,
     answers: {
-      q_stress: 'Completely calm & relaxed',
-      q_water: 'Around 2L',
-      q_sleep: '7–8 hours, good',
-      q_junk: 'Mostly healthy',
       q_routine: 'Morning & Evening',
+      q_water: 'Around 2L',
     },
   },
   {
     id: 'rec-2',
     dateStr: 'Yesterday',
     dayName: 'Friday',
-    isoDate: '2026-10-11',
+    isoDate: '2026-10-17',
     image: MOCK_SCANS[1]?.image,
     answers: {
-      q_stress: 'Mild stress, manageable',
+      q_routine: 'Morning',
       q_water: 'Around 1.5L',
       q_sleep: '6–7 hours, okay',
-      q_junk: 'Mix of both',
-      q_routine: 'Morning',
+      q_stress: 'Mild stress, manageable',
+      q_sunscreen: 'Applied once',
     },
   },
   {
     id: 'rec-3',
-    dateStr: 'Oct 09, 2026',
+    dateStr: 'Oct 15, 2026',
     dayName: 'Wednesday',
-    isoDate: '2026-10-09',
+    isoDate: '2026-10-15',
     image: MOCK_SCANS[2]?.image,
-    answers: {
-      q_stress: 'Moderately stressed',
-      q_water: 'Around 1L',
-      q_sleep: '5–6 hours, restless',
-      q_junk: 'Mostly junk, some healthy',
-      q_routine: 'No',
-    },
+    answers: {},
   },
   {
     id: 'rec-4',
-    dateStr: 'Oct 07, 2026',
-    dayName: 'Monday',
-    isoDate: '2026-10-07',
+    dateStr: 'Oct 12, 2026',
+    dayName: 'Sunday',
+    isoDate: '2026-10-12',
     image: MOCK_SCANS[3]?.image,
     answers: {
-      q_stress: 'Completely calm & relaxed',
+      q_routine: 'Morning & Evening',
       q_water: 'More than 2L',
-      q_sleep: '8+ hours, excellent',
-      q_junk: 'Very clean diet',
-      q_routine: 'Morning, Evening & Night',
     },
   },
   {
     id: 'rec-5',
-    dateStr: 'Oct 04, 2026',
-    dayName: 'Friday',
-    isoDate: '2026-10-04',
+    dateStr: 'Oct 09, 2026',
+    dayName: 'Thursday',
+    isoDate: '2026-10-09',
     image: MOCK_SCANS[4]?.image,
     answers: {
-      q_stress: 'Quite stressed today',
+      q_routine: 'Evening',
       q_water: 'Around 1L',
       q_sleep: 'Less than 5 hours',
-      q_junk: 'Ate a lot of junk food',
-      q_routine: 'Evening',
+      q_stress: 'Quite stressed today',
+      q_sunscreen: 'Applied once',
     },
   },
   {
     id: 'rec-6',
-    dateStr: 'Sep 30, 2026',
-    dayName: 'Tuesday',
-    isoDate: '2026-09-30',
+    dateStr: 'Oct 04, 2026',
+    dayName: 'Saturday',
+    isoDate: '2026-10-04',
     image: MOCK_SCANS[0]?.image,
     answers: {
-      q_stress: 'Mild stress, manageable',
+      q_routine: 'Morning & Evening',
       q_water: 'Around 2L',
       q_sleep: '7–8 hours, good',
-      q_junk: 'Mostly healthy',
+    },
+  },
+  {
+    id: 'rec-7',
+    dateStr: 'Oct 01, 2026',
+    dayName: 'Wednesday',
+    isoDate: '2026-10-01',
+    image: MOCK_SCANS[1]?.image,
+    answers: {
       q_routine: 'Morning & Evening',
+      q_water: 'More than 2L',
+      q_sleep: '8+ hours, great',
+      q_stress: 'Relaxed, no stress',
+      q_sunscreen: 'Applied twice',
+    },
+  },
+  {
+    id: 'rec-8',
+    dateStr: 'Sep 27, 2026',
+    dayName: 'Saturday',
+    isoDate: '2026-09-27',
+    image: MOCK_SCANS[2]?.image,
+    answers: {},
+  },
+  {
+    id: 'rec-9',
+    dateStr: 'Sep 23, 2026',
+    dayName: 'Tuesday',
+    isoDate: '2026-09-23',
+    image: MOCK_SCANS[3]?.image,
+    answers: {
+      q_routine: 'Evening',
+      q_water: 'Less than 1L',
+      q_sleep: '5–6 hours, tired',
+    },
+  },
+  {
+    id: 'rec-10',
+    dateStr: 'Sep 18, 2026',
+    dayName: 'Thursday',
+    isoDate: '2026-09-18',
+    image: MOCK_SCANS[4]?.image,
+    answers: {
+      q_routine: 'Morning & Evening',
+      q_water: 'Around 2L',
+      q_sleep: '7–8 hours, good',
+      q_stress: 'Mild stress, manageable',
+      q_sunscreen: 'Applied once',
+    },
+  },
+  {
+    id: 'rec-11',
+    dateStr: 'Sep 14, 2026',
+    dayName: 'Sunday',
+    isoDate: '2026-09-14',
+    image: MOCK_SCANS[0]?.image,
+    answers: {
+      q_routine: 'Morning',
+      q_water: 'Around 1.5L',
     },
   },
 ];
+
+// ---------------------------------------------------------------------------
+// MarqueeText — scrolls text horizontally when it overflows the pill
+// ---------------------------------------------------------------------------
+function MarqueeText({ text, style }: { text: string; style?: any }) {
+  const containerWidth = useSharedValue(0);
+  const textWidth = useSharedValue(0);
+  const translateX = useSharedValue(0);
+  const [shouldScroll, setShouldScroll] = useState(false);
+
+  const onContainerLayout = (e: any) => {
+    containerWidth.value = e.nativeEvent.layout.width;
+  };
+
+  const onTextLayout = (e: any) => {
+    const w = e.nativeEvent.lines.reduce((max: number, line: any) => Math.max(max, line.width), 0);
+    textWidth.value = w;
+    const overflow = w > containerWidth.value + 2;
+    setShouldScroll(overflow);
+    if (overflow) {
+      const distance = w - containerWidth.value + 16;
+      translateX.value = 0;
+      translateX.value = withRepeat(
+        withSequence(
+          withTiming(0, { duration: 800, easing: Easing.linear }),
+          withTiming(-distance, { duration: distance * 22, easing: Easing.linear }),
+          withTiming(-distance, { duration: 700, easing: Easing.linear }),
+          withTiming(0, { duration: distance * 14, easing: Easing.linear }),
+        ),
+        -1,
+        false,
+      );
+    } else {
+      translateX.value = 0;
+    }
+  };
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  return (
+    <View style={{ flex: 1, overflow: 'hidden' }} onLayout={onContainerLayout}>
+      <Animated.Text
+        numberOfLines={shouldScroll ? 1 : 2}
+        onTextLayout={onTextLayout}
+        style={[style, animStyle, shouldScroll ? { width: 9999 } : {}]}
+      >
+        {text}
+      </Animated.Text>
+    </View>
+  );
+}
 
 export default function DailyJournalScreen() {
   const router = useRouter();
@@ -452,8 +566,10 @@ export default function DailyJournalScreen() {
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [editingAnswers, setEditingAnswers] = useState<Record<string, string>>({});
+  const [isViewingCompleted, setIsViewingCompleted] = useState(false);
 
-  const snapPoints = useMemo(() => ['68%'], []);
+  const snapPoints = useMemo(() => ['62%'], []);
+  const [slideDirection, setSlideDirection] = useState<'forward' | 'backward'>('forward');
   const currentQ = questions[currentIndex] || questions[0];
   const isLastQuestion = currentIndex === questions.length - 1;
   const currentAnswer = currentQ ? editingAnswers[currentQ.key] || null : null;
@@ -461,36 +577,63 @@ export default function DailyJournalScreen() {
   // Open edit slide for a history record
   const handleOpenEdit = (record: JournalHistoryRecord) => {
     setActiveRecordId(record.id);
-    setEditingAnswers({ ...record.answers });
-    setCurrentIndex(0);
+    const recordAnswers = { ...(record.answers || {}) };
+    setEditingAnswers(recordAnswers);
+    setSlideDirection('forward');
+
+    // Count how many of the currently active questions are answered
+    const answeredCount = questions.filter((q) => Boolean(recordAnswers[q.key])).length;
+    const isCompleted = answeredCount >= questions.length && questions.length > 0;
+
+    if (isCompleted) {
+      // Completed state: show the big tick completion screen with "Edit answers" option
+      setIsViewingCompleted(true);
+      setCurrentIndex(0);
+    } else {
+      setIsViewingCompleted(false);
+      // In Progress / Missed: find the index of the first question that has no answer
+      const firstUnansweredIndex = questions.findIndex((q) => !recordAnswers[q.key]);
+      setCurrentIndex(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
+    }
+
     bottomSheetModalRef.current?.present();
   };
 
-  const selectAnswer = (qKey: string, val: string) => {
-    setEditingAnswers((prev) => ({
-      ...prev,
-      [qKey]: val,
-    }));
+  const handleStartEditFromBeginning = () => {
+    setIsViewingCompleted(false);
+    setCurrentIndex(0);
+    setSlideDirection('forward');
   };
 
-  const handleNextOrDone = () => {
-    if (isLastQuestion) {
-      if (activeRecordId) {
-        setHistoryRecords((prev) =>
-          prev.map((item) =>
-            item.id === activeRecordId ? { ...item, answers: { ...editingAnswers } } : item
-          )
-        );
+  const selectAnswer = (qKey: string, val: string) => {
+    const updatedAnswers = {
+      ...editingAnswers,
+      [qKey]: val,
+    };
+    setEditingAnswers(updatedAnswers);
+
+    // Auto-advance to next question or complete on selection
+    setTimeout(() => {
+      if (isLastQuestion) {
+        if (activeRecordId) {
+          setHistoryRecords((prev) =>
+            prev.map((item) =>
+              item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
+            )
+          );
+        }
+        bottomSheetModalRef.current?.dismiss();
+        setCurrentIndex(0);
+        setActiveRecordId(null);
+      } else {
+        setSlideDirection('forward');
+        setCurrentIndex((prev) => Math.min(prev + 1, questions.length - 1));
       }
-      bottomSheetModalRef.current?.dismiss();
-      setCurrentIndex(0);
-      setActiveRecordId(null);
-    } else {
-      setCurrentIndex((prev) => Math.min(prev + 1, questions.length - 1));
-    }
+    }, 220);
   };
 
   const handlePrevious = () => {
+    setSlideDirection('backward');
     setCurrentIndex((prev) => Math.max(prev - 1, 0));
   };
 
@@ -684,54 +827,132 @@ export default function DailyJournalScreen() {
           >
             <View style={styles.historyList}>
               {filteredHistory.length > 0 ? (
-                filteredHistory.map((item, index) => {
-                  const answeredCount = Object.keys(item.answers).length;
-                  const isLastItem = index === filteredHistory.length - 1;
+                filteredHistory.map((item) => {
+                  const answeredCount = questions.filter((q) => Boolean(item.answers?.[q.key])).length;
+                  const totalQuestions = questions.length;
+                  
+                  // Only 3 statuses: 'Completed', 'In Progress', 'Missed'
+                  let statusText: 'Completed' | 'In Progress' | 'Missed' = 'Completed';
+                  if (answeredCount >= totalQuestions && totalQuestions > 0) {
+                    statusText = 'Completed';
+                  } else if (answeredCount === 0) {
+                    statusText = 'Missed';
+                  } else {
+                    statusText = 'In Progress';
+                  }
 
                   return (
                     <Pressable
                       key={item.id}
                       onPress={() => handleOpenEdit(item)}
                       style={({ pressed }) => [
-                        styles.historyRow,
-                        !isLastItem && [
-                          styles.historyRowDivider,
-                          { borderBottomColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' },
-                        ],
-                        { opacity: pressed ? 0.7 : 1 },
+                        styles.historyCardBox,
+                        isDark ? styles.historyCardBoxDark : styles.historyCardBoxLight,
+                        { opacity: pressed ? 0.75 : 1 },
                       ]}
                     >
-                      {/* Left Column: Date & Details */}
+                      {/* Left Column: Date & Status Pill on top, Day & Answered count below */}
                       <View style={styles.historyRowLeft}>
-                        <Text style={[styles.historyRowDate, { color: isDark ? '#ffffff' : '#111827' }]}>
-                          {item.dateStr}
-                        </Text>
-                        <View style={styles.historyRowMetaRow}>
+                        {/* Top row: Date + Status pill */}
+                        <View style={styles.historyTopRow}>
+                          <Text style={[styles.historyRowDate, { color: isDark ? '#ffffff' : '#111827' }]}>
+                            {item.dateStr}
+                          </Text>
+                          <View
+                            style={[
+                              styles.statusPill,
+                              {
+                                backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6',
+                                borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb',
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.statusPillText,
+                                { color: isDark ? '#a1a1aa' : '#6b7280' },
+                              ]}
+                            >
+                              {statusText}
+                            </Text>
+                          </View>
+                        </View>
+                        
+                        {/* Bottom row: Day name + X of Y answered */}
+                        <View style={styles.historyMetaContainer}>
                           <Text style={[styles.historyRowSubDate, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
                             {item.dayName}
                           </Text>
                           <View style={[styles.dotSeparator, { backgroundColor: isDark ? '#52525b' : '#d1d5db' }]} />
-                          <Text style={[styles.historyRowAnswersCount, { color: isDark ? '#c084fc' : primaryColor }]}>
-                            {answeredCount} of {questions.length} answered
+                          <Text
+                            style={[
+                              styles.historyRowAnswersCount,
+                              { color: isDark ? '#a1a1aa' : '#6b7280' },
+                            ]}
+                          >
+                            {answeredCount} of {totalQuestions} answered
                           </Text>
                         </View>
                       </View>
 
-                      {/* Right: Pill-shaped Angle Chevron Button */}
-                      <View
-                        style={[
-                          styles.anglePillBtn,
-                          {
-                            backgroundColor: isDark ? '#1c1c1e' : '#ffffff',
-                            borderColor: isDark ? '#27272a' : 'rgba(0,0,0,0.1)',
-                          },
-                        ]}
-                      >
-                        <ChevronRight 
-                          size={16} 
-                          color={isDark ? '#ffffff' : '#111827'} 
-                          strokeWidth={2.4} 
-                        />
+                      {/* Right Column: Circle with status icon & matching BG */}
+                      <View style={styles.historyRightSlot}>
+                        {statusText === 'Completed' && (
+                          <View
+                            style={[
+                              styles.statusCircleBadge,
+                              {
+                                backgroundColor: isDark ? 'rgba(34, 197, 94, 0.16)' : 'rgba(34, 197, 94, 0.12)',
+                                borderColor: isDark ? '#22c55e' : '#16a34a',
+                                borderStyle: 'solid',
+                              },
+                            ]}
+                          >
+                            <Check 
+                              size={20} 
+                              color={isDark ? '#4ade80' : '#16a34a'} 
+                              strokeWidth={3} 
+                            />
+                          </View>
+                        )}
+
+                        {statusText === 'In Progress' && (
+                          <View
+                            style={[
+                              styles.statusCircleBadge,
+                              {
+                                backgroundColor: isDark ? 'rgba(168, 85, 247, 0.16)' : 'rgba(124, 58, 237, 0.10)',
+                                borderColor: isDark ? '#c084fc' : primaryColor,
+                                borderStyle: 'dashed',
+                              },
+                            ]}
+                          >
+                            <Check 
+                              size={20} 
+                              color={isDark ? '#c084fc' : primaryColor} 
+                              strokeWidth={3} 
+                            />
+                          </View>
+                        )}
+
+                        {statusText === 'Missed' && (
+                          <View
+                            style={[
+                              styles.statusCircleBadge,
+                              {
+                                backgroundColor: isDark ? 'rgba(239, 68, 68, 0.16)' : 'rgba(239, 68, 68, 0.12)',
+                                borderColor: isDark ? '#ef4444' : '#dc2626',
+                                borderStyle: 'solid',
+                              },
+                            ]}
+                          >
+                            <X 
+                              size={20} 
+                              color={isDark ? '#f87171' : '#dc2626'} 
+                              strokeWidth={3} 
+                            />
+                          </View>
+                        )}
                       </View>
                     </Pressable>
                   );
@@ -1050,70 +1271,115 @@ export default function DailyJournalScreen() {
           contentContainerStyle={[styles.sheetScrollContent, { paddingBottom: 28 }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Progress / Step header */}
-          <View style={styles.stepHeaderRow}>
-            <Text
-              style={[
-                styles.stepCounterText,
-                { color: isDark ? '#a1a1aa' : '#6b7280' },
-              ]}
-            >
-              {`Question ${currentIndex + 1} of ${questions.length}`}
-            </Text>
-            {currentIndex > 0 ? (
-              <Pressable
-                onPress={handlePrevious}
-                hitSlop={8}
-                style={({ pressed }) => [
-                  styles.prevPill,
-                  isDark ? styles.prevPillDark : styles.prevPillLight,
-                  { opacity: pressed ? 0.75 : 1 },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.prevPillText,
-                    isDark ? styles.prevTextDark : styles.prevTextLight,
+          {isViewingCompleted ? (
+            /* Completed Screen UI: Big Tick, "You have completed it", and "Edit answers" Pill */
+            <View style={styles.completedSheetContainer}>
+              <View style={styles.completedTopRow}>
+                <View style={{ flex: 1 }} />
+                <Pressable
+                  onPress={handleStartEditFromBeginning}
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.editAnswersPill,
+                    isDark ? styles.editAnswersPillDark : styles.editAnswersPillLight,
+                    { opacity: pressed ? 0.75 : 1 },
                   ]}
                 >
-                  Previous
-                </Text>
-              </Pressable>
-            ) : (
-              <View style={{ height: 28 }} />
-            )}
-          </View>
-
-          {/* Question Title */}
-          {currentQ && (
-            <>
-              <View style={styles.qTitleRow}>
-                <Text style={[styles.qPrefix, { color: isDark ? '#ffffff' : '#111827' }]}>
-                  {currentQ.prefix}
-                </Text>
-                <View style={styles.highlightWrapper}>
-                  <View
+                  <Text
                     style={[
-                      styles.highlightStripe,
-                      {
-                        backgroundColor: isDark
-                          ? 'rgba(168, 85, 247, 0.45)'
-                          : '#d6cbe8',
-                      },
+                      styles.editAnswersPillText,
+                      { color: isDark ? '#ffffff' : '#111827' },
                     ]}
-                  />
-                  <Text style={[styles.qHighlight, { color: isDark ? '#ffffff' : '#111827' }]}>
-                    {currentQ.highlight}
+                  >
+                    Edit answers
                   </Text>
-                </View>
+                </Pressable>
               </View>
 
-              <Text style={[styles.qSubtitle, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
+              <View style={styles.completedCenterContent}>
+                {/* Big Tick Circle */}
+                <View
+                  style={[
+                    styles.completedBigCircle,
+                    {
+                      backgroundColor: isDark ? 'rgba(34, 197, 94, 0.16)' : 'rgba(34, 197, 94, 0.12)',
+                      borderColor: isDark ? '#22c55e' : '#16a34a',
+                    },
+                  ]}
+                >
+                  <Check
+                    size={48}
+                    color={isDark ? '#4ade80' : '#16a34a'}
+                    strokeWidth={3.5}
+                  />
+                </View>
+
+                <Text style={[styles.completedHeading, { color: isDark ? '#ffffff' : '#111827' }]}>
+                  You have completed it
+                </Text>
+                <Text style={[styles.completedSubheading, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
+                  All daily check-in questions were logged successfully.
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <>
+              {/* Progress / Step header */}
+              <View style={styles.stepHeaderRow}>
+                <Text
+                  style={[
+                    styles.stepCounterText,
+                    { color: isDark ? '#a1a1aa' : '#6b7280' },
+                  ]}
+                >
+                  {`Question ${currentIndex + 1} of ${questions.length}`}
+                </Text>
+                {currentIndex > 0 ? (
+                  <Pressable
+                    onPress={handlePrevious}
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.prevPill,
+                      isDark ? styles.prevPillDark : styles.prevPillLight,
+                      { opacity: pressed ? 0.75 : 1 },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.prevPillText,
+                        isDark ? styles.prevTextDark : styles.prevTextLight,
+                      ]}
+                    >
+                      Previous
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <View style={{ height: 28 }} />
+                )}
+              </View>
+
+              {/* Question Title & Options (Animated Slide) */}
+              {currentQ && (
+                <Animated.View
+                  key={`q-slide-${currentIndex}`}
+                  entering={
+                    slideDirection === 'forward'
+                      ? SlideInRight.duration(240)
+                      : SlideInLeft.duration(240)
+                  }
+                  exiting={
+                    slideDirection === 'forward'
+                      ? SlideOutLeft.duration(180)
+                      : SlideOutRight.duration(180)
+                  }
+                >
+                  {/* Question Text */}
+              <Text style={[styles.pureQuestionText, { color: isDark ? '#ffffff' : '#111827' }]}>
                 {currentQ.subtitle}
               </Text>
 
-              {/* Option Choices */}
-              <View style={styles.optionsList}>
+              {/* Pill-shaped 3D Option Choices */}
+              <View style={styles.pillOptionsList}>
                 {currentQ.options.map((opt) => {
                   const isSelected = currentAnswer === opt.value;
                   const shadowColor = isSelected
@@ -1175,9 +1441,10 @@ export default function DailyJournalScreen() {
                               ]}
                             >
                               <View style={styles.optionRow}>
-                                <Text style={[styles.optionText, { color: textColor }]}>
-                                  {opt.label}
-                                </Text>
+                                <MarqueeText
+                                  text={opt.label}
+                                  style={[styles.optionText, { color: textColor }]}
+                                />
                                 {isSelected && (
                                   <Check size={20} color={textColor} strokeWidth={3.5} />
                                 )}
@@ -1190,34 +1457,10 @@ export default function DailyJournalScreen() {
                   );
                 })}
               </View>
-            </>
+            </Animated.View>
           )}
-
-          {/* Next / Done Button */}
-          <Pressable
-            disabled={!currentAnswer}
-            onPress={handleNextOrDone}
-            style={({ pressed }) => [
-              styles.navBtn,
-              {
-                backgroundColor: currentAnswer
-                  ? primaryColor
-                  : isDark
-                  ? '#27272a'
-                  : '#e5e7eb',
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.navBtnText,
-                { color: currentAnswer ? '#ffffff' : isDark ? '#71717a' : '#9ca3af' },
-              ]}
-            >
-              {isLastQuestion ? 'Done' : 'Next'}
-            </Text>
-          </Pressable>
+          </>
+          )}
         </BottomSheetScrollView>
       </BottomSheetModal>
 
@@ -1447,29 +1690,48 @@ const styles = StyleSheet.create({
 
   /* History List */
   historyList: {
-    paddingVertical: 4,
+    paddingVertical: 6,
+    gap: 12,
   },
-  historyRow: {
+  historyCardBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 16,
-    paddingHorizontal: 4,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  historyRowDivider: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  historyCardBoxLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  historyCardBoxDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
   },
   historyRowLeft: {
     flex: 1,
-    paddingRight: 16,
+    paddingRight: 14,
+  },
+  historyTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
   },
   historyRowDate: {
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.3,
-    marginBottom: 4,
   },
-  historyRowMetaRow: {
+  historyMetaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -1485,23 +1747,36 @@ const styles = StyleSheet.create({
   },
   historyRowAnswersCount: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
   },
-
-  /* Pill-shaped Angle Chevron Button */
-  anglePillBtn: {
-    flexDirection: 'row',
+  statusPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'lowercase',
+    letterSpacing: 0.2,
+  },
+
+  /* Right Slot & Status Circle Badge */
+  historyRightSlot: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 8,
+  },
+  statusCircleBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
   },
 
   /* Empty state */
@@ -1776,6 +2051,67 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 4,
   },
+  /* Completed State UI in Sheet */
+  completedSheetContainer: {
+    paddingTop: 2,
+    paddingBottom: 20,
+  },
+  completedTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    minHeight: 32,
+    marginBottom: 20,
+  },
+  editAnswersPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editAnswersPillLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  editAnswersPillDark: {
+    backgroundColor: '#27272a',
+    borderColor: '#3f3f46',
+  },
+  editAnswersPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  completedCenterContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
+  completedBigCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  completedHeading: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  completedSubheading: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 280,
+  },
+
   stepHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1815,41 +2151,47 @@ const styles = StyleSheet.create({
   prevTextDark: {
     color: '#ffffff',
   },
-  qTitleRow: {
+  pureQuestionText: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    lineHeight: 24,
+    marginBottom: 18,
+    paddingTop: 4,
+  },
+  pillOptionsList: {
+    gap: 10,
+    marginBottom: 20,
+  },
+  optionPillBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 24,
+    borderWidth: 1.5,
   },
-  qPrefix: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+  optionPillSelected: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  highlightWrapper: {
-    position: 'relative',
+  optionPillUnselected: {
+  },
+  optionPillText: {
+    fontSize: 14,
+    flex: 1,
+    paddingRight: 10,
+  },
+  optionPillCheckCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
     justifyContent: 'center',
-  },
-  highlightStripe: {
-    position: 'absolute',
-    bottom: 2,
-    left: -2,
-    right: -2,
-    height: 8,
-    borderRadius: 2,
-  },
-  qHighlight: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  qSubtitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  optionsList: {
-    gap: 8,
-    marginBottom: 14,
   },
   optionContainer: {
     width: '100%',
@@ -1864,7 +2206,7 @@ const styles = StyleSheet.create({
   optionShadow: {
     width: '100%',
     height: '100%',
-    borderRadius: 18,
+    borderRadius: 24,
     position: 'absolute',
     top: 3,
     left: 3,
@@ -1872,7 +2214,7 @@ const styles = StyleSheet.create({
   optionMid: {
     width: '100%',
     height: '100%',
-    borderRadius: 18,
+    borderRadius: 24,
     position: 'absolute',
     backgroundColor: 'transparent',
     borderWidth: 2,
@@ -1880,10 +2222,10 @@ const styles = StyleSheet.create({
   optionTop: {
     width: '100%',
     height: '100%',
-    borderRadius: 18,
+    borderRadius: 24,
     position: 'absolute',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     borderWidth: 2.5,
   },
   optionRow: {

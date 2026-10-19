@@ -4,7 +4,8 @@ import React, {
   useCallback, 
   useImperativeHandle, 
   forwardRef,
-  useEffect
+  useEffect,
+  useMemo
 } from 'react';
 import { 
   View, 
@@ -156,6 +157,20 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
   const scrollViewRef = useRef<any>(null);
 
   const primaryColor = Colors.light.primary;
+  const sheetBgColor = isDark ? '#121212' : '#FAF8F6';
+
+  // Smooth physics-based spring animation config for fluid dynamic resizing
+  const animationConfigs = useMemo(
+    () => ({
+      damping: 28,
+      stiffness: 260,
+      mass: 0.5,
+      overshootClamping: true,
+      restDisplacementThreshold: 0.1,
+      restSpeedThreshold: 0.1,
+    }),
+    []
+  );
 
   // Session-isolated Draft State for all 6 data types
   const draftsRef = useRef<Record<QuestionDataType, DataTypeDraft>>(DEFAULT_DRAFTS);
@@ -251,7 +266,17 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
         keyboardBlurBehavior="restore"
         bottomInset={insets.bottom}
         backdropComponent={renderBackdrop}
-        handleStyle={styles.handleContainer}
+        animationConfigs={animationConfigs}
+        style={{
+          backgroundColor: sheetBgColor,
+          borderTopLeftRadius: 32,
+          borderTopRightRadius: 32,
+          overflow: 'hidden',
+        }}
+        handleStyle={[
+          styles.handleContainer,
+          { backgroundColor: sheetBgColor, borderTopLeftRadius: 32, borderTopRightRadius: 32 },
+        ]}
         handleIndicatorStyle={[
           styles.dragHandle,
           isDark ? styles.dragHandleDark : styles.dragHandleLight,
@@ -268,6 +293,7 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
       >
         <BottomSheetScrollView
           ref={scrollViewRef}
+          style={{ backgroundColor: sheetBgColor }}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -350,6 +376,9 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
                   if (!selectedType) return;
                   draftsRef.current[selectedType].options.push('');
                   setDraftsVersion((v) => v + 1);
+                  requestAnimationFrame(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  });
                 }}
                 style={({ pressed }) => [
                   styles.addOptionBtn,
@@ -602,6 +631,8 @@ const styles = StyleSheet.create({
   roundedTop: {
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
   bgLight: {
     backgroundColor: '#FAF8F6',
