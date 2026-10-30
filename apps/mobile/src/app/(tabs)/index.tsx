@@ -215,33 +215,37 @@ function AnalyzingDataCircle({ isDark }: { isDark: boolean }) {
     );
   }, []);
 
-  // Outer rotating organic wave - pure circular geometry with scale
+  // Outer rotating organic wave
   const outerAuraStyle = useAnimatedStyle(() => {
-    const scale = interpolate(morphPulse1.value, [0, 1], [0.98, 1.08]);
+    const scaleX = interpolate(morphPulse1.value, [0, 1], [0.96, 1.14]);
+    const scaleY = interpolate(morphPulse2.value, [0, 1], [1.14, 0.96]);
     return {
       transform: [
         { rotate: `${rotateClockwise.value}deg` },
-        { scale },
+        { scaleX },
+        { scaleY },
       ],
-      opacity: interpolate(morphPulse1.value, [0, 1], [0.5, 0.8]),
+      opacity: interpolate(morphPulse1.value, [0, 1], [0.55, 0.85]),
     };
   });
 
-  // Inner counter-rotating organic wave - pure circular geometry with scale
+  // Inner counter-rotating organic wave
   const innerAuraStyle = useAnimatedStyle(() => {
-    const scale = interpolate(morphPulse2.value, [0, 1], [1.06, 0.96]);
+    const scaleX = interpolate(morphPulse2.value, [0, 1], [1.12, 0.95]);
+    const scaleY = interpolate(morphPulse1.value, [0, 1], [0.95, 1.12]);
     return {
       transform: [
         { rotate: `${rotateCounter.value}deg` },
-        { scale },
+        { scaleX },
+        { scaleY },
       ],
-      opacity: interpolate(morphPulse2.value, [0, 1], [0.55, 0.85]),
+      opacity: interpolate(morphPulse2.value, [0, 1], [0.65, 0.95]),
     };
   });
 
   // Center disc breathing style
   const centerDiscStyle = useAnimatedStyle(() => {
-    const scale = interpolate(centerBreathing.value, [0, 1], [0.99, 1.015]);
+    const scale = interpolate(centerBreathing.value, [0, 1], [0.98, 1.015]);
     return {
       transform: [{ scale }],
     };
@@ -254,7 +258,7 @@ function AnalyzingDataCircle({ isDark }: { isDark: boolean }) {
 
   return (
     <View style={styles.analyzingWrapper}>
-      {/* Outer Rotating Aura Ring (Perfect Circle SVG with smooth gradient) */}
+      {/* Outer Rotating Fluid Organic Wave (SVG Path) */}
       <Animated.View style={[styles.ambientRing2, outerAuraStyle]}>
         <Svg width={270} height={270} viewBox="0 0 270 270">
           <Defs>
@@ -264,13 +268,22 @@ function AnalyzingDataCircle({ isDark }: { isDark: boolean }) {
               <Stop offset="100%" stopColor={grad1A} stopOpacity={isDark ? 0.15 : 0.1} />
             </LinearGradient>
           </Defs>
-          <Circle cx="135" cy="135" r="125" fill="url(#fluidGrad1)" />
+          {/* Organic fluid aura shape */}
+          <Path
+            d="M 135 15 
+               C 185 18, 235 55, 252 105 
+               C 268 155, 232 215, 185 242 
+               C 135 265, 75 248, 32 205 
+               C -5 160, 2 95, 45 52 
+               C 85 12, 115 14, 135 15 Z"
+            fill="url(#fluidGrad1)"
+          />
         </Svg>
       </Animated.View>
 
-      {/* Inner Counter-Rotating Aura Ring (Perfect Circle SVG) */}
+      {/* Inner Counter-Rotating Fluid Organic Blob (Opposite Path) */}
       <Animated.View style={[styles.ambientRing1, innerAuraStyle]}>
-        <Svg width={240} height={240} viewBox="0 0 240 240">
+        <Svg width={250} height={250} viewBox="0 0 250 250">
           <Defs>
             <LinearGradient id="fluidGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
               <Stop offset="0%" stopColor={grad2A} stopOpacity={isDark ? 0.6 : 0.55} />
@@ -278,11 +291,19 @@ function AnalyzingDataCircle({ isDark }: { isDark: boolean }) {
               <Stop offset="100%" stopColor={grad2A} stopOpacity={isDark ? 0.2 : 0.15} />
             </LinearGradient>
           </Defs>
-          <Circle cx="120" cy="120" r="110" fill="url(#fluidGrad2)" />
+          {/* Asymmetric swirling organic contour */}
+          <Path
+            d="M 125 22 
+               C 178 12, 228 62, 238 118 
+               C 248 175, 198 228, 142 238 
+               C 85 245, 30 205, 18 148 
+               C 8 92, 58 35, 125 22 Z"
+            fill="url(#fluidGrad2)"
+          />
         </Svg>
       </Animated.View>
 
-      {/* Pristine Perfect Center Circle Disc */}
+      {/* Center Disc */}
       <Animated.View
         style={[
           styles.analyzingCenterDisc,
