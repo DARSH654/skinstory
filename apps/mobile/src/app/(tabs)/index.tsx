@@ -14,8 +14,8 @@ import { Text } from '@/components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import Svg, { Defs, LinearGradient, Stop, Rect, Path, Circle } from 'react-native-svg';
-import { Flame, ChevronLeft, ChevronRight, Sparkles, Moon, Sun, CalendarDays, User, Plus, ScanFace, Clock, BookOpen } from 'lucide-react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { Flame, ChevronLeft, ChevronRight, Sparkles, Moon, Sun, CalendarDays, Calendar, User, Plus, ScanFace, Clock, BookOpen, Check, X } from 'lucide-react-native';
+import { useRouter, useFocusEffect, useNavigation } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
 import { CustomClockIcon } from '@/components/custom-icons';
@@ -23,15 +23,18 @@ import LottieView from 'lottie-react-native';
 import fireAnimation from '../../../assets/animations/fire.json';
 import { BlurView } from 'expo-blur';
 import { useScanStore } from '@/store/scanStore';
+import { useJournalStore } from '@/store/journalStore';
 import * as Clipboard from 'expo-clipboard';
-import RoutineCard from '@/components/routine/RoutineCard';
-import RoutineDeleteModal from '@/components/routine/RoutineDeleteModal';
+import { JournalQuestionSheet, JournalQuestionSheetRef } from '@/components/journal/JournalQuestionSheet';
 import { MOCK_SCANS } from '@/constants/mockScans';
 import ConnectingDots from '@/components/ConnectingDots';
 import { useNavigationGuard } from '@/hooks/useNavigationGuard';
 import Animated, {
   useSharedValue,
   withTiming,
+  withRepeat,
+  withSequence,
+  interpolate,
   useAnimatedProps,
   useAnimatedStyle,
   useAnimatedScrollHandler,
@@ -139,35 +142,163 @@ function AnimatedScoreItem({
   }));
 
   return (
-    <View style={{ width: itemWidth, height: 355, alignItems: 'center', justifyContent: 'flex-start' }} pointerEvents="none">
-      {/* Dynamic Guidance Header inside slidable card */}
-      <View style={{ justifyContent: 'flex-start', alignItems: 'center', paddingHorizontal: 10, marginTop: 5, marginBottom: 15, height: 95 }}>
-        <View style={{
-          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)',
-          paddingHorizontal: 12,
-          paddingVertical: 5,
-          borderRadius: 12,
-          marginBottom: 8,
-        }}>
-          <Text style={{ color: isDark ? '#ffffff' : '#1a1a1a', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' }}>
-            {dayMeta.label}
-          </Text>
-        </View>
-        <Text style={{
-          color: isDark ? '#ffffff' : '#1a1a1a',
-          fontSize: 17,
-          fontWeight: '800',
-          textAlign: 'center',
-          lineHeight: 23,
-          fontStyle: 'italic',
-          paddingHorizontal: 12,
-        }}>
-          {feedbackText}
-        </Text>
-      </View>
+    <View style={{ width: itemWidth, height: 240, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }} pointerEvents="none">
+      <Text style={[styles.forecastSubTitle, { color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.65)' }]}>
+        Peak glow and clarity expected in
+      </Text>
+      
+      <Text style={[styles.forecastBigNumber, { color: isDark ? '#ffffff' : '#111827' }]}>
+        1 day
+      </Text>
 
-      {/* Overall Skin Score Spacer (exact circle space preserved) */}
-      <View style={{ alignItems: 'center', justifyContent: 'center', width: 240, height: 240 }} />
+      <View style={styles.forecastMetaRow}>
+        <Text style={[styles.forecastMetaText, { color: isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.7)' }]}>
+          Next skin renewal in 7 days
+        </Text>
+        <View style={[styles.forecastInfoCircle, { borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)' }]}>
+          <Text style={[styles.forecastInfoText, { color: isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.7)' }]}>i</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AnalyzingDataCircle: Bigger Disc + Dynamic Dual-Rotating Organic Aura Rings
+// ---------------------------------------------------------------------------
+function AnalyzingDataCircle({ isDark }: { isDark: boolean }) {
+  const rotateClockwise = useSharedValue(0);
+  const rotateCounter = useSharedValue(0);
+  const morphPulse1 = useSharedValue(0);
+  const morphPulse2 = useSharedValue(0);
+  const centerBreathing = useSharedValue(0);
+
+  React.useEffect(() => {
+    // Smooth continuous rotations in opposite directions
+    rotateClockwise.value = withRepeat(
+      withTiming(360, { duration: 12000, easing: Easing.linear }),
+      -1,
+      false
+    );
+    rotateCounter.value = withRepeat(
+      withTiming(-360, { duration: 16000, easing: Easing.linear }),
+      -1,
+      false
+    );
+
+    // Organic morphing scales
+    morphPulse1.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 2400, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1,
+      true
+    );
+    morphPulse2.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 3200, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+
+    // Center disc subtle micro-breathing
+    centerBreathing.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  // Outer rotating organic wave - pure circular geometry with scale
+  const outerAuraStyle = useAnimatedStyle(() => {
+    const scale = interpolate(morphPulse1.value, [0, 1], [0.98, 1.08]);
+    return {
+      transform: [
+        { rotate: `${rotateClockwise.value}deg` },
+        { scale },
+      ],
+      opacity: interpolate(morphPulse1.value, [0, 1], [0.5, 0.8]),
+    };
+  });
+
+  // Inner counter-rotating organic wave - pure circular geometry with scale
+  const innerAuraStyle = useAnimatedStyle(() => {
+    const scale = interpolate(morphPulse2.value, [0, 1], [1.06, 0.96]);
+    return {
+      transform: [
+        { rotate: `${rotateCounter.value}deg` },
+        { scale },
+      ],
+      opacity: interpolate(morphPulse2.value, [0, 1], [0.55, 0.85]),
+    };
+  });
+
+  // Center disc breathing style
+  const centerDiscStyle = useAnimatedStyle(() => {
+    const scale = interpolate(centerBreathing.value, [0, 1], [0.99, 1.015]);
+    return {
+      transform: [{ scale }],
+    };
+  });
+
+  const grad1A = isDark ? '#7e22ce' : '#c084fc';
+  const grad1B = isDark ? '#4338ca' : '#e0e7ff';
+  const grad2A = isDark ? '#9333ea' : '#d8b4fe';
+  const grad2B = isDark ? '#6366f1' : '#ede9fe';
+
+  return (
+    <View style={styles.analyzingWrapper}>
+      {/* Outer Rotating Aura Ring (Perfect Circle SVG with smooth gradient) */}
+      <Animated.View style={[styles.ambientRing2, outerAuraStyle]}>
+        <Svg width={270} height={270} viewBox="0 0 270 270">
+          <Defs>
+            <LinearGradient id="fluidGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor={grad1A} stopOpacity={isDark ? 0.45 : 0.4} />
+              <Stop offset="50%" stopColor={grad1B} stopOpacity={isDark ? 0.3 : 0.25} />
+              <Stop offset="100%" stopColor={grad1A} stopOpacity={isDark ? 0.15 : 0.1} />
+            </LinearGradient>
+          </Defs>
+          <Circle cx="135" cy="135" r="125" fill="url(#fluidGrad1)" />
+        </Svg>
+      </Animated.View>
+
+      {/* Inner Counter-Rotating Aura Ring (Perfect Circle SVG) */}
+      <Animated.View style={[styles.ambientRing1, innerAuraStyle]}>
+        <Svg width={240} height={240} viewBox="0 0 240 240">
+          <Defs>
+            <LinearGradient id="fluidGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor={grad2A} stopOpacity={isDark ? 0.6 : 0.55} />
+              <Stop offset="60%" stopColor={grad2B} stopOpacity={isDark ? 0.4 : 0.35} />
+              <Stop offset="100%" stopColor={grad2A} stopOpacity={isDark ? 0.2 : 0.15} />
+            </LinearGradient>
+          </Defs>
+          <Circle cx="120" cy="120" r="110" fill="url(#fluidGrad2)" />
+        </Svg>
+      </Animated.View>
+
+      {/* Pristine Perfect Center Circle Disc */}
+      <Animated.View
+        style={[
+          styles.analyzingCenterDisc,
+          isDark ? styles.analyzingCenterDiscDark : styles.analyzingCenterDiscLight,
+          centerDiscStyle,
+        ]}
+      >
+        <Text
+          style={[
+            styles.analyzingText,
+            { color: isDark ? '#ffffff' : '#111827' },
+          ]}
+        >
+          Analyzing your data.
+        </Text>
+      </Animated.View>
     </View>
   );
 }
@@ -269,10 +400,29 @@ export default function HomeScreen() {
   const isDark = scheme === 'dark';
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation<any>();
   const { navigate: guardedNavigate } = useNavigationGuard();
+
+  // Official React Navigation 7 native preload: instantiates Android Fragment in background
+  React.useEffect(() => {
+    try {
+      if (navigation?.preload) {
+        navigation.preload('daily-journal');
+      }
+    } catch (e) {
+      // preload not supported on this navigator
+    }
+  }, [navigation]);
 
   const imageUri = useScanStore((state) => state.imageUri);
   const scanResult = useScanStore((state) => state.scanResult);
+
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollY.value = e.contentOffset.y;
+    },
+  });
 
   const flatRef = useRef<FlatList>(null);
   const [pageIndex, setPageIndex] = useState(0);
@@ -282,65 +432,118 @@ export default function HomeScreen() {
       metricsScrollX.value = e.contentOffset.x;
     },
   });
-  const [routines, setRoutines] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<{ name: string; avatarUri: string | null } | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [routineToDelete, setRoutineToDelete] = useState<any>(null);
 
+  // Journal Store: live daily tracking entries
+  const historyRecords = useJournalStore((state) => state.historyRecords);
+  const questions = useJournalStore((state) => state.questions);
 
   // Scroll lock: only one horizontal carousel scrolls at a time
-  const activeScrollRef = useRef<'routines' | 'scans' | null>(null);
+  const activeScrollRef = useRef<'scans' | 'journals' | null>(null);
 
+  // Journal Question Sheet ref for live daily tracking
+  const journalSheetRef = useRef<JournalQuestionSheetRef>(null);
 
-  const handleDeleteClick = (routine: any) => {
-    setRoutineToDelete(routine);
-    setDeleteConfirmOpen(true);
-  };
+  // Analyzing transition state & shared values (0 = Normal Hero, 1 = Fully Analyzing)
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const analyzingTransition = useSharedValue(0);
+  const isAnalyzingActive = useSharedValue(false);
+  const analyzingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const executeDelete = async () => {
-    if (routineToDelete) {
-      const newRoutines = routines.filter((r: any) => r.id !== routineToDelete.id);
-      setRoutines(newRoutines);
-      try {
-        await AsyncStorage.setItem('routines', JSON.stringify(newRoutines));
-      } catch (e) {
-        console.error("Failed to delete routine", e);
-      }
-    }
-    setDeleteConfirmOpen(false);
-    setRoutineToDelete(null);
-  };
+  const triggerAnalyzing = useCallback(() => {
+    if (analyzingTimerRef.current) clearTimeout(analyzingTimerRef.current);
+    
+    // Start transition into Analyzing state
+    setIsAnalyzing(true);
+    isAnalyzingActive.value = true;
+    analyzingTransition.value = withTiming(1, {
+      duration: 650,
+      easing: Easing.out(Easing.cubic),
+    });
 
-  const handleCopyCode = async (code: string) => {
-    await Clipboard.setStringAsync(code);
-    setCopiedId(code);
-    setTimeout(() => setCopiedId(null), 1500);
-  };
+    // Stay in analyzing state for 3.2 seconds, then smoothly transition back
+    analyzingTimerRef.current = setTimeout(() => {
+      // Transition back to normal hero curves
+      analyzingTransition.value = withTiming(0, {
+        duration: 700,
+        easing: Easing.inOut(Easing.cubic),
+      }, (finished) => {
+        if (finished) {
+          isAnalyzingActive.value = false;
+        }
+      });
+      // Defer unmounting or toggling React state after transition completes
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        analyzingTimerRef.current = null;
+      }, 720);
+    }, 3200);
+  }, []);
 
-  // Load stored routines and profile on screen focus
+  // Curve 1 (Top-Right): Fades out and slides slightly up-right, then fades back in
+  const curve1AnimStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(analyzingTransition.value, [0, 0.8], [1, 0]),
+      transform: [
+        { translateX: interpolate(analyzingTransition.value, [0, 1], [0, 50]) },
+        { translateY: interpolate(analyzingTransition.value, [0, 1], [0, -35]) },
+      ],
+    };
+  });
+
+  // Curve 2 (Mid-Left): Fades out and slides out to the left
+  const curve2AnimStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(analyzingTransition.value, [0, 0.8], [1, 0]),
+      transform: [
+        { translateX: interpolate(analyzingTransition.value, [0, 1], [0, -60]) },
+        { translateY: interpolate(analyzingTransition.value, [0, 1], [0, 20]) },
+      ],
+    };
+  });
+
+  // Curve 3 (Lower-Right): Fades out and slides down-right
+  const curve3AnimStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(analyzingTransition.value, [0, 0.8], [1, 0]),
+      transform: [
+        { translateX: interpolate(analyzingTransition.value, [0, 1], [0, 60]) },
+        { translateY: interpolate(analyzingTransition.value, [0, 1], [0, 45]) },
+      ],
+    };
+  });
+
+  // Score/Forecast block animation: shrinks slightly and cleanly fades out immediately as analyzing starts
+  const scoreBlockAnimStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(analyzingTransition.value, [0, 0.3], [1, 0]),
+      transform: [
+        { scale: interpolate(analyzingTransition.value, [0, 0.5], [1, 0.9]) },
+      ],
+    };
+  });
+
+  // Analyzing Circle container: grows from center (scale 0.75 -> 1) and fades in cleanly once score has faded out
+  const analyzingCircleAnimStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(analyzingTransition.value, [0.15, 0.65], [0, 1]),
+      transform: [
+        { scale: interpolate(analyzingTransition.value, [0.15, 1], [0.75, 1]) },
+      ],
+    };
+  });
+
+  // Load user profile on screen focus
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
         try {
-          const stored = await AsyncStorage.getItem('routines');
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            parsed.sort((a: any, b: any) => {
-              const timeA = new Date(a.createdAt || a.updatedAt || parseInt(a.id) || 0).getTime();
-              const timeB = new Date(b.createdAt || b.updatedAt || parseInt(b.id) || 0).getTime();
-              return timeB - timeA;
-            });
-            setRoutines(parsed);
-          } else {
-            setRoutines([]);
-          }
           const storedProfile = await AsyncStorage.getItem('user_profile');
           if (storedProfile) {
             setUserProfile(JSON.parse(storedProfile));
           }
         } catch (e) {
-          console.error("Failed to load routines on home", e);
+          console.error("Failed to load user profile on home", e);
         }
       };
       loadData();
@@ -377,6 +580,26 @@ export default function HomeScreen() {
   const todayIdx = currentDay === 0 ? 6 : currentDay - 1;
   const [selectedDayIdx, setSelectedDayIdx] = useState(todayIdx);
 
+  // Dynamic formatted full date string for selected day (e.g., "26 October")
+  const getSelectedDateDisplay = (dayIdx: number) => {
+    const todayDate = new Date();
+    const currentDayVal = todayDate.getDay();
+    const distanceToMon = currentDayVal === 0 ? -6 : 1 - currentDayVal;
+    
+    const targetDate = new Date(todayDate);
+    targetDate.setDate(todayDate.getDate() + distanceToMon + dayIdx);
+    
+    const dayNum = targetDate.getDate();
+    const fullMonthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const monthStr = fullMonthNames[targetDate.getMonth()];
+    return `${dayNum} ${monthStr}`;
+  };
+
+  const selectedDateHeaderStr = getSelectedDateDisplay(selectedDayIdx);
+
   // Dynamically calculate metadata and date string for any day index (0=Mon .. 6=Sun) based on current device time
   const getDayMetadata = (dayIdx: number) => {
     const todayDate = new Date();
@@ -411,6 +634,7 @@ export default function HomeScreen() {
 
   // Ref to synchronize or scroll to today on load
   const scorePagerRef = useRef<FlatList>(null);
+  const weekCalendarRef = useRef<FlatList>(null);
   
   // Callback when user slides the main score block
   const handleScoreScrollEnd = (e: any) => {
@@ -452,28 +676,130 @@ export default function HomeScreen() {
 
 
 
+  // Scroll-reactive subtle parallax for background aura shapes (moves smoothly on scroll, stays still when idle)
+  const bgAuraAnimatedStyle = useAnimatedStyle(() => {
+    const translateY = interpolate(scrollY.value, [-100, 0, 300], [40, 0, -60]);
+    const opacity = interpolate(scrollY.value, [0, 200], [1, 0.2]);
+    return {
+      transform: [{ translateY }],
+      opacity,
+    };
+  });
+
   return (
     <View style={[styles.root, { backgroundColor: isDark ? '#121212' : '#f5f5f7' }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 4 }}>
+      {/* ── FLOW-STYLE TOP HERO AMBIENT AURA (Smoothly fades out and back in during Analyzing transition) ── */}
+      <Animated.View 
+        pointerEvents="none" 
+        style={[styles.heroAmbientContainer, bgAuraAnimatedStyle]}
+      >
+        {/* Curve 1 (Top Header & Right Aura): Smoothly rounded contour dipping gently below calendar */}
+        <Animated.View style={[StyleSheet.absoluteFill, curve1AnimStyle]}>
+          <Svg width="100%" height="100%" viewBox="0 0 400 580" style={StyleSheet.absoluteFill}>
+            <Defs>
+              <LinearGradient id="heroCurve1Grad" x1="0.9" y1="0.1" x2="0.1" y2="0.8">
+                <Stop offset="0%" stopColor="#937abd" stopOpacity={isDark ? 0.38 : 0.30} />
+                <Stop offset="45%" stopColor="#937abd" stopOpacity={isDark ? 0.20 : 0.16} />
+                <Stop offset="75%" stopColor="#937abd" stopOpacity={isDark ? 0.08 : 0.06} />
+                <Stop offset="100%" stopColor="#937abd" stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
+            <Path
+              d="M -20 -20
+                 L 440 -20
+                 L 440 215
+                 C 380 230, 290 220, 230 180
+                 C 160 135, 80 125, -20 115
+                 Z"
+              fill="url(#heroCurve1Grad)"
+            />
+          </Svg>
+        </Animated.View>
+
+        {/* Curve 2 (Mid-Left): Sweeps deep from left inward towards center */}
+        <Animated.View style={[StyleSheet.absoluteFill, curve2AnimStyle]}>
+          <Svg width="100%" height="100%" viewBox="0 0 400 580" style={StyleSheet.absoluteFill}>
+            <Defs>
+              <LinearGradient id="heroCurve2Grad" x1="0" y1="0.3" x2="0.9" y2="0.8">
+                <Stop offset="0%" stopColor="#937abd" stopOpacity={isDark ? 0.28 : 0.22} />
+                <Stop offset="55%" stopColor="#937abd" stopOpacity={isDark ? 0.14 : 0.10} />
+                <Stop offset="100%" stopColor="#937abd" stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
+            <Path
+              d="M -50 140
+                 C 40 145, 150 205, 160 300
+                 C 168 375, 75 450, -50 475
+                 Z"
+              fill="url(#heroCurve2Grad)"
+            />
+          </Svg>
+        </Animated.View>
+
+        {/* Curve 3 (Lower-Right): Large sweeping wave hugging lower-right */}
+        <Animated.View style={[StyleSheet.absoluteFill, curve3AnimStyle]}>
+          <Svg width="100%" height="100%" viewBox="0 0 400 580" style={StyleSheet.absoluteFill}>
+            <Defs>
+              <LinearGradient id="heroCurve3Grad" x1="1" y1="0.2" x2="0.1" y2="0.85">
+                <Stop offset="0%" stopColor="#937abd" stopOpacity={isDark ? 0.30 : 0.24} />
+                <Stop offset="50%" stopColor="#937abd" stopOpacity={isDark ? 0.14 : 0.10} />
+                <Stop offset="100%" stopColor="#937abd" stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
+            <Path
+              d="M 440 240
+                 C 330 270, 215 350, 225 455
+                 C 235 530, 320 580, 440 600
+                 Z"
+              fill="url(#heroCurve3Grad)"
+            />
+          </Svg>
+        </Animated.View>
+      </Animated.View>
+
+      <Animated.ScrollView 
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={{ paddingBottom: 4 }}
+      >
 
         {/* ── HERO ───────────────────────────────────── */}
         <View style={[styles.hero, { paddingTop: insets.top + 10 }]}>
 
           <View style={{ paddingHorizontal: 20 }}>
-            {/* Header row: Hi User + Streak pill on right */}
-            <View style={styles.greetRow}>
-              <View>
-                <Text style={[styles.greetHi, { color: isDark ? '#ffffff' : '#1a1a1a' }]}>Hi User,</Text>
-                <Text style={[styles.greetSub, { color: isDark ? 'rgba(255,255,255,0.68)' : 'rgba(0,0,0,0.6)' }]}>your overall skin today</Text>
+            {/* Header row: Profile (left), Date (center), Streak (right) */}
+            <View style={styles.topHeaderRow}>
+              {/* Profile icon on left (navigates to /profile) */}
+              <Pressable 
+                onPress={() => router.push('/profile')} 
+                style={({ pressed }) => [
+                  styles.profileIconBtn, 
+                  isDark ? styles.profileIconBtnDark : styles.profileIconBtnLight,
+                  { opacity: pressed ? 0.75 : 1 }
+                ]}
+                accessibilityLabel="Profile"
+              >
+                <User size={20} color={isDark ? "#ffffff" : "#1f2937"} strokeWidth={2.2} />
+              </Pressable>
+
+              {/* Centered Date (e.g., "26 October") */}
+              <View style={styles.headerCenterDateWrapper}>
+                <Text style={[styles.headerDateTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
+                  {selectedDateHeaderStr}
+                </Text>
               </View>
+
+              {/* Streak pill on right */}
               <Pressable
                 onPress={() => router.push('/streak')}
                 style={({ pressed }) => [
                   styles.streakPill,
                   {
-                    backgroundColor: isDark ? '#000000' : '#ffffff',
-                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                    opacity: pressed ? 0.8 : 1,
+                    backgroundColor: pressed
+                      ? (isDark ? '#27272a' : '#f0f0f2')
+                      : (isDark ? '#18181b' : '#ffffff'),
+                    borderColor: isDark ? '#27272a' : '#e5e7eb',
                   }
                 ]}
               >
@@ -484,52 +810,134 @@ export default function HomeScreen() {
                   speed={1.5}
                   style={{ width: 21, height: 21, backgroundColor: 'transparent' }}
                 />
-                <Text style={[styles.streakTxt, { fontSize: 15, color: isDark ? '#ffffff' : '#1a1a1a' }]}>Day 5</Text>
+                <Text style={[styles.streakTxt, { fontSize: 14, fontWeight: '700', color: isDark ? '#ffffff' : '#111827' }]}>Day 5</Text>
               </Pressable>
             </View>
 
-            {/* Horizontally Slidable Score + Guidance block (Optimized FlatList) */}
-            <View style={{ height: 355, width: SCREEN_WIDTH - 40, alignSelf: 'center', marginBottom: 20 }}>
-              <FlatList
-                ref={scorePagerRef}
-                data={daysArray}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                snapToInterval={SCREEN_WIDTH - 40}
-                snapToAlignment="center"
-                decelerationRate="fast"
-                disableIntervalMomentum={true}
-                initialNumToRender={1}
-                maxToRenderPerBatch={2}
-                windowSize={3}
-                removeClippedSubviews={true}
-                keyExtractor={(item) => item.toString()}
-                initialScrollIndex={todayIdx}
-                contentOffset={{ x: (SCREEN_WIDTH - 40) * todayIdx, y: 0 }}
-                getItemLayout={(_, index) => (
-                  { length: SCREEN_WIDTH - 40, offset: (SCREEN_WIDTH - 40) * index, index }
-                )}
-                onMomentumScrollEnd={handleScoreScrollEnd}
-                renderItem={({ item: dayIndex }) => {
-                  const scoreData = SCORES_BY_DAY[dayIndex] || SCORES_BY_DAY[todayIdx];
-                  const scoreVal = scoreData.overall;
-                  const itemMeta = getDayMetadata(dayIndex);
-                  const feedbackText = getSkinFeedback(scoreVal);
+            {/* Weekly Calendar Strip (Monday..Sunday, selectable & synced with the score card) */}
+            <View style={styles.weekCalendarContainer}>
+              <View style={styles.weekCalendarRow}>
+                {weekDays.map((item, idx) => {
+                  const isSelected = selectedDayIdx === idx;
+                  const isToday = item.isToday;
+
                   return (
-                    <AnimatedScoreItem
-                      dayIndex={dayIndex}
-                      scoreVal={scoreVal}
-                      dayMeta={itemMeta}
-                      feedbackText={feedbackText}
-                      isDark={isDark}
-                      itemWidth={SCREEN_WIDTH - 40}
-                      shouldAnimate={dayIndex === selectedDayIdx}
-                      animationKey={selectedDayIdx}
-                    />
+                    <Pressable
+                      key={idx}
+                      onPress={() => {
+                        setSelectedDayIdx(idx);
+                        scorePagerRef.current?.scrollToIndex({ index: idx, animated: true });
+                      }}
+                      style={styles.dayColumn}
+                    >
+                      {/* Day Label / "TODAY" */}
+                      <Text style={[
+                        styles.dayColumnLabel,
+                        {
+                          color: isToday 
+                            ? (isDark ? '#ffffff' : '#111827') 
+                            : (isDark ? '#a1a1aa' : '#6b7280'),
+                          fontWeight: isToday ? '800' : '600',
+                          fontSize: isToday ? 10 : 12,
+                        }
+                      ]}>
+                        {isToday ? 'TODAY' : item.label}
+                      </Text>
+
+                      {/* Day Number Circle */}
+                      <View style={[
+                        styles.dayNumberCircle,
+                        isSelected && (
+                          isDark 
+                            ? { backgroundColor: '#ffffff', borderColor: '#ffffff' } 
+                            : { backgroundColor: Colors.light.primary, borderColor: Colors.light.primary }
+                        ),
+                        !isSelected && isToday && (
+                          isDark
+                            ? { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.3)', borderWidth: 1.5 }
+                            : { backgroundColor: 'transparent', borderColor: 'rgba(0,0,0,0.15)', borderWidth: 1.5 }
+                        ),
+                      ]}>
+                        <Text style={[
+                          styles.dayNumberText,
+                          {
+                            color: isSelected
+                              ? (isDark ? '#111827' : '#ffffff')
+                              : (isDark ? '#ffffff' : '#111827'),
+                            fontWeight: isSelected ? '800' : '600',
+                          }
+                        ]}>
+                          {item.dateNum}
+                        </Text>
+                      </View>
+                    </Pressable>
                   );
-                }}
-              />
+                })}
+              </View>
+            </View>
+
+            {/* Center Area: Animated Analyzing Data Disc AND Slideable Score Block with smooth transition */}
+            <View style={{ height: 240, width: SCREEN_WIDTH - 40, alignSelf: 'center', marginBottom: 20, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              {/* Score / Forecast Slideable block */}
+              <Animated.View 
+                style={[{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }, scoreBlockAnimStyle]}
+                pointerEvents={isAnalyzing ? 'none' : 'auto'}
+              >
+                <FlatList
+                  ref={scorePagerRef}
+                  data={daysArray}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  snapToInterval={SCREEN_WIDTH - 40}
+                  snapToAlignment="center"
+                  decelerationRate="fast"
+                  disableIntervalMomentum={true}
+                  initialNumToRender={1}
+                  maxToRenderPerBatch={2}
+                  windowSize={3}
+                  removeClippedSubviews={true}
+                  keyExtractor={(item) => item.toString()}
+                  initialScrollIndex={todayIdx}
+                  contentOffset={{ x: (SCREEN_WIDTH - 40) * todayIdx, y: 0 }}
+                  getItemLayout={(_, index) => (
+                    { length: SCREEN_WIDTH - 40, offset: (SCREEN_WIDTH - 40) * index, index }
+                  )}
+                  onMomentumScrollEnd={handleScoreScrollEnd}
+                  renderItem={({ item: dayIndex }) => {
+                    const scoreData = SCORES_BY_DAY[dayIndex] || SCORES_BY_DAY[todayIdx];
+                    const scoreVal = scoreData.overall;
+                    const itemMeta = getDayMetadata(dayIndex);
+                    const feedbackText = getSkinFeedback(scoreVal);
+                    return (
+                      <AnimatedScoreItem
+                        dayIndex={dayIndex}
+                        scoreVal={scoreVal}
+                        dayMeta={itemMeta}
+                        feedbackText={feedbackText}
+                        isDark={isDark}
+                        itemWidth={SCREEN_WIDTH - 40}
+                        shouldAnimate={dayIndex === selectedDayIdx}
+                        animationKey={selectedDayIdx}
+                      />
+                    );
+                  }}
+                />
+              </Animated.View>
+
+              {/* Analyzing Data Circle with smooth entrance & exit animations */}
+              {isAnalyzing && (
+                <Animated.View 
+                  style={[
+                    StyleSheet.absoluteFill, 
+                    { alignItems: 'center', justifyContent: 'center', zIndex: 10 },
+                    analyzingCircleAnimStyle
+                  ]}
+                  pointerEvents="none"
+                >
+                  <AnalyzingDataCircle isDark={isDark} />
+                </Animated.View>
+              )}
             </View>
 
             {/* ── Your Daily Insights Section ───────────────────── */}
@@ -541,12 +949,15 @@ export default function HomeScreen() {
                 marginBottom: 14,
               }}>Your Daily Insights</Text>
 
-              {/* Insight Card */}
-              <View style={[
-                styles.emptyRoutineCard,
-                isDark ? styles.cardDark : styles.cardLight,
-                { marginBottom: 4 }
-              ]}>
+              {/* Insight Card: Tapping triggers 3-sec analyzing demo */}
+              <Pressable 
+                onPress={triggerAnalyzing}
+                style={({ pressed }) => [
+                  styles.upliftedCardBox,
+                  isDark ? styles.historyCardBoxDark : styles.historyCardBoxLight,
+                  { marginBottom: 4, opacity: pressed ? 0.85 : 1 }
+                ]}
+              >
                 <View style={[styles.emptyIconCircle, isDark ? styles.iconBgDark : styles.iconBgLight]}>
                   <Sparkles size={24} color={isDark ? "#a1a1aa" : "#6b7280"} />
                 </View>
@@ -564,7 +975,7 @@ export default function HomeScreen() {
                     {`Your skin has shown consistent improvement over the past week. Hydration levels are up and redness has visibly reduced — keep up your evening routine.`}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             </View>
 
             {/* ── Your Daily Journal Section ───────────────────── */}
@@ -578,112 +989,184 @@ export default function HomeScreen() {
                   letterSpacing: -0.4,
                 }}>Your Daily Journal</Text>
                 <Pressable
-                  onPress={() => router.push('/daily-journal')}
-                  style={{
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                    paddingHorizontal: 14,
-                    paddingVertical: 6,
-                    borderRadius: 20,
+                  onPress={() => {
+                    router.push('/(tabs)/journal');
                   }}
+                  style={({ pressed }) => [
+                    styles.upliftedViewAllBtn,
+                    {
+                      backgroundColor: pressed 
+                        ? (isDark ? '#27272a' : '#f0f0f2') 
+                        : (isDark ? '#18181b' : '#ffffff'),
+                      borderColor: isDark ? '#27272a' : '#e5e7eb',
+                    },
+                  ]}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: isDark ? '#ffffff' : '#000000' }}>View all</Text>
+                  <Text style={[styles.upliftedViewAllText, { color: isDark ? '#ffffff' : '#111827' }]}>View all</Text>
                 </Pressable>
               </View>
 
-              <Pressable
-                onPress={() => router.push('/daily-journal')}
-                style={({ pressed }) => [
-                  styles.emptyRoutineCard,
-                  isDark ? styles.cardDark : styles.cardLight,
-                  { opacity: pressed ? 0.85 : 1 },
-                ]}
-              >
-                <View style={[styles.emptyIconCircle, isDark ? styles.iconBgDark : styles.iconBgLight]}>
-                  <BookOpen size={24} color={isDark ? "#a1a1aa" : "#6b7280"} />
-                </View>
-                <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Text style={[styles.emptyRoutineTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
-                    No journal added
-                  </Text>
-                  <Text style={[styles.emptyRoutineSubtitle, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
-                    Start tracking your daily skincare thoughts and notes.
-                  </Text>
-                </View>
-              </Pressable>
-            </View>
-
-            {/* Your Routines Header & Empty/Filled Cards */}
-            <View style={{ marginTop: 28, paddingHorizontal: 0 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <Text style={{
-                  fontSize: 20,
-                  fontWeight: '800',
-                  color: isDark ? '#ffffff' : '#1a1a1a',
-                  letterSpacing: -0.4,
-                }}>Your Routines</Text>
-                <Pressable
-                  onPress={() => router.push('/(tabs)/routine')}
-                  style={{
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                    paddingHorizontal: 14,
-                    paddingVertical: 6,
-                    borderRadius: 20,
-                  }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: isDark ? '#ffffff' : '#000000' }}>See all</Text>
-                </Pressable>
-              </View>
-
-              {routines.length > 0 ? (
-                <ScrollView
+              {historyRecords.length > 0 ? (
+                <FlatList
+                  data={historyRecords}
+                  keyExtractor={(item) => item.id}
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingVertical: 4, gap: 14 }}
                   decelerationRate="fast"
-                  snapToInterval={routines.length === 1 ? undefined : SCREEN_WIDTH - 40 + 14}
+                  snapToInterval={SCREEN_WIDTH - 40 + 14}
                   snapToAlignment="start"
-                  scrollEnabled={activeScrollRef.current === null || activeScrollRef.current === 'routines'}
-                  onScrollBeginDrag={() => { activeScrollRef.current = 'routines'; }}
+                  disableIntervalMomentum={true}
+                  bounces={true}
+                  overScrollMode="never"
+                  getItemLayout={(_, index) => ({
+                    length: SCREEN_WIDTH - 40 + 14,
+                    offset: (SCREEN_WIDTH - 40 + 14) * index,
+                    index,
+                  })}
+                  ItemSeparatorComponent={() => <View style={{ width: 14 }} />}
+                  initialNumToRender={1}
+                  maxToRenderPerBatch={2}
+                  windowSize={3}
+                  style={{ width: SCREEN_WIDTH - 40, overflow: 'visible' }}
+                  contentContainerStyle={{ paddingVertical: 4, paddingHorizontal: 1 }}
+                  onScrollBeginDrag={() => { activeScrollRef.current = 'journals'; }}
                   onScrollEndDrag={() => { activeScrollRef.current = null; }}
                   onMomentumScrollEnd={() => { activeScrollRef.current = null; }}
-                >
-                  {routines.map((routine: any) => (
-                    <RoutineCard
-                      key={routine.id}
-                      routine={routine}
-                      isDark={isDark}
-                      userProfile={userProfile}
-                      copiedId={copiedId}
-                      onCopyCode={handleCopyCode}
-                      onEdit={() => router.push(`/routine/create?edit=${routine.id}`)}
-                      onDelete={() => handleDeleteClick(routine)}
-                      onPress={() => router.push(`/routine/${routine.id}`)}
-                      onStartRoutine={() => router.push(`/routine/start?id=${routine.id}`)}
-                      cardWidth={SCREEN_WIDTH - 40}
-                    />
-                  ))}
-                </ScrollView>
+                  scrollEnabled={activeScrollRef.current === null || activeScrollRef.current === 'journals'}
+                  renderItem={({ item }) => {
+                    const answeredCount = questions.filter((q) => Boolean(item.answers?.[q.key])).length;
+                    const totalQuestions = questions.length;
+
+                    let statusText: 'Completed' | 'In Progress' | 'Missed' = 'Completed';
+                    if (answeredCount >= totalQuestions && totalQuestions > 0) {
+                      statusText = 'Completed';
+                    } else if (answeredCount === 0) {
+                      statusText = 'Missed';
+                    } else {
+                      statusText = 'In Progress';
+                    }
+
+                    return (
+                      <Pressable
+                        onPress={() => journalSheetRef.current?.present(item)}
+                        style={({ pressed }) => [
+                          styles.upliftedCardBox,
+                          { width: SCREEN_WIDTH - 40 },
+                          isDark ? styles.historyCardBoxDark : styles.historyCardBoxLight,
+                          pressed && {
+                            backgroundColor: isDark ? '#27272a' : '#f0f0f2',
+                          },
+                        ]}
+                      >
+                        {/* Left Column: Date & Status Pill, Day & Answer count */}
+                        <View style={styles.journalCardLeft}>
+                          <View style={styles.journalTopRow}>
+                            <Text style={[styles.journalDateText, { color: isDark ? '#ffffff' : '#111827' }]}>
+                              {item.dateStr}
+                            </Text>
+                            <View
+                              style={[
+                                styles.journalStatusPill,
+                                {
+                                  backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6',
+                                  borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb',
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.journalStatusPillText,
+                                  { color: isDark ? '#a1a1aa' : '#6b7280' },
+                                ]}
+                              >
+                                {statusText}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.journalMetaRow}>
+                            <Text style={[styles.journalDayText, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
+                              {item.dayName}
+                            </Text>
+                            <View style={[styles.journalDotSeparator, { backgroundColor: isDark ? '#52525b' : '#d1d5db' }]} />
+                            <Text style={[styles.journalAnswersCount, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
+                              {answeredCount} of {totalQuestions} answered
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Right Column: Status Circle Badge */}
+                        <View style={styles.journalBadgeSlot}>
+                          {statusText === 'Completed' && (
+                            <View
+                              style={[
+                                styles.journalStatusCircle,
+                                {
+                                  backgroundColor: Colors.light.primary,
+                                  borderColor: Colors.light.primary,
+                                  borderStyle: 'solid',
+                                },
+                              ]}
+                            >
+                              <Check size={20} color='#ffffff' strokeWidth={3} />
+                            </View>
+                          )}
+
+                          {statusText === 'In Progress' && (
+                            <View
+                              style={[
+                                styles.journalStatusCircle,
+                                {
+                                  backgroundColor: isDark ? 'rgba(168, 85, 247, 0.16)' : 'rgba(124, 58, 237, 0.10)',
+                                  borderColor: isDark ? '#c084fc' : Colors.light.primary,
+                                  borderStyle: 'dashed',
+                                },
+                              ]}
+                            >
+                              <Check size={20} color={isDark ? '#c084fc' : Colors.light.primary} strokeWidth={3} />
+                            </View>
+                          )}
+
+                          {statusText === 'Missed' && (
+                            <View
+                              style={[
+                                styles.journalStatusCircle,
+                                {
+                                  backgroundColor: Colors.light.primary,
+                                  borderColor: Colors.light.primary,
+                                  borderStyle: 'solid',
+                                },
+                              ]}
+                            >
+                              <X size={20} color='#ffffff' strokeWidth={3} />
+                            </View>
+                          )}
+                        </View>
+                      </Pressable>
+                    );
+                  }}
+                />
               ) : (
-                <View style={[styles.emptyRoutineCard, isDark ? styles.cardDark : styles.cardLight]}>
+                <Pressable
+                  onPress={() => router.push('/(tabs)/journal')}
+                  style={({ pressed }) => [
+                    styles.emptyRoutineCard,
+                    isDark ? styles.cardDark : styles.cardLight,
+                    { opacity: pressed ? 0.85 : 1 },
+                  ]}
+                >
                   <View style={[styles.emptyIconCircle, isDark ? styles.iconBgDark : styles.iconBgLight]}>
-                    <CustomClockIcon size={26} color={isDark ? "#a1a1aa" : "#6b7280"} />
+                    <BookOpen size={24} color={isDark ? "#a1a1aa" : "#6b7280"} />
                   </View>
                   <View style={{ flex: 1, paddingRight: 8 }}>
                     <Text style={[styles.emptyRoutineTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
-                      No routine added
+                      No journal added
                     </Text>
                     <Text style={[styles.emptyRoutineSubtitle, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
-                      Start building your daily regimen to track progress.
+                      Start tracking your daily skincare thoughts and notes.
                     </Text>
                   </View>
-                  <Pressable 
-                    style={[styles.createRoutineBtnSmall, { backgroundColor: Colors.light.primary }]}
-                    onPress={() => router.push('/(tabs)/routine')}
-                  >
-                    <Plus size={14} color="#ffffff" strokeWidth={2.5} />
-                    <Text style={styles.createRoutineBtnTextSmall}>Create</Text>
-                  </Pressable>
-                </View>
+                </Pressable>
               )}
             </View>
 
@@ -698,14 +1181,17 @@ export default function HomeScreen() {
                 }}>Recent Photos</Text>
                 <Pressable
                   onPress={() => router.push('/(tabs)/scan')}
-                  style={{
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                    paddingHorizontal: 14,
-                    paddingVertical: 6,
-                    borderRadius: 20,
-                  }}
+                  style={({ pressed }) => [
+                    styles.upliftedViewAllBtn,
+                    {
+                      backgroundColor: pressed
+                        ? (isDark ? '#27272a' : '#f0f0f2')
+                        : (isDark ? '#18181b' : '#ffffff'),
+                      borderColor: isDark ? '#27272a' : '#e5e7eb',
+                    },
+                  ]}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: isDark ? '#ffffff' : '#000000' }}>View all</Text>
+                  <Text style={[styles.upliftedViewAllText, { color: isDark ? '#ffffff' : '#111827' }]}>View all</Text>
                 </Pressable>
               </View>
 
@@ -749,20 +1235,6 @@ export default function HomeScreen() {
                         resizeMode="cover"
                       />
 
-                      {/* Top-Right "View More" pill */}
-                      <Pressable
-                        onPress={() => guardedNavigate(`/scan/${scan.id}`)}
-                        style={[
-                          styles.viewMorePillTopRight,
-                          { backgroundColor: isDark ? 'rgba(24, 24, 27, 0.85)' : 'rgba(255, 255, 255, 0.9)' }
-                        ]}
-                      >
-                        <Text style={[styles.viewMorePillText, { color: isDark ? '#ffffff' : '#111827' }]}>
-                          View More
-                        </Text>
-                        <ChevronRight size={12} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.5} />
-                      </Pressable>
-
                       {/* Bottom-Left Blackish Date pill */}
                       <View style={styles.datePillBottomLeft}>
                         <Text style={styles.datePillText}>{scan.date}</Text>
@@ -777,15 +1249,10 @@ export default function HomeScreen() {
           </View>
         </View>
 
-      </ScrollView>
+      </Animated.ScrollView>
 
-      {/* Delete Confirmation Modal */}
-      <RoutineDeleteModal
-        visible={deleteConfirmOpen}
-        isDark={isDark}
-        onClose={() => setDeleteConfirmOpen(false)}
-        onDelete={executeDelete}
-      />
+      {/* Live Journal Question Sheet for Interactive Daily Tracking */}
+      <JournalQuestionSheet ref={journalSheetRef} />
     </View>
   );
 }
@@ -797,6 +1264,199 @@ const styles = StyleSheet.create({
   hero: {
     paddingBottom: 16, // Reduced from 40 to eliminate extra gap below Recent Scans
     overflow: 'visible',
+  },
+  /* Top Ambient Aura Background (Flow-style) */
+  heroAmbientContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 580,
+    overflow: 'hidden',
+    zIndex: 0,
+  },
+  heroBlob1: {
+    position: 'absolute',
+    top: -60,
+    right: -70,
+    width: 290,
+    height: 290,
+    borderRadius: 145,
+  },
+  heroBlob2: {
+    position: 'absolute',
+    top: -40,
+    left: -80,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+  },
+  heroBlob3: {
+    position: 'absolute',
+    top: 110,
+    left: '18%',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+  },
+
+  /* Forecast Placeholder Typography */
+  forecastSubTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+    marginBottom: 8,
+  },
+  forecastBigNumber: {
+    fontSize: 54,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: -1.2,
+    lineHeight: 60,
+    marginBottom: 14,
+  },
+  forecastMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  forecastMetaText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  forecastInfoCircle: {
+    width: 17,
+    height: 17,
+    borderRadius: 8.5,
+    borderWidth: 1.2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  forecastInfoText: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontStyle: 'italic',
+    lineHeight: 12,
+  },
+
+  analyzingWrapper: {
+    width: 280,
+    height: 250,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  ambientRing2: {
+    position: 'absolute',
+    width: 270,
+    height: 270,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ambientRing1: {
+    position: 'absolute',
+    width: 250,
+    height: 250,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  analyzingCenterDisc: {
+    width: 196,
+    height: 196,
+    borderRadius: 98,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    elevation: 6,
+    borderWidth: 1,
+  },
+  analyzingCenterDiscLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  analyzingCenterDiscDark: {
+    backgroundColor: '#181622',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  analyzingText: {
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: -0.4,
+  },
+  topHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    zIndex: 1,
+  },
+  profileIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  profileIconBtnLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  profileIconBtnDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
+  },
+  headerCenterDateWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerDateTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  weekCalendarContainer: {
+    marginBottom: 16,
+    paddingVertical: 4,
+  },
+  weekCalendarRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  dayColumn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  dayColumnLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
+  },
+  dayNumberCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayNumberText: {
+    fontSize: 14,
   },
   greetRow: {
     flexDirection: 'row',
@@ -823,10 +1483,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 13,
     paddingVertical: 7,
-    borderRadius: 24,
+    borderRadius: 100,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   streakPillLight: {
     backgroundColor: 'rgba(255,255,255,0.22)',
@@ -1093,36 +1758,139 @@ const styles = StyleSheet.create({
   },
   viewMorePillTopRight: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 20,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
     elevation: 3,
   },
   viewMorePillText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
   },
   datePillBottomLeft: {
     position: 'absolute',
-    bottom: 8,
-    left: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
+    bottom: 10,
+    left: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: 11,
+    paddingVertical: 4.5,
+    borderRadius: 999,
   },
   datePillText: {
     color: '#ffffff',
     fontSize: 11,
+    fontWeight: '700',
+  },
+
+  /* Uplifted Premium Card - exact match of daily-journal.tsx historyCardBox */
+  upliftedCardBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  historyCardBoxLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  historyCardBoxDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
+  },
+  journalCardLeft: {
+    flex: 1,
+    paddingRight: 14,
+  },
+  journalTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  journalDateText: {
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  journalStatusPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  journalStatusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'lowercase',
+    letterSpacing: 0.2,
+  },
+  journalMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  journalDayText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  journalDotSeparator: {
+    width: 3.5,
+    height: 3.5,
+    borderRadius: 2,
+  },
+  journalAnswersCount: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  journalBadgeSlot: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 8,
+  },
+  journalStatusCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+  },
+
+  /* Uplifted View All / See All Button Pill */
+  upliftedViewAllBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 100,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  upliftedViewAllText: {
+    fontSize: 13,
     fontWeight: '700',
   },
 });

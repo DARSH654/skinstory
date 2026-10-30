@@ -91,3 +91,16 @@ This file acts as the primary architectural map for the Skinstory monorepo. It p
        1. Store live draft text in a `useRef` (e.g. `inputRef.current = val`).
        2. Only trigger `useState` when validation state changes (e.g., `isSaveEnabled`, `hasContent`), NOT on raw string updates.
        3. On Submit/Save, read the finalized values directly from the ref (`ref.current`).
+
+   - **Android Bottom Sheet White Flash on Content Expansion (Known Library Bug - Mandatory Fix)**:
+     - **The Bug**: When a `BottomSheetModal` with `enableDynamicSizing` has its content height change **drastically** (e.g. switching from a 3-item scale to a 10-item scale), a random white gap/flash appears inside the sheet on Android during the expansion animation. It is intermittent. This is a confirmed bug in `@gorhom/bottom-sheet` (GitHub issue #2605), present in v5.1.5-v5.2.9+, unfixed by the library author.
+     - **The Fix**: Add `detached={Platform.OS === 'android'}` to every `BottomSheetModal` that has `enableDynamicSizing` and dynamic content. Also ensure `bottomInset={insets.bottom}` is set.
+     - **Already applied to**: `AddJournalQuestionDetailsSheet.tsx` (multi-select, single-choice, and scale question types).
+     - **If a new sheet gets this issue**: Don't debug, don't add logs. Just add `detached={Platform.OS === 'android'}` + `bottomInset={insets.bottom}`.
+
+   - **Draggable Floating Scroll Circle (DraggableScrollDownCircle) Positioning Across Android Devices (Mandatory Fix)**:
+     - **The Bug / Problem**: On Android Edge-to-Edge displays, passing a static or hardcoded pixel offset (such as bottomOffset={16} or bottomOffset={20}) causes the floating scroll circle to spawn or sit directly behind the Android 3-button system navigation bar (which occupies ~48px) or collide with bottom action/tab bars.
+     - **The Root Cause**: Edge-to-edge drawing extends the window canvas completely behind the system navigation bar. A hardcoded number measures from the physical glass bottom edge, ignoring the device navigation bar height.
+     - **The Permanent Fix**: Never hardcode the bottom clearance. Always calculate it dynamically using useSafeAreaInsets():
+       1. **Inside Full-Screen Sheets / Edge-to-Edge Modals** (isFullScreenModal={true}): Pass bottomOffset={insets.bottom + 16}. This guarantees a clean 16px visual margin above the 3-button bar (~64px total) or gesture bar (~32px total) on every Android phone.
+       2. **On Tab Screen Pages** (like Create Routine main page with a bottom tab bar): Pass bottomOffset={bottomTabBarHeight + 16} so it rests cleanly above the tab bar rather than overlapping bottom buttons.
