@@ -517,22 +517,23 @@ export default function HomeScreen() {
     };
   });
 
-  // Score/Forecast block animation: shrinks slightly and cleanly fades out immediately as analyzing starts
+  // Score/Forecast block animation: Cleanly fades out to 0 between [0, 0.4] of the transition
   const scoreBlockAnimStyle = useAnimatedStyle(() => {
     return {
-      opacity: interpolate(analyzingTransition.value, [0, 0.3], [1, 0]),
+      opacity: interpolate(analyzingTransition.value, [0, 0.35], [1, 0], 'clamp'),
       transform: [
-        { scale: interpolate(analyzingTransition.value, [0, 0.5], [1, 0.9]) },
+        { scale: interpolate(analyzingTransition.value, [0, 0.4], [1, 0.92], 'clamp') },
       ],
     };
   });
 
-  // Analyzing Circle container: grows from center (scale 0.75 -> 1) and fades in cleanly once score has faded out
+  // Analyzing Circle container: ONLY starts appearing at 0.4 AFTER the score text is 100% gone!
+  // This completely eliminates any overlap, bleed-through, or double-vision.
   const analyzingCircleAnimStyle = useAnimatedStyle(() => {
     return {
-      opacity: interpolate(analyzingTransition.value, [0.15, 0.65], [0, 1]),
+      opacity: interpolate(analyzingTransition.value, [0.4, 0.85], [0, 1], 'clamp'),
       transform: [
-        { scale: interpolate(analyzingTransition.value, [0.15, 1], [0.75, 1]) },
+        { scale: interpolate(analyzingTransition.value, [0.4, 1], [0.8, 1], 'clamp') },
       ],
     };
   });
@@ -1375,15 +1376,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 22,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
-    elevation: 6,
-    borderWidth: 1,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    borderWidth: 1.5,
   },
   analyzingCenterDiscLight: {
     backgroundColor: '#ffffff',
-    borderColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: 'rgba(147, 122, 189, 0.15)',
   },
   analyzingCenterDiscDark: {
     backgroundColor: '#181622',
