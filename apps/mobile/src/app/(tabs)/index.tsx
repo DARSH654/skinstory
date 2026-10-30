@@ -451,6 +451,9 @@ export default function HomeScreen() {
   const analyzingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const triggerAnalyzing = useCallback(() => {
+    // Prevent re-triggering mid-animation
+    if (isAnalyzingActive.value) return;
+
     if (analyzingTimerRef.current) clearTimeout(analyzingTimerRef.current);
     
     // Start transition into Analyzing state
@@ -472,9 +475,10 @@ export default function HomeScreen() {
           isAnalyzingActive.value = false;
         }
       });
-      // Defer unmounting or toggling React state after transition completes
+      // Defer unmounting after transition completes
       setTimeout(() => {
         setIsAnalyzing(false);
+        isAnalyzingActive.value = false;
         analyzingTimerRef.current = null;
       }, 720);
     }, 3200);
