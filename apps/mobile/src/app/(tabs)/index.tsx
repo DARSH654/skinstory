@@ -505,35 +505,100 @@ export default function HomeScreen() {
     }, 3200);
   }, []);
 
-  // Curve 1 (Top-Right): Fades out and slides slightly up-right, then fades back in
+  // Subtle living wave animations for the 3 background curves
+  const waveBreath1 = useSharedValue(0);
+  const waveBreath2 = useSharedValue(0);
+  const waveBreath3 = useSharedValue(0);
+
+  React.useEffect(() => {
+    // Curve 1 gentle floating breath (up-down, slight pulse)
+    waveBreath1.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 4200, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 4200, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1,
+      true
+    );
+    // Curve 2 gentle floating wave (horizontal sway, slight scale)
+    waveBreath2.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 5200, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+    // Curve 3 gentle floating wave (diagonal sway, slight stretch)
+    waveBreath3.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 4800, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 4800, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  // Curve 1 (Top-Right): Alive wave sway + smooth transition exit
   const curve1AnimStyle = useAnimatedStyle(() => {
+    // Living idle sway
+    const idleTranslateX = interpolate(waveBreath1.value, [0, 1], [-4, 6]);
+    const idleTranslateY = interpolate(waveBreath1.value, [0, 1], [5, -5]);
+    const idleScale = interpolate(waveBreath1.value, [0, 1], [0.99, 1.02]);
+
+    // Transition exit displacement
+    const exitTranslateX = interpolate(analyzingTransition.value, [0, 1], [0, 50]);
+    const exitTranslateY = interpolate(analyzingTransition.value, [0, 1], [0, -35]);
+
     return {
       opacity: interpolate(analyzingTransition.value, [0, 0.8], [1, 0]),
       transform: [
-        { translateX: interpolate(analyzingTransition.value, [0, 1], [0, 50]) },
-        { translateY: interpolate(analyzingTransition.value, [0, 1], [0, -35]) },
+        { translateX: idleTranslateX + exitTranslateX },
+        { translateY: idleTranslateY + exitTranslateY },
+        { scale: idleScale },
       ],
     };
   });
 
-  // Curve 2 (Mid-Left): Fades out and slides out to the left
+  // Curve 2 (Mid-Left): Alive wave sway + smooth transition exit
   const curve2AnimStyle = useAnimatedStyle(() => {
+    // Living idle sway
+    const idleTranslateX = interpolate(waveBreath2.value, [0, 1], [-6, 6]);
+    const idleTranslateY = interpolate(waveBreath2.value, [0, 1], [-4, 5]);
+    const idleScale = interpolate(waveBreath2.value, [0, 1], [1.02, 0.98]);
+
+    // Transition exit displacement
+    const exitTranslateX = interpolate(analyzingTransition.value, [0, 1], [0, -60]);
+    const exitTranslateY = interpolate(analyzingTransition.value, [0, 1], [0, 20]);
+
     return {
       opacity: interpolate(analyzingTransition.value, [0, 0.8], [1, 0]),
       transform: [
-        { translateX: interpolate(analyzingTransition.value, [0, 1], [0, -60]) },
-        { translateY: interpolate(analyzingTransition.value, [0, 1], [0, 20]) },
+        { translateX: idleTranslateX + exitTranslateX },
+        { translateY: idleTranslateY + exitTranslateY },
+        { scale: idleScale },
       ],
     };
   });
 
-  // Curve 3 (Lower-Right): Fades out and slides down-right
+  // Curve 3 (Lower-Right): Alive wave sway + smooth transition exit
   const curve3AnimStyle = useAnimatedStyle(() => {
+    // Living idle sway
+    const idleTranslateX = interpolate(waveBreath3.value, [0, 1], [5, -5]);
+    const idleTranslateY = interpolate(waveBreath3.value, [0, 1], [-5, 6]);
+    const idleScale = interpolate(waveBreath3.value, [0, 1], [0.985, 1.02]);
+
+    // Transition exit displacement
+    const exitTranslateX = interpolate(analyzingTransition.value, [0, 1], [0, 60]);
+    const exitTranslateY = interpolate(analyzingTransition.value, [0, 1], [0, 45]);
+
     return {
       opacity: interpolate(analyzingTransition.value, [0, 0.8], [1, 0]),
       transform: [
-        { translateX: interpolate(analyzingTransition.value, [0, 1], [0, 60]) },
-        { translateY: interpolate(analyzingTransition.value, [0, 1], [0, 45]) },
+        { translateX: idleTranslateX + exitTranslateX },
+        { translateY: idleTranslateY + exitTranslateY },
+        { scale: idleScale },
       ],
     };
   });
