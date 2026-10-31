@@ -403,7 +403,15 @@ export default function ProgressScreen() {
                 params: { selectedIds: JSON.stringify(compareIds) },
               })
             }
-            style={[styles.selectScanBtn, { backgroundColor: isDark ? '#1c1c1e' : '#ffffff', borderColor: isDark ? '#27272a' : 'rgba(0,0,0,0.1)', borderWidth: 1 }]}
+            style={({ pressed }) => [
+              styles.selectScanBtn,
+              {
+                backgroundColor: pressed
+                  ? (isDark ? '#27272a' : '#f0f0f2')
+                  : (isDark ? '#18181b' : '#ffffff'),
+                borderColor: isDark ? '#27272a' : '#e5e7eb',
+              },
+            ]}
           >
             <Text style={[styles.selectScanText, { color: colors.text }]}>Select Photos</Text>
             <ChevronDown size={16} color={colors.text} />
@@ -414,8 +422,8 @@ export default function ProgressScreen() {
           styles.card,
           styles.compareCard,
           { 
-            backgroundColor: colors.backgroundElement,
-            borderColor: isDark ? '#27272a' : '#e4e4e7',
+            backgroundColor: isDark ? '#18181b' : '#ffffff',
+            borderColor: isDark ? '#27272a' : '#e5e7eb',
           }
         ]}>
           {/* Interactive slider image comparison */}
@@ -521,12 +529,13 @@ export default function ProgressScreen() {
                 isNavigating.current = false;
               }, 1000);
             }}
-            style={[
+            style={({ pressed }) => [
               styles.selectScanBtn,
               {
-                backgroundColor: isDark ? '#1c1c1e' : '#ffffff',
-                borderColor: isDark ? '#27272a' : 'rgba(0,0,0,0.1)',
-                borderWidth: 1,
+                backgroundColor: pressed
+                  ? (isDark ? '#27272a' : '#f0f0f2')
+                  : (isDark ? '#18181b' : '#ffffff'),
+                borderColor: isDark ? '#27272a' : '#e5e7eb',
               },
             ]}
           >
@@ -539,11 +548,9 @@ export default function ProgressScreen() {
           <View
             style={[
               styles.card,
-              styles.chatSubCard,
               {
-                backgroundColor: isDark ? '#1c1c1e' : '#f8f8fa',
-                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-                borderWidth: 1,
+                backgroundColor: isDark ? '#18181b' : '#ffffff',
+                borderColor: isDark ? '#27272a' : '#e5e7eb',
                 paddingVertical: 18,
                 paddingHorizontal: 16,
                 alignItems: 'center',
@@ -577,11 +584,13 @@ export default function ProgressScreen() {
                 isNavigating.current = false;
               }, 800);
             }}
-            style={[
+            style={({ pressed }) => [
               styles.card,
               {
-                backgroundColor: isDark ? '#000000' : '#ffffff',
-                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                backgroundColor: pressed
+                  ? (isDark ? '#27272a' : '#f0f0f2')
+                  : (isDark ? '#18181b' : '#ffffff'),
+                borderColor: isDark ? '#27272a' : '#e5e7eb',
               }
             ]}
           >
@@ -621,11 +630,16 @@ const styles = StyleSheet.create({
   },
   card: {
     marginHorizontal: 20,
-    borderRadius: 24,
-    padding: 16,
-    borderWidth: 1.5,
-    marginTop: 10,
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    marginTop: 12,
     marginBottom: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   insightTitleRow: {
     paddingHorizontal: 20,
@@ -720,12 +734,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 16,    // Bigger padding
-    paddingVertical: 10,      // Bigger padding
-    borderRadius: 24,         // Rounded button
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   selectScanText: {
-    fontSize: 13,             // Bigger text size
+    fontSize: 13,
     fontWeight: '700',
   },
   compareCard: {
@@ -801,9 +821,9 @@ const styles = StyleSheet.create({
   labelBadge: {
     position: 'absolute',
     bottom: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
   labelBefore: {
     left: 12,
@@ -813,7 +833,7 @@ const styles = StyleSheet.create({
   },
   labelText: {
     color: '#ffffff',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
   sectionHeader: {

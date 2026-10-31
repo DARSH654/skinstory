@@ -245,7 +245,6 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
               style={[
                 styles.skipPillBtn,
                 isDark ? styles.skipPillDark : styles.skipPillLight,
-                { backgroundColor: themeColors.background },
               ]}
             >
               <Text style={[styles.skipPillText, isDark ? styles.textDark : styles.textLight]}>
@@ -272,7 +271,6 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
                 style={[
                   styles.input,
                   isDark ? styles.inputDark : styles.inputLight,
-                  { backgroundColor: themeColors.background },
                 ]}
                 placeholder="Enter your email"
                 placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
@@ -359,7 +357,6 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
                 style={[
                   styles.input,
                   isDark ? styles.inputDark : styles.inputLight,
-                  { backgroundColor: themeColors.background },
                 ]}
                 placeholder="Enter your email"
                 placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
@@ -386,7 +383,6 @@ export default function AuthModal({ visible, onClose, onSuccess }: AuthModalProp
                 style={[
                   styles.passwordInputContainer,
                   isDark ? styles.inputDark : styles.inputLight,
-                  { backgroundColor: themeColors.background },
                 ]}
               >
                 <TextInput
@@ -477,8 +473,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 16,
   },
-  cardLight: { backgroundColor: '#ffffff' },
-  cardDark: { backgroundColor: '#18181b', borderWidth: 1, borderColor: '#27272a' },
+  cardLight: { backgroundColor: '#FAF8F6' },
+  cardDark: { backgroundColor: '#121212', borderWidth: 1, borderColor: '#2b2b30' },
   
   topHeaderRow: {
     flexDirection: 'row',
@@ -502,13 +498,18 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  skipPillLight: { backgroundColor: '#f4f4f5', borderColor: '#e4e4e7' },
-  skipPillDark: { backgroundColor: '#27272a', borderColor: '#3f3f46' },
+  skipPillLight: { backgroundColor: '#ffffff', borderColor: '#e4e4e7' },
+  skipPillDark: { backgroundColor: '#18181b', borderColor: '#3f3f46' },
   skipPillText: {
     fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Outfit_600SemiBold',
+    fontWeight: '700',
+    fontFamily: 'Outfit_700Bold',
   },
   
   mainHeading: {
@@ -547,18 +548,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 44,
-    borderRadius: 12,
+    height: 46,
+    borderRadius: 999,
     borderWidth: 1,
     gap: 10,
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  googleBtnLight: { backgroundColor: '#f4f4f5', borderColor: '#e4e4e7' },
-  googleBtnDark: { backgroundColor: '#27272a', borderColor: '#3f3f46' },
+  googleBtnLight: { backgroundColor: '#ffffff', borderColor: '#e4e4e7' },
+  googleBtnDark: { backgroundColor: '#18181b', borderColor: '#3f3f46' },
   googleBtnText: {
     fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Outfit_600SemiBold',
+    fontWeight: '700',
+    fontFamily: 'Outfit_700Bold',
   },
 
   dividerContainer: {
@@ -573,7 +579,7 @@ const styles = StyleSheet.create({
   dividerLight: { backgroundColor: '#e4e4e7' },
   dividerDark: { backgroundColor: '#27272a' },
   dividerText: {
-    paddingHorizontal: 12,
+    marginHorizontal: 12,
     fontSize: 12,
     fontWeight: '500',
     fontFamily: 'Outfit_500Medium',
@@ -587,15 +593,20 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   input: {
-    height: 44,
-    borderRadius: 10,
+    height: 46,
+    borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     fontSize: 14,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
   },
   inputLight: { backgroundColor: '#ffffff', borderColor: '#e4e4e7', color: '#111827' },
-  inputDark: { backgroundColor: '#27272a', borderColor: '#3f3f46', color: '#ffffff' },
+  inputDark: { backgroundColor: '#1c1c20', borderColor: '#2b2b30', color: '#ffffff' },
 
   passwordLabelRow: {
     flexDirection: 'row',
@@ -620,12 +631,17 @@ const styles = StyleSheet.create({
   passwordInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 44,
-    borderRadius: 10,
+    height: 46,
+    borderRadius: 999,
     borderWidth: 1,
-    paddingLeft: 14,
+    paddingLeft: 16,
     paddingRight: 8,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
   },
   passwordInput: {
     flex: 1,
@@ -642,21 +658,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  eyePillLight: { backgroundColor: '#e4e4e7' },
-  eyePillDark: { backgroundColor: '#3f3f46' },
+  eyePillLight: { backgroundColor: '#FAF8F6', borderWidth: 1, borderColor: '#e4e4e7' },
+  eyePillDark: { backgroundColor: '#121212', borderWidth: 1, borderColor: '#2b2b30' },
 
   submitBtn: {
-    height: 44,
-    borderRadius: 12,
+    height: 46,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
   },
   submitBtnText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#ffffff',
-    fontFamily: 'Outfit_600SemiBold',
+    fontFamily: 'Outfit_700Bold',
   },
 
   termsText: {

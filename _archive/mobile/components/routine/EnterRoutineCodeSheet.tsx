@@ -1,0 +1,362 @@
+import React, { useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { 
+  View, 
+  StyleSheet, 
+  Pressable, 
+  Keyboard,
+  Animated,
+  PanResponder,
+} from 'react-native';
+import { Text } from '@/components/AppText';
+import { 
+  BottomSheetModal, 
+  BottomSheetView, 
+  BottomSheetTextInput, 
+  BottomSheetBackdrop, 
+  BottomSheetBackdropProps 
+} from '@gorhom/bottom-sheet';
+import { Colors } from '@/constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+export interface EnterRoutineCodeSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
+
+interface EnterRoutineCodeSheetProps {
+  isDark: boolean;
+  onSuccess: (msg: string) => void;
+  onDismiss?: () => void;
+}
+
+const EnterRoutineCodeSheet = forwardRef<EnterRoutineCodeSheetRef, EnterRoutineCodeSheetProps>(({
+  isDark,
+  onSuccess,
+  onDismiss,
+}, ref) => {
+  const insets = useSafeAreaInsets();
+  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+  const [hasCode, setHasCode] = useState(false);
+  const addCodeValueRef = useRef("");
+  const [toastMessage, setToastMessage] = useState("");
+
+  const toastSlideAnim = useRef(new Animated.Value(-80)).current;
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    present: () => {
+      bottomSheetModalRef.current?.present();
+    },
+    dismiss: () => {
+      Keyboard.dismiss();
+      bottomSheetModalRef.current?.dismiss();
+    },
+  }));
+
+  const showToast = (msg: string) => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    toastSlideAnim.stopAnimation();
+    toastSlideAnim.setValue(-80);
+    setToastMessage(msg);
+    Animated.spring(toastSlideAnim, {
+      toValue: 0,
+      damping: 20,
+      stiffness: 200,
+      mass: 0.8,
+      useNativeDriver: true,
+    }).start(() => {
+      toastTimerRef.current = setTimeout(() => {
+        Animated.timing(toastSlideAnim, {
+          toValue: -80,
+          duration: 250,
+          useNativeDriver: true,
+        }).start(() => {
+          setToastMessage("");
+          toastTimerRef.current = null;
+        });
+      }, 2000); // 2 seconds
+    });
+  };
+
+  const dismissErrorToast = () => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    Animated.timing(toastSlideAnim, {
+      toValue: -80,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setToastMessage("");
+    });
+  };
+
+  const errorToastPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
+      onPanResponderMove: (_, g) => {
+        if (g.dy < 0) {
+          toastSlideAnim.setValue(g.dy);
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy < -20) {
+          dismissErrorToast();
+        } else {
+          Animated.spring(toastSlideAnim, {
+            toValue: 0,
+            damping: 20,
+            stiffness: 200,
+            mass: 0.8,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <BottomSheetBackdrop
+          {...props}
+          appearsOnIndex={0}
+          disappearsOnIndex={-1}
+          pressBehavior="close"
+        />
+        {toastMessage ? (
+          <Animated.View
+            {...errorToastPanResponder.panHandlers}
+            style={[
+              styles.toastContainer,
+              isDark ? styles.toastDark : styles.toastLight,
+              {
+                transform: [{ translateY: toastSlideAnim }],
+                top: Math.max(insets.top, 16) + 10,
+              }
+            ]}
+          >
+            <Text style={isDark ? styles.toastTextDark : styles.toastTextLight}>
+              {toastMessage}
+            </Text>
+          </Animated.View>
+        ) : null}
+      </View>
+    ),
+    [toastMessage, isDark, insets.top]
+  );
+
+  const handleClose = () => {
+    Keyboard.dismiss();
+    bottomSheetModalRef.current?.dismiss();
+  };
+
+  const handleEnterCode = () => {
+    const code = addCodeValueRef.current.trim();
+    if (code.length === 0) return;
+    
+    if (code.length < 6) {
+      showToast("Enter a 6-digit code");
+      return;
+    }
+    
+    Keyboard.dismiss();
+    bottomSheetModalRef.current?.dismiss();
+    addCodeValueRef.current = "";
+    setHasCode(false);
+    onSuccess("Routine code successfully added!");
+  };
+
+  return (
+    <BottomSheetModal
+      ref={bottomSheetModalRef}
+      enableDynamicSizing
+      enablePanDownToClose
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      bottomInset={insets.bottom}
+      backdropComponent={renderBackdrop}
+      onDismiss={() => {
+        Keyboard.dismiss();
+        addCodeValueRef.current = "";
+        setHasCode(false);
+        onDismiss?.();
+      }}
+      handleStyle={styles.handleContainer}
+      handleIndicatorStyle={[styles.dragHandle, isDark ? styles.dragHandleDark : styles.dragHandleLight]}
+      backgroundStyle={[isDark ? styles.bgDark : styles.bgLight, styles.roundedTop]}
+    >
+      <BottomSheetView 
+        style={[styles.sheetInner, { paddingBottom: 16 }]}
+      >
+        <Text style={[styles.sheetTitle, isDark ? styles.textDark : styles.textLight]}>
+          Enter Routine Code
+        </Text>
+        
+        <BottomSheetTextInput
+          key="routine-code-input"
+          style={[
+            styles.sheetInput,
+            isDark ? styles.sheetInputDark : styles.sheetInputLight,
+            isDark ? styles.textDark : styles.textLight,
+          ]}
+          placeholder="E.G. A3F9B2"
+          placeholderTextColor={isDark ? "#52525b" : "#9ca3af"}
+          defaultValue={addCodeValueRef.current}
+          maxLength={6}
+          autoCapitalize="characters"
+          textAlign="center"
+          onChangeText={(val) => {
+            const sanitized = val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+            addCodeValueRef.current = sanitized;
+            const filled = sanitized.length > 0;
+            if (filled !== hasCode) {
+              setHasCode(filled);
+            }
+          }}
+          onSubmitEditing={handleEnterCode}
+        />
+        
+        <View style={styles.sheetActions}>
+          <Pressable 
+            onPress={handleClose}
+            style={[styles.sheetActionBtn, isDark ? styles.sheetBtnCancelDark : styles.sheetBtnCancelLight]}
+          >
+            <Text style={[styles.sheetBtnCancelText, isDark ? styles.textDark : styles.textLight]}>Cancel</Text>
+          </Pressable>
+          <Pressable 
+            onPress={handleEnterCode}
+            disabled={!hasCode}
+            style={[styles.sheetActionBtn, styles.sheetBtnEnter, !hasCode && styles.disabledBtn]}
+          >
+            <Text style={styles.sheetBtnEnterText}>Enter</Text>
+          </Pressable>
+        </View>
+      </BottomSheetView>
+    </BottomSheetModal>
+  );
+});
+
+export default EnterRoutineCodeSheet;
+
+const styles = StyleSheet.create({
+  roundedTop: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+  },
+  bgLight: { backgroundColor: '#f5f5f7' },
+  bgDark: { backgroundColor: '#121212' },
+  handleContainer: {
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  dragHandle: {
+    width: 52,
+    height: 6,
+    borderRadius: 999,
+  },
+  dragHandleLight: {
+    backgroundColor: '#d1d5db',
+  },
+  dragHandleDark: {
+    backgroundColor: '#3f3f46',
+  },
+  sheetInner: {
+    paddingHorizontal: 20,
+    paddingTop: 2,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+    fontFamily: 'Outfit_700Bold',
+    textAlign: 'center',
+  },
+  textLight: { color: '#111827' },
+  textDark: { color: '#ffffff' },
+  sheetInput: {
+    height: 50,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 14,
+    textAlign: 'center',
+    letterSpacing: 6,
+    fontFamily: 'Outfit_700Bold',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  sheetInputLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  sheetInputDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  sheetActionBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  sheetBtnCancelLight: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  sheetBtnCancelDark: {
+    backgroundColor: '#18181b',
+    borderWidth: 1,
+    borderColor: '#27272a',
+  },
+  sheetBtnCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  sheetBtnEnter: {
+    backgroundColor: Colors.light.primary,
+  },
+  sheetBtnEnterText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  disabledBtn: {
+    opacity: 0.5,
+  },
+  toastContainer: {
+    position: 'absolute',
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    elevation: 10,
+    borderWidth: 1,
+    zIndex: 9999,
+  },
+  toastLight: { backgroundColor: '#111827', borderColor: '#374151' },
+  toastDark: { backgroundColor: '#ffffff', borderColor: '#e5e7eb' },
+  toastTextLight: { fontSize: 14, fontWeight: '500', textAlign: 'center', color: '#ffffff' },
+  toastTextDark: { fontSize: 14, fontWeight: '500', textAlign: 'center', color: '#111827' },
+});

@@ -251,10 +251,13 @@ function AnalyzingDataCircle({ isDark }: { isDark: boolean }) {
     };
   });
 
-  const grad1A = isDark ? '#7e22ce' : '#c084fc';
-  const grad1B = isDark ? '#4338ca' : '#e0e7ff';
-  const grad2A = isDark ? '#9333ea' : '#d8b4fe';
-  const grad2B = isDark ? '#6366f1' : '#ede9fe';
+  const primaryColor = Colors.light.primary; // '#937abd'
+  const secondaryColor = Colors.light.secondary; // '#d6cbe8'
+
+  const grad1A = primaryColor;
+  const grad1B = secondaryColor;
+  const grad2A = primaryColor;
+  const grad2B = secondaryColor;
 
   return (
     <View style={styles.analyzingWrapper}>
@@ -613,6 +616,17 @@ export default function HomeScreen() {
     };
   });
 
+  // Dedicated Centroidic Analyzing Background:
+  // Smoothly fades and expands in as the 3 hero curves exit, creating a central focus vignette
+  const analyzingBgAnimStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(analyzingTransition.value, [0.2, 0.8], [0, 1], 'clamp'),
+      transform: [
+        { scale: interpolate(analyzingTransition.value, [0.2, 1], [0.92, 1], 'clamp') },
+      ],
+    };
+  });
+
   // Analyzing Circle container: ONLY starts appearing at 0.4 AFTER the score text is 100% gone!
   // This completely eliminates any overlap, bleed-through, or double-vision.
   const analyzingCircleAnimStyle = useAnimatedStyle(() => {
@@ -641,14 +655,39 @@ export default function HomeScreen() {
     }, [])
   );
 
-  // Generate current week dates dynamically
-  const getWeekDays = () => {
+  // Current date constants
+  const today = new Date();
+  const currentDay = today.getDay();
+  const todayIdx = currentDay === 0 ? 6 : currentDay - 1; // 0=Mon..6=Sun
+
+  // Multi-week calendar setup (-4 to +4 weeks = 9 weeks total, index 4 is current week)
+  const WEEKS_RANGE = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
+  const INITIAL_WEEK_INDEX = 4; // index of week offset 0
+  const TOTAL_DAYS = WEEKS_RANGE.length * 7; // 63 days total
+  const INITIAL_DAY_GLOBAL_INDEX = INITIAL_WEEK_INDEX * 7 + todayIdx; // today's index in the 63-day sequence
+
+  // Track viewing week independently from selected date
+  const [visibleWeekIndex, setVisibleWeekIndex] = useState(INITIAL_WEEK_INDEX);
+  const [selectedGlobalDayIdx, setSelectedGlobalDayIdx] = useState(INITIAL_DAY_GLOBAL_INDEX);
+
+  // Helper to convert global index (0..62) to week offset and day index (0..6)
+  const getWeekOffsetAndDay = (globalIdx: number) => {
+    const weekIdx = Math.floor(globalIdx / 7);
+    const dayIdx = globalIdx % 7;
+    const weekOffset = WEEKS_RANGE[weekIdx] ?? 0;
+    return { weekIdx, dayIdx, weekOffset };
+  };
+
+  const { weekOffset: selectedWeekOffset, dayIdx: selectedDayIdx } = getWeekOffsetAndDay(selectedGlobalDayIdx);
+
+  // Generate week days dynamically for any week offset
+  const getWeekDaysForOffset = (weekOffset: number) => {
     const days = [];
-    const today = new Date();
-    const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday...
-    const distanceToMon = currentDay === 0 ? -6 : 1 - currentDay;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + distanceToMon);
+    const baseDate = new Date();
+    const currDay = baseDate.getDay();
+    const distanceToMon = currDay === 0 ? -6 : 1 - currDay;
+    const monday = new Date(baseDate);
+    monday.setDate(baseDate.getDate() + distanceToMon + weekOffset * 7);
 
     const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     for (let i = 0; i < 7; i++) {
@@ -658,27 +697,21 @@ export default function HomeScreen() {
         label: dayLabels[i],
         dateNum: d.getDate(),
         isToday: d.toDateString() === today.toDateString(),
+        fullDate: d,
       });
     }
     return days;
   };
 
-  const weekDays = getWeekDays();
-
-  // Find index of today in weekDays (0 to 6)
-  const today = new Date();
-  const currentDay = today.getDay();
-  const todayIdx = currentDay === 0 ? 6 : currentDay - 1;
-  const [selectedDayIdx, setSelectedDayIdx] = useState(todayIdx);
-
-  // Dynamic formatted full date string for selected day (e.g., "26 October")
-  const getSelectedDateDisplay = (dayIdx: number) => {
+  // Dynamic formatted full date string for selected date
+  const getSelectedDateDisplay = (globalIdx: number) => {
+    const { weekOffset, dayIdx } = getWeekOffsetAndDay(globalIdx);
     const todayDate = new Date();
     const currentDayVal = todayDate.getDay();
     const distanceToMon = currentDayVal === 0 ? -6 : 1 - currentDayVal;
     
     const targetDate = new Date(todayDate);
-    targetDate.setDate(todayDate.getDate() + distanceToMon + dayIdx);
+    targetDate.setDate(todayDate.getDate() + distanceToMon + weekOffset * 7 + dayIdx);
     
     const dayNum = targetDate.getDate();
     const fullMonthNames = [
@@ -689,16 +722,17 @@ export default function HomeScreen() {
     return `${dayNum} ${monthStr}`;
   };
 
-  const selectedDateHeaderStr = getSelectedDateDisplay(selectedDayIdx);
+  const selectedDateHeaderStr = getSelectedDateDisplay(selectedGlobalDayIdx);
 
-  // Dynamically calculate metadata and date string for any day index (0=Mon .. 6=Sun) based on current device time
-  const getDayMetadata = (dayIdx: number) => {
+  // Dynamically calculate metadata and date string for any global day index
+  const getDayMetadata = (globalIdx: number) => {
+    const { weekOffset, dayIdx } = getWeekOffsetAndDay(globalIdx);
     const todayDate = new Date();
     const currentDayVal = todayDate.getDay();
     const distanceToMon = currentDayVal === 0 ? -6 : 1 - currentDayVal;
     
     const targetDate = new Date(todayDate);
-    targetDate.setDate(todayDate.getDate() + distanceToMon + dayIdx);
+    targetDate.setDate(todayDate.getDate() + distanceToMon + weekOffset * 7 + dayIdx);
     
     const dayNum = targetDate.getDate();
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -709,31 +743,48 @@ export default function HomeScreen() {
     const todayIndexVal = currentDayVal === 0 ? 6 : currentDayVal - 1;
     
     let label = `guidance ${dateStr}`;
-    if (dayIdx === todayIndexVal) {
+    if (weekOffset === 0 && dayIdx === todayIndexVal) {
       label = `TODAY'S GUIDANCE`;
-    } else if (dayIdx === todayIndexVal - 1) {
+    } else if ((weekOffset === 0 && dayIdx === todayIndexVal - 1) || (weekOffset === -1 && todayIndexVal === 0 && dayIdx === 6)) {
       label = `YESTERDAY'S GUIDANCE`;
     }
     
     return { label, dateStr };
   };
 
-  const dayMeta = getDayMetadata(selectedDayIdx);
+  const dayMeta = getDayMetadata(selectedGlobalDayIdx);
 
-  // Generate an array of day indices [0..6] for the overall score flatlist/pager
-  const daysArray = [0, 1, 2, 3, 4, 5, 6];
+  // Generate an array of global day indices [0..TOTAL_DAYS-1] for continuous sliding
+  const allDaysArray = Array.from({ length: TOTAL_DAYS }, (_, i) => i);
 
-  // Ref to synchronize or scroll to today on load
+  // Refs for synchronization
   const scorePagerRef = useRef<FlatList>(null);
   const weekCalendarRef = useRef<FlatList>(null);
   
-  // Callback when user slides the main score block
+  // Callback when user slides the main score block day-to-day
   const handleScoreScrollEnd = (e: any) => {
-    const slideWidth = SCREEN_WIDTH - 40; // width of the slidable container
+    const slideWidth = SCREEN_WIDTH - 40;
     const xOffset = e.nativeEvent.contentOffset.x;
-    const newIdx = Math.round(xOffset / slideWidth);
-    if (newIdx >= 0 && newIdx < 7) {
-      setSelectedDayIdx(newIdx);
+    const newGlobalIdx = Math.round(xOffset / slideWidth);
+    if (newGlobalIdx >= 0 && newGlobalIdx < TOTAL_DAYS) {
+      setSelectedGlobalDayIdx(newGlobalIdx);
+      // Auto-slide calendar week if day moves into a different week
+      const targetWeekIdx = Math.floor(newGlobalIdx / 7);
+      if (targetWeekIdx !== visibleWeekIndex) {
+        setVisibleWeekIndex(targetWeekIdx);
+        weekCalendarRef.current?.scrollToIndex({ index: targetWeekIdx, animated: true });
+      }
+    }
+  };
+
+  // Callback when user slides the calendar strip week-to-week
+  // Sliding weeks ONLY changes visible week view, NEVER steals/moves the selected circle!
+  const handleWeekScrollEnd = (e: any) => {
+    const slideWidth = SCREEN_WIDTH - 40;
+    const xOffset = e.nativeEvent.contentOffset.x;
+    const newWeekIndex = Math.round(xOffset / slideWidth);
+    if (newWeekIndex >= 0 && newWeekIndex < WEEKS_RANGE.length) {
+      setVisibleWeekIndex(newWeekIndex);
     }
   };
 
@@ -785,8 +836,8 @@ export default function HomeScreen() {
         style={[styles.heroAmbientContainer, bgAuraAnimatedStyle]}
       >
         {/* Curve 1 (Top Header & Right Aura): Smoothly rounded contour dipping gently below calendar */}
-        <Animated.View style={[StyleSheet.absoluteFill, curve1AnimStyle]}>
-          <Svg width="100%" height="100%" viewBox="0 0 400 580" style={StyleSheet.absoluteFill}>
+        <Animated.View style={[StyleSheet.absoluteFill, { top: -50, left: -50, right: -50 }, curve1AnimStyle]}>
+          <Svg width="100%" height="100%" viewBox="-50 -50 500 630" style={StyleSheet.absoluteFill}>
             <Defs>
               <LinearGradient id="heroCurve1Grad" x1="0.9" y1="0.1" x2="0.1" y2="0.8">
                 <Stop offset="0%" stopColor="#937abd" stopOpacity={isDark ? 0.38 : 0.30} />
@@ -795,12 +846,14 @@ export default function HomeScreen() {
                 <Stop offset="100%" stopColor="#937abd" stopOpacity={0} />
               </LinearGradient>
             </Defs>
+            {/* 1. Curve 1 (Top Header & Right Aura): Extended far above top boundary so downward wave motion never reveals a gap */}
             <Path
-              d="M -20 -20
-                 L 440 -20
-                 L 440 215
+              d="M -50 -100
+                 L 450 -100
+                 L 450 215
                  C 380 230, 290 220, 230 180
                  C 160 135, 80 125, -20 115
+                 L -50 115
                  Z"
               fill="url(#heroCurve1Grad)"
             />
@@ -808,8 +861,8 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Curve 2 (Mid-Left): Sweeps deep from left inward towards center */}
-        <Animated.View style={[StyleSheet.absoluteFill, curve2AnimStyle]}>
-          <Svg width="100%" height="100%" viewBox="0 0 400 580" style={StyleSheet.absoluteFill}>
+        <Animated.View style={[StyleSheet.absoluteFill, { left: -40 }, curve2AnimStyle]}>
+          <Svg width="100%" height="100%" viewBox="-40 0 400 580" style={StyleSheet.absoluteFill}>
             <Defs>
               <LinearGradient id="heroCurve2Grad" x1="0" y1="0.3" x2="0.9" y2="0.8">
                 <Stop offset="0%" stopColor="#937abd" stopOpacity={isDark ? 0.28 : 0.22} />
@@ -828,8 +881,8 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Curve 3 (Lower-Right): Large sweeping wave hugging lower-right */}
-        <Animated.View style={[StyleSheet.absoluteFill, curve3AnimStyle]}>
-          <Svg width="100%" height="100%" viewBox="0 0 400 580" style={StyleSheet.absoluteFill}>
+        <Animated.View style={[StyleSheet.absoluteFill, { right: -40 }, curve3AnimStyle]}>
+          <Svg width="100%" height="100%" viewBox="0 0 440 580" style={StyleSheet.absoluteFill}>
             <Defs>
               <LinearGradient id="heroCurve3Grad" x1="1" y1="0.2" x2="0.1" y2="0.85">
                 <Stop offset="0%" stopColor="#937abd" stopOpacity={isDark ? 0.30 : 0.24} />
@@ -846,6 +899,8 @@ export default function HomeScreen() {
             />
           </Svg>
         </Animated.View>
+
+
       </Animated.View>
 
       <Animated.ScrollView 
@@ -874,8 +929,8 @@ export default function HomeScreen() {
                 <User size={20} color={isDark ? "#ffffff" : "#1f2937"} strokeWidth={2.2} />
               </Pressable>
 
-              {/* Centered Date (e.g., "26 October") */}
-              <View style={styles.headerCenterDateWrapper}>
+              {/* Centered Date (e.g., "26 October") - absolutely centered across the screen */}
+              <View style={styles.headerCenterDateWrapper} pointerEvents="none">
                 <Text style={[styles.headerDateTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
                   {selectedDateHeaderStr}
                 </Text>
@@ -905,78 +960,120 @@ export default function HomeScreen() {
               </Pressable>
             </View>
 
-            {/* Weekly Calendar Strip (Monday..Sunday, selectable & synced with the score card) */}
+            {/* Weekly Calendar Strip (Slideable week-to-week, selectable & synced with the score card) */}
             <View style={styles.weekCalendarContainer}>
-              <View style={styles.weekCalendarRow}>
-                {weekDays.map((item, idx) => {
-                  const isSelected = selectedDayIdx === idx;
-                  const isToday = item.isToday;
+              <FlatList
+                ref={weekCalendarRef}
+                data={WEEKS_RANGE}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={SCREEN_WIDTH - 40}
+                snapToAlignment="center"
+                decelerationRate="fast"
+                disableIntervalMomentum={true}
+                initialNumToRender={3}
+                maxToRenderPerBatch={3}
+                windowSize={5}
+                keyExtractor={(item) => `week-${item}`}
+                initialScrollIndex={INITIAL_WEEK_INDEX}
+                getItemLayout={(_, index) => ({
+                  length: SCREEN_WIDTH - 40,
+                  offset: (SCREEN_WIDTH - 40) * index,
+                  index,
+                })}
+                onMomentumScrollEnd={handleWeekScrollEnd}
+                renderItem={({ item: weekOffset, index: weekIdx }) => {
+                  const daysInWeek = getWeekDaysForOffset(weekOffset);
 
                   return (
-                    <Pressable
-                      key={idx}
-                      onPress={() => {
-                        setSelectedDayIdx(idx);
-                        scorePagerRef.current?.scrollToIndex({ index: idx, animated: true });
-                      }}
-                      style={styles.dayColumn}
-                    >
-                      {/* Day Label / "TODAY" */}
-                      <Text style={[
-                        styles.dayColumnLabel,
-                        {
-                          color: isToday 
-                            ? (isDark ? '#ffffff' : '#111827') 
-                            : (isDark ? '#a1a1aa' : '#6b7280'),
-                          fontWeight: isToday ? '800' : '600',
-                          fontSize: isToday ? 10 : 12,
-                        }
-                      ]}>
-                        {isToday ? 'TODAY' : item.label}
-                      </Text>
+                    <View style={[styles.weekCalendarRow, { width: SCREEN_WIDTH - 40 }]}>
+                      {daysInWeek.map((item, idx) => {
+                        const globalDayIdx = weekIdx * 7 + idx;
+                        const isSelected = selectedGlobalDayIdx === globalDayIdx;
+                        const isToday = item.isToday;
 
-                      {/* Day Number Circle */}
-                      <View style={[
-                        styles.dayNumberCircle,
-                        isSelected && (
-                          isDark 
-                            ? { backgroundColor: '#ffffff', borderColor: '#ffffff' } 
-                            : { backgroundColor: Colors.light.primary, borderColor: Colors.light.primary }
-                        ),
-                        !isSelected && isToday && (
-                          isDark
-                            ? { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.3)', borderWidth: 1.5 }
-                            : { backgroundColor: 'transparent', borderColor: 'rgba(0,0,0,0.15)', borderWidth: 1.5 }
-                        ),
-                      ]}>
-                        <Text style={[
-                          styles.dayNumberText,
-                          {
-                            color: isSelected
-                              ? (isDark ? '#111827' : '#ffffff')
-                              : (isDark ? '#ffffff' : '#111827'),
-                            fontWeight: isSelected ? '800' : '600',
-                          }
-                        ]}>
-                          {item.dateNum}
-                        </Text>
-                      </View>
-                    </Pressable>
+                        return (
+                          <Pressable
+                            key={idx}
+                            onPress={() => {
+                              setSelectedGlobalDayIdx(globalDayIdx);
+                              scorePagerRef.current?.scrollToIndex({ index: globalDayIdx, animated: true });
+                            }}
+                            style={styles.dayColumn}
+                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                          >
+                            {/* Day Label / "TODAY" */}
+                            <Text style={[
+                              styles.dayColumnLabel,
+                              {
+                                color: isToday 
+                                  ? (isDark ? '#ffffff' : '#111827') 
+                                  : (isDark ? '#a1a1aa' : '#6b7280'),
+                                fontWeight: isToday ? '800' : '600',
+                                fontSize: isToday ? 10 : 12,
+                              }
+                            ]}>
+                              {isToday ? 'TODAY' : item.label}
+                            </Text>
+
+                            {/* Day Number Circle — background and text are decoupled:
+                                The bg View handles its own borderRadius (no overflow needed).
+                                The Text sits as a sibling on top, never clipped. */}
+                            <View style={styles.dayNumberCircle}>
+                              {/* Filled circle for selected day - ONLY shows on that exact selected day */}
+                              {isSelected && (
+                                <View style={[
+                                  StyleSheet.absoluteFill,
+                                  {
+                                    borderRadius: 999,
+                                    backgroundColor: isDark ? '#ffffff' : Colors.light.primary,
+                                  }
+                                ]} />
+                              )}
+                              {/* Outlined circle for today (when not selected) */}
+                              {!isSelected && isToday && (
+                                <View style={[
+                                  StyleSheet.absoluteFill,
+                                  {
+                                    borderRadius: 999,
+                                    borderWidth: 1.5,
+                                    borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)',
+                                    backgroundColor: 'transparent',
+                                  }
+                                ]} />
+                              )}
+                              <Text style={[
+                                styles.dayNumberText,
+                                {
+                                  color: isSelected
+                                    ? (isDark ? '#111827' : '#ffffff')
+                                    : (isDark ? '#ffffff' : '#111827'),
+                                  fontWeight: isSelected ? '800' : '600',
+                                }
+                              ]}>
+                                {String(item.dateNum)}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
                   );
-                })}
-              </View>
+                }}
+              />
             </View>
 
             {/* Center Area: Animated Analyzing Data Disc AND Slideable Score Block with smooth transition */}
             <View style={{ height: 240, width: SCREEN_WIDTH - 40, alignSelf: 'center', marginBottom: 20, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-              {/* Score / Forecast Slideable block */}
+              {/* Score / Forecast Slideable block across all days */}
               <Animated.View 
                 style={[{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }, scoreBlockAnimStyle]}
                 pointerEvents={isAnalyzing ? 'none' : 'auto'}
               >
                 <FlatList
                   ref={scorePagerRef}
-                  data={daysArray}
+                  data={allDaysArray}
                   horizontal
                   pagingEnabled
                   showsHorizontalScrollIndicator={false}
@@ -984,32 +1081,32 @@ export default function HomeScreen() {
                   snapToAlignment="center"
                   decelerationRate="fast"
                   disableIntervalMomentum={true}
-                  initialNumToRender={1}
-                  maxToRenderPerBatch={2}
-                  windowSize={3}
+                  initialNumToRender={2}
+                  maxToRenderPerBatch={3}
+                  windowSize={5}
                   removeClippedSubviews={true}
-                  keyExtractor={(item) => item.toString()}
-                  initialScrollIndex={todayIdx}
-                  contentOffset={{ x: (SCREEN_WIDTH - 40) * todayIdx, y: 0 }}
+                  keyExtractor={(item) => `score-day-${item}`}
+                  initialScrollIndex={INITIAL_DAY_GLOBAL_INDEX}
                   getItemLayout={(_, index) => (
                     { length: SCREEN_WIDTH - 40, offset: (SCREEN_WIDTH - 40) * index, index }
                   )}
                   onMomentumScrollEnd={handleScoreScrollEnd}
-                  renderItem={({ item: dayIndex }) => {
-                    const scoreData = SCORES_BY_DAY[dayIndex] || SCORES_BY_DAY[todayIdx];
+                  renderItem={({ item: globalIndex }) => {
+                    const dayIdxInWeek = globalIndex % 7;
+                    const scoreData = SCORES_BY_DAY[dayIdxInWeek] || SCORES_BY_DAY[todayIdx];
                     const scoreVal = scoreData.overall;
-                    const itemMeta = getDayMetadata(dayIndex);
+                    const itemMeta = getDayMetadata(globalIndex);
                     const feedbackText = getSkinFeedback(scoreVal);
                     return (
                       <AnimatedScoreItem
-                        dayIndex={dayIndex}
+                        dayIndex={globalIndex}
                         scoreVal={scoreVal}
                         dayMeta={itemMeta}
                         feedbackText={feedbackText}
                         isDark={isDark}
                         itemWidth={SCREEN_WIDTH - 40}
-                        shouldAnimate={dayIndex === selectedDayIdx}
-                        animationKey={selectedDayIdx}
+                        shouldAnimate={globalIndex === selectedGlobalDayIdx}
+                        animationKey={selectedGlobalDayIdx}
                       />
                     );
                   }}
@@ -1359,10 +1456,10 @@ const styles = StyleSheet.create({
   /* Top Ambient Aura Background (Flow-style) */
   heroAmbientContainer: {
     position: 'absolute',
-    top: 0,
+    top: -60,
     left: 0,
     right: 0,
-    height: 580,
+    height: 640,
     overflow: 'hidden',
     zIndex: 0,
   },
@@ -1472,8 +1569,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(147, 122, 189, 0.15)',
   },
   analyzingCenterDiscDark: {
-    backgroundColor: '#181622',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: '#18181b',
+    borderColor: 'rgba(147, 122, 189, 0.25)',
   },
   analyzingText: {
     fontSize: 17,
@@ -1510,8 +1607,14 @@ const styles = StyleSheet.create({
     borderColor: '#27272a',
   },
   headerCenterDateWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 0,
   },
   headerDateTitle: {
     fontSize: 18,
@@ -1541,12 +1644,13 @@ const styles = StyleSheet.create({
   dayNumberCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayNumberText: {
     fontSize: 14,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   greetRow: {
     flexDirection: 'row',

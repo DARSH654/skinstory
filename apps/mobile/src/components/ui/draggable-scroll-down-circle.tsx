@@ -6,18 +6,18 @@ import {
   PanResponder,
   Dimensions,
   ScrollView,
-  Keyboard,
   Platform,
-  KeyboardEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronDown } from 'lucide-react-native';
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 
 export interface UseDraggableScrollProps {
   modalOpen: boolean;
   activeStep: any;
   scrollViewRef: React.RefObject<ScrollView | null>;
   shouldScrollToTop?: boolean;
+  maxSheetHeight?: number;
+  mode?: 'down-only' | 'bidirectional';
 }
 
 export function useDraggableScroll({
@@ -25,21 +25,43 @@ export function useDraggableScroll({
   activeStep,
   scrollViewRef,
   shouldScrollToTop = true,
+  maxSheetHeight,
+  mode = 'down-only',
 }: UseDraggableScrollProps) {
   const [isSaveBtnVisible, setIsSaveBtnVisible] = useState(true);
+  const [isAtBottom, setIsAtBottom] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
   const modalScrollY = useRef(0);
   const modalContentHeight = useRef(0);
   const modalScrollViewHeight = useRef(0);
 
   const updateSaveBtnVisibility = useCallback(() => {
-    if (modalContentHeight.current <= modalScrollViewHeight.current) {
+    const overflows = modalContentHeight.current > modalScrollViewHeight.current + 10;
+    setHasOverflow(overflows);
+
+    if (!overflows) {
       setIsSaveBtnVisible(true);
+      setIsAtBottom(false);
       return true;
     }
-    const isAtBottom = modalScrollY.current + modalScrollViewHeight.current >= modalContentHeight.current - 10;
-    setIsSaveBtnVisible(isAtBottom);
-    return isAtBottom;
-  }, []);
+    // If sheet has dynamic sizing with a maxSheetHeight limit and content hasn't reached that limit,
+    // the sheet is still expanding dynamically to fit its content without overflow.
+    if (maxSheetHeight && modalContentHeight.current < maxSheetHeight - 20) {
+      setIsSaveBtnVisible(true);
+      setIsAtBottom(false);
+      return true;
+    }
+    const atBottom = modalScrollY.current + modalScrollViewHeight.current >= modalContentHeight.current - 15;
+    setIsAtBottom(atBottom);
+
+    if (mode === 'bidirectional') {
+      // In bidirectional mode, circle remains visible as long as content overflows
+      setIsSaveBtnVisible(false);
+    } else {
+      setIsSaveBtnVisible(atBottom);
+    }
+    return atBottom;
+  }, [maxSheetHeight, mode]);
 
   useEffect(() => {
     if (modalOpen) {
@@ -58,17 +80,19 @@ export function useDraggableScroll({
   }, [modalOpen, activeStep, scrollViewRef, updateSaveBtnVisibility, shouldScrollToTop]);
 
   const handleScroll = useCallback((e: any) => {
-    modalScrollY.current = e.nativeEvent.contentOffset.y;
+    const y = e.nativeEvent.contentOffset ? e.nativeEvent.contentOffset.y : 0;
+    modalScrollY.current = y;
     updateSaveBtnVisibility();
   }, [updateSaveBtnVisibility]);
 
   const handleContentSizeChange = useCallback((width: number, height: number) => {
     modalContentHeight.current = height;
     updateSaveBtnVisibility();
-  }, [updateSaveBtnVisibility]);
+  }, [updateSaveBtnVisibility, maxSheetHeight]);
 
   const handleLayout = useCallback((e: any) => {
-    modalScrollViewHeight.current = e.nativeEvent.layout ? e.nativeEvent.layout.height : 0;
+    const layoutH = e.nativeEvent.layout ? e.nativeEvent.layout.height : 0;
+    modalScrollViewHeight.current = layoutH;
     updateSaveBtnVisibility();
   }, [updateSaveBtnVisibility]);
 
@@ -80,6 +104,8 @@ export function useDraggableScroll({
       scrollEventThrottle: 16,
     },
     isSaveBtnVisible,
+    isAtBottom,
+    hasOverflow,
   };
 }
 
@@ -90,6 +116,9 @@ interface DraggableScrollDownCircleProps {
   isDark: boolean;
   isFullScreenModal?: boolean;
   bottomOffset?: number;
+  tag?: string;
+  isAtBottom?: boolean;
+  mode?: 'down-only' | 'bidirectional';
 }
 
 export function DraggableScrollDownCircle({
@@ -99,10 +128,11 @@ export function DraggableScrollDownCircle({
   isDark,
   isFullScreenModal = false,
   bottomOffset = 0,
+  tag = 'UnknownSheet',
+  isAtBottom = false,
+  mode = 'down-only',
 }: DraggableScrollDownCircleProps) {
   const insets = useSafeAreaInsets();
-  const keyboardHeightRef = useRef(0);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   
   const modalWidthRef = useRef(Dimensions.get('window').width);
   const modalHeightRef = useRef(0);
@@ -111,28 +141,6 @@ export function DraggableScrollDownCircle({
 
   const circlePan = useRef(new Animated.ValueXY({ x: 16, y: 300 })).current;
   const circleOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (!isFullScreenModal) return;
-
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSubscription = Keyboard.addListener(showEvent, (e: KeyboardEvent) => {
-      keyboardHeightRef.current = e.endCoordinates.height;
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-
-    const hideSubscription = Keyboard.addListener(hideEvent, () => {
-      keyboardHeightRef.current = 0;
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, [isFullScreenModal]);
 
   useEffect(() => {
     if (modalOpen) {
@@ -149,6 +157,13 @@ export function DraggableScrollDownCircle({
     }).start();
   }, [isSaveBtnVisible, circleOpacity]);
 
+  // Keep live ref of isAtBottom so panResponder callbacks never read stale closure values
+  const isAtBottomRef = useRef(isAtBottom);
+  isAtBottomRef.current = isAtBottom;
+
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
   const circlePanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -161,6 +176,11 @@ export function DraggableScrollDownCircle({
         { useNativeDriver: false }
       ),
       onPanResponderRelease: (_, gestureState) => {
+        const dx = Math.abs(gestureState.dx);
+        const dy = Math.abs(gestureState.dy);
+        const currentIsAtBottom = isAtBottomRef.current;
+        const currentMode = modeRef.current;
+
         circlePan.flattenOffset();
 
         const circleSize = 48;
@@ -177,7 +197,7 @@ export function DraggableScrollDownCircle({
         const maxX = mWidth - circleSize - paddingX;
         const minY = isFullScreenModal ? insets.top + 16 : insets.top + 70;
         const bottomLimit = bottomOffset > 0 ? bottomOffset : 72;
-        const maxY = mHeight - circleSize - paddingY - bottomLimit - (isFullScreenModal ? keyboardHeightRef.current : 0);
+        const maxY = mHeight - circleSize - paddingY - bottomLimit;
         
         const isLeft = currentX < (mWidth / 2) - (circleSize / 2);
         currentSide.current = isLeft ? 'left' : 'right';
@@ -200,8 +220,12 @@ export function DraggableScrollDownCircle({
           friction: 8,
         }).start();
 
-        if (Math.abs(gestureState.dx) < 5 && Math.abs(gestureState.dy) < 5) {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
+        if (dx < 5 && dy < 5) {
+          if (currentMode === 'bidirectional' && currentIsAtBottom) {
+            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+          } else {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }
         }
       }
     })
@@ -220,18 +244,25 @@ export function DraggableScrollDownCircle({
     const maxX = width - circleSize - paddingX;
     const minY = isFullScreenModal ? insets.top + 16 : insets.top + 70;
     const bottomLimit = bottomOffset > 0 ? bottomOffset : 72;
-    const maxY = height - circleSize - paddingY - bottomLimit - (isFullScreenModal ? keyboardHeightRef.current : 0);
-    
+    const maxY = height - circleSize - paddingY - bottomLimit;
+
+
     const targetX = currentSide.current === 'left' ? minX : maxX;
     const targetY = minY + currentYRatio.current * (maxY - minY);
     
     circlePan.setValue({ x: targetX, y: targetY });
   };
 
+  const showChevronUp = mode === 'bidirectional' && isAtBottom;
+
+  const effectivePointerEvents = (mode === 'bidirectional')
+    ? 'auto'
+    : (isSaveBtnVisible ? 'none' : 'auto');
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={handleParentLayout}>
       <Animated.View 
-        pointerEvents={isSaveBtnVisible ? 'none' : 'auto'}
+        pointerEvents={effectivePointerEvents}
         style={[
           styles.scrollDownCircle,
           isDark ? styles.circleDark : styles.circleLight,
@@ -245,7 +276,11 @@ export function DraggableScrollDownCircle({
         ]}
         {...circlePanResponder.panHandlers}
       >
-        <ChevronDown size={24} color={isDark ? '#ffffff' : '#111827'} />
+        {showChevronUp ? (
+          <ChevronUp size={24} color={isDark ? '#ffffff' : '#111827'} />
+        ) : (
+          <ChevronDown size={24} color={isDark ? '#ffffff' : '#111827'} />
+        )}
       </Animated.View>
     </View>
   );

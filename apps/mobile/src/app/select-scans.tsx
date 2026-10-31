@@ -20,8 +20,6 @@ import {
   CheckCircle2,
   Circle,
   ChevronDown,
-  LayoutGrid,
-  LayoutList,
   ChevronUp,
   Calendar,
   X,
@@ -38,9 +36,6 @@ export default function SelectScansScreen() {
 
   // Default: nothing selected — user picks both themselves
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  // View mode: grid | list
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Timeline filter state
   const [timelineFilter, setTimelineFilter] = useState<'all' | '7days' | '30days' | '3months' | '6months' | 'custom'>('all');
@@ -231,7 +226,7 @@ export default function SelectScansScreen() {
         {/* Inline Header: Title and controls on the same line */}
         <View style={styles.headerContainer}>
           <Text style={[styles.headerTitleInline, { color: isDark ? '#ffffff' : '#111827' }]}>
-            Select Photos
+            Select Photo
           </Text>
 
           {/* Controls: Timeline filter + Grid/List toggle */}
@@ -240,15 +235,23 @@ export default function SelectScansScreen() {
             <View style={{ position: 'relative', zIndex: 100 }}>
               <Pressable
                 onPress={() => setIsTimelineDropdownOpen(!isTimelineDropdownOpen)}
-                style={[styles.filterChip, isDark ? styles.chipDark : styles.chipLight]}
+                style={({ pressed }) => [
+                  styles.filterChip,
+                  {
+                    backgroundColor: pressed
+                      ? (isDark ? '#27272a' : '#f0f0f2')
+                      : (isDark ? '#18181b' : '#ffffff'),
+                    borderColor: isDark ? '#27272a' : '#e5e7eb',
+                  },
+                ]}
               >
                 <Text style={[styles.chipText, { color: isDark ? '#ffffff' : '#111827' }]}>
                   {getTimelineLabel()}
                 </Text>
                 {isTimelineDropdownOpen ? (
-                  <ChevronUp size={14} color={isDark ? '#a1a1aa' : '#6b7280'} />
+                  <ChevronUp size={15} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.4} />
                 ) : (
-                  <ChevronDown size={14} color={isDark ? '#a1a1aa' : '#6b7280'} />
+                  <ChevronDown size={15} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.4} />
                 )}
               </Pressable>
 
@@ -290,143 +293,58 @@ export default function SelectScansScreen() {
                 </View>
               )}
             </View>
-
-            {/* Grid/List Toggle — pill shape */}
-            <View style={[styles.viewToggle, isDark ? styles.toggleDark : styles.toggleLight]}>
-              <Pressable
-                onPress={() => setViewMode('grid')}
-                style={[
-                  styles.toggleBtn,
-                  viewMode === 'grid'
-                    ? (isDark ? styles.toggleActiveDark : styles.toggleActiveLight)
-                    : styles.toggleInactiveBtn,
-                ]}
-              >
-                <LayoutGrid size={16} color={viewMode === 'grid' ? (isDark ? '#fff' : '#111') : (isDark ? '#a1a1aa' : '#6b7280')} />
-                {viewMode === 'grid' && (
-                  <Text style={[styles.toggleBtnText, { color: isDark ? '#fff' : '#111' }]}>
-                    Grid
-                  </Text>
-                )}
-              </Pressable>
-              <Pressable
-                onPress={() => setViewMode('list')}
-                style={[
-                  styles.toggleBtn,
-                  viewMode === 'list'
-                    ? (isDark ? styles.toggleActiveDark : styles.toggleActiveLight)
-                    : styles.toggleInactiveBtn,
-                ]}
-              >
-                <LayoutList size={16} color={viewMode === 'list' ? (isDark ? '#fff' : '#111') : (isDark ? '#a1a1aa' : '#6b7280')} />
-                {viewMode === 'list' && (
-                  <Text style={[styles.toggleBtnText, { color: isDark ? '#fff' : '#111' }]}>
-                    List
-                  </Text>
-                )}
-              </Pressable>
-            </View>
           </View>
         </View>
 
-        {viewMode === 'grid' ? (
-          // Grid View — 2 columns (Full-card image with date pill inside)
-          <View style={styles.grid}>
-            {filteredScans.map((scan) => {
-              const isSelected = selectedIds.includes(scan.id);
-              const selIdx = selectedIds.indexOf(scan.id);
-              return (
-                <Pressable
-                  key={scan.id}
-                  onPress={() => toggleScan(scan.id)}
-                  style={[
-                    styles.gridCard,
-                    {
-                      borderColor: isSelected ? Colors.light.primary : (isDark ? '#27272a' : '#e4e4e7'),
-                      borderWidth: isSelected ? 2.5 : 1.5,
-                    },
-                  ]}
-                >
-                  <View style={styles.gridImageWrapperFull}>
-                    <Image source={scan.image} style={styles.gridImageFull} resizeMode="cover" />
+        {/* Grid View — 2 columns (Full-card image with date pill inside) */}
+        <View style={styles.grid}>
+          {filteredScans.map((scan) => {
+            const isSelected = selectedIds.includes(scan.id);
+            const selIdx = selectedIds.indexOf(scan.id);
+            return (
+              <Pressable
+                key={scan.id}
+                onPress={() => toggleScan(scan.id)}
+                style={[
+                  styles.gridCard,
+                  {
+                    borderColor: isSelected ? Colors.light.primary : (isDark ? '#27272a' : '#e4e4e7'),
+                    borderWidth: isSelected ? 2.5 : 1.5,
+                  },
+                ]}
+              >
+                <View style={styles.gridImageWrapperFull}>
+                  <Image source={scan.image} style={styles.gridImageFull} resizeMode="cover" />
 
-                    {/* Before / After selection pill at top left */}
-                    {isSelected && (
-                      <View style={styles.selectionPillTopLeft}>
-                        <Text style={styles.selectionPillText}>{selIdx === 0 ? 'Before' : 'After'}</Text>
+                  {/* Before / After selection pill at top left */}
+                  {isSelected && (
+                    <View style={styles.selectionPillTopLeft}>
+                      <Text style={styles.selectionPillText}>{selIdx === 0 ? 'Before' : 'After'}</Text>
+                    </View>
+                  )}
+
+                  {/* Checkbox badge top right */}
+                  <View style={styles.gridCheckboxWrapper}>
+                    {isSelected ? (
+                      <View style={styles.checkboxSelected}>
+                        <Check size={13} color="#ffffff" strokeWidth={3.5} />
                       </View>
-                    )}
-
-                    {/* Checkbox badge top right */}
-                    <View style={styles.gridCheckboxWrapper}>
-                      {isSelected ? (
-                        <View style={styles.checkboxSelected}>
-                          <Check size={13} color="#ffffff" strokeWidth={3.5} />
-                        </View>
-                      ) : (
-                        <View style={styles.checkboxUnselected}>
-                          <View style={styles.unselectedInnerCircle} />
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Date Pill at bottom left — dark translucent background (rgba(0,0,0,0.55)) */}
-                    <View style={styles.datePillBottomLeft}>
-                      <Text style={styles.datePillText}>{scan.date}</Text>
-                    </View>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : (
-          // List View — 1 column
-          <View style={styles.list}>
-            {filteredScans.map((scan) => {
-              const isSelected = selectedIds.includes(scan.id);
-              const selIdx = selectedIds.indexOf(scan.id);
-              return (
-                <Pressable
-                  key={scan.id}
-                  onPress={() => toggleScan(scan.id)}
-                  style={[
-                    styles.listCard,
-                    {
-                      backgroundColor: isDark ? '#18181b' : '#ffffff',
-                      borderColor: isSelected ? Colors.light.primary : (isDark ? '#27272a' : '#e4e4e7'),
-                      borderWidth: isSelected ? 2 : 1.5,
-                    },
-                  ]}
-                >
-                  <View style={styles.listThumbWrapper}>
-                    <Image source={scan.image} style={styles.listThumb} resizeMode="cover" />
-                    {isSelected && (
-                      <View style={styles.selectionPillTopLeft}>
-                        <Text style={styles.selectionPillText}>{selIdx === 0 ? 'Before' : 'After'}</Text>
+                    ) : (
+                      <View style={styles.checkboxUnselected}>
+                        <View style={styles.unselectedInnerCircle} />
                       </View>
                     )}
                   </View>
-                  <View style={styles.listInfo}>
-                    <Text style={[styles.listDate, { color: isDark ? '#ffffff' : '#111827' }]}>{scan.date}</Text>
+
+                  {/* Date Pill at bottom left — dark translucent background (rgba(0,0,0,0.55)) */}
+                  <View style={styles.datePillBottomLeft}>
+                    <Text style={styles.datePillText}>{scan.date}</Text>
                   </View>
-                  <View style={styles.listCheck}>
-                    <View style={styles.listCheckboxWrapper}>
-                      {isSelected ? (
-                        <View style={styles.checkboxSelected}>
-                          <Check size={13} color="#ffffff" strokeWidth={3.5} />
-                        </View>
-                      ) : (
-                        <View style={styles.checkboxUnselected}>
-                          <View style={styles.unselectedInnerCircle} />
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
       </ScrollView>
 
       {/* ── Custom Date Range Selection Modal ── */}
@@ -621,11 +539,19 @@ export default function SelectScansScreen() {
 
           {selectedIds.length > 0 && (
             <Pressable onPress={togglePanel} style={styles.handleCircleBtn}>
-              <View style={[styles.handleIconBgCircle, { backgroundColor: isDark ? '#27272a' : '#ffffff' }]}>
+              <View
+                style={[
+                  styles.handleIconBgCircle,
+                  {
+                    backgroundColor: isDark ? '#18181b' : '#ffffff',
+                    borderColor: isDark ? '#27272a' : '#e5e7eb',
+                  },
+                ]}
+              >
                 {isPanelExpanded ? (
-                  <ChevronDown size={26} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={3} />
+                  <ChevronDown size={24} color={isDark ? '#e4e4e7' : '#374151'} strokeWidth={2.4} />
                 ) : (
-                  <ChevronUp size={26} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={3} />
+                  <ChevronUp size={24} color={isDark ? '#e4e4e7' : '#374151'} strokeWidth={2.4} />
                 )}
               </View>
             </Pressable>
@@ -659,19 +585,24 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
 
-  // Filter chip
+  // Filter chip - uplifted pill style
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 100,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  chipLight: { backgroundColor: '#ffffff', borderColor: '#e4e4e7' },
+  chipLight: { backgroundColor: '#ffffff', borderColor: '#e5e7eb' },
   chipDark:  { backgroundColor: '#18181b', borderColor: '#27272a' },
-  chipText: { fontSize: 12, fontWeight: '600' },
+  chipText: { fontSize: 13, fontWeight: '700' },
 
   // Dropdown
   dropdownBackdrop: {
@@ -681,11 +612,11 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     position: 'absolute',
-    top: 42,
+    top: 44,
     right: 0,
-    minWidth: 120,
-    borderRadius: 14,
-    padding: 3,
+    minWidth: 124,
+    borderRadius: 16,
+    padding: 4,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -707,47 +638,6 @@ const styles = StyleSheet.create({
   itemActiveLight: { backgroundColor: '#f4f4f5' },
   itemActiveDark:  { backgroundColor: '#27272a' },
   dropdownItemText: { fontSize: 12, fontWeight: '500', textAlign: 'center' },
-
-  // View toggle pill
-  viewToggle: {
-    flexDirection: 'row',
-    padding: 3,
-    borderRadius: 100,
-    gap: 2,
-  },
-  toggleLight: { backgroundColor: '#e4e4e7' },
-  toggleDark:  { backgroundColor: '#27272a' },
-  toggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 100,
-  },
-  toggleBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  toggleActiveLight: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  toggleActiveDark: {
-    backgroundColor: '#18181b',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  toggleInactiveBtn: {
-    paddingHorizontal: 8,
-  },
 
   // Scroll
   scrollContent: { paddingHorizontal: 16, paddingTop: 12 },
@@ -786,13 +676,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  listCheckboxWrapper: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   checkboxSelected: {
     width: 24,
     height: 24,
@@ -822,9 +705,9 @@ const styles = StyleSheet.create({
     top: 8,
     left: 8,
     backgroundColor: Colors.light.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
@@ -835,47 +718,18 @@ const styles = StyleSheet.create({
 
   datePillBottomLeft: {
     position: 'absolute',
-    bottom: 6,
-    left: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 100,
   },
   datePillText: {
     color: '#ffffff',
     fontSize: 10,
     fontWeight: '700',
   },
-
-  // List
-  list: { gap: 12 },
-  listCard: {
-    flexDirection: 'row',
-    borderRadius: 20,
-    padding: 12,
-    alignItems: 'center',
-    gap: 12,
-  },
-  listThumbWrapper: {
-    width: 80,
-    height: 80,
-    borderRadius: 14,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  listThumb: { width: '100%', height: '100%' },
-  listInfo: { flex: 1, gap: 3 },
-  listDate:   { fontSize: 15, fontWeight: '700' },
-  scoreBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 100,
-    marginTop: 4,
-  },
-  scoreBadgeText: { color: '#a855f7', fontSize: 13, fontWeight: '800' },
-  listCheck: { paddingRight: 4 },
 
   // Custom Date Modal Styles
   modalOverlay: {
@@ -1047,7 +901,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(156, 163, 175, 0.25)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
   },
 
   // Timeline inside panel
@@ -1088,9 +946,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,

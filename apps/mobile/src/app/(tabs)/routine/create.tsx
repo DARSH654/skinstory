@@ -860,7 +860,11 @@ export default function CreateRoutineScreen() {
               <Text style={[styles.coverPlaceholderTitle, isDark ? styles.textDark : styles.textLight]}>
                 Add Cover Image
               </Text>
-              <Text style={[styles.coverPlaceholderSub, isDark ? styles.textSubDark : styles.textSubLight]}>
+              <Text 
+                style={[styles.coverPlaceholderSub, isDark ? styles.textSubDark : styles.textSubLight]}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
                 Tap to choose from your gallery
               </Text>
             </View>
@@ -1015,7 +1019,7 @@ export default function CreateRoutineScreen() {
         modalOpen={true}
         isDark={isDark}
         isFullScreenModal={false}
-        bottomOffset={20}
+        bottomOffset={16}
       />
 
       {/* Toast Notification */}
@@ -1457,23 +1461,19 @@ export default function CreateRoutineScreen() {
                     placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
                     defaultValue={item}
                     onChangeText={(val) => {
-                      let newList = [...actionPointers];
-                      newList[index] = val;
-                      while (newList.length > 0 && newList[newList.length - 1] === "") {
-                        newList.pop();
+                      let list = actionFormRef.current.actionPointers;
+                      list[index] = val;
+                      const hasTrailingEmpty = list[list.length - 1] === "";
+                      const shouldAddRow = val.trim() !== "" && index === list.length - 1 && list.length < LIST_LIMITS.actionPointers;
+                      if (shouldAddRow) {
+                        list.push("");
+                        setActionPointers([...list]);
                       }
-                      if (newList.filter(i => i.trim() !== "").length >= LIST_LIMITS.actionPointers) {
-                        showToast(`Max ${LIST_LIMITS.actionPointers} action pointers per step`);
-                      } else {
-                        newList.push("");
-                      }
-                      actionFormRef.current.actionPointers = newList;
-                      setActionPointers(newList);
                       const valid = checkActionSaveValidity(
                         actionFormRef.current.actionTitle,
                         actionFormRef.current.actionDesc,
                         "pointers",
-                        newList
+                        list
                       );
                       if (valid !== isActionSaveEnabled) {
                         setIsActionSaveEnabled(valid);
@@ -1628,18 +1628,13 @@ export default function CreateRoutineScreen() {
                 placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
                 defaultValue={item}
                 onChangeText={(val) => {
-                  let newList = [...dos];
-                  newList[index] = val;
-                  while (newList.length > 0 && newList[newList.length - 1] === "") {
-                    newList.pop();
+                  let list = actionFormRef.current.dos;
+                  list[index] = val;
+                  const shouldAddRow = val.trim() !== "" && index === list.length - 1 && list.length < LIST_LIMITS.dos;
+                  if (shouldAddRow) {
+                    list.push("");
+                    setDos([...list]);
                   }
-                  if (newList.filter(i => i.trim() !== "").length >= LIST_LIMITS.dos) {
-                    showToast(`Max ${LIST_LIMITS.dos} do's per step`);
-                  } else {
-                    newList.push("");
-                  }
-                  actionFormRef.current.dos = newList;
-                  setDos(newList);
                 }}
                 maxLength={1000}
                 onFocus={() => {
@@ -1682,18 +1677,13 @@ export default function CreateRoutineScreen() {
                 placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
                 defaultValue={item}
                 onChangeText={(val) => {
-                  let newList = [...donts];
-                  newList[index] = val;
-                  while (newList.length > 0 && newList[newList.length - 1] === "") {
-                    newList.pop();
+                  let list = actionFormRef.current.donts;
+                  list[index] = val;
+                  const shouldAddRow = val.trim() !== "" && index === list.length - 1 && list.length < LIST_LIMITS.donts;
+                  if (shouldAddRow) {
+                    list.push("");
+                    setDonts([...list]);
                   }
-                  if (newList.filter(i => i.trim() !== "").length >= LIST_LIMITS.donts) {
-                    showToast(`Max ${LIST_LIMITS.donts} don'ts per step`);
-                  } else {
-                    newList.push("");
-                  }
-                  actionFormRef.current.donts = newList;
-                  setDonts(newList);
                 }}
                 maxLength={1000}
                 onFocus={() => {
@@ -1734,7 +1724,8 @@ export default function CreateRoutineScreen() {
           modalOpen={modalOpen}
           isDark={isDark}
           isFullScreenModal={true}
-          bottomOffset={actionBtnHeight > 0 ? actionBtnHeight + 12 : 72}
+          bottomOffset={insets.bottom + 16}
+          tag="AddAction"
         />
       </BottomSheetModal>
       <Modal visible={previewImageOpen} transparent={true} animationType="fade" onRequestClose={() => setPreviewImageOpen(false)}>
@@ -1756,7 +1747,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16 },
   
-  label: { fontSize: 15, fontWeight: '500', marginBottom: 6, marginLeft: 4, fontFamily: 'Outfit_500Medium' },
+  label: { fontSize: 15, fontWeight: '500', marginBottom: 6, marginLeft: 4 },
   input: {
     height: 48,
     borderRadius: 12,
@@ -1764,7 +1755,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     marginBottom: 12,
-    fontFamily: 'Outfit_500Medium'
   },
   textArea: { height: 'auto', minHeight: 66, paddingTop: 12, paddingBottom: 12, textAlignVertical: 'top' },
   inputLight: { backgroundColor: '#f9fafb', borderColor: '#e5e7eb', color: '#111827' },
@@ -1777,7 +1767,7 @@ const styles = StyleSheet.create({
   stepsContainer: { gap: 16 },
   stepWrapper: { flex: 1 },
   stepHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, paddingHorizontal: 4 },
-  stepLabel: { fontSize: 15, fontWeight: '700', color: '#9ca3af', letterSpacing: 0.5, fontFamily: 'Outfit_700Bold' },
+  stepLabel: { fontSize: 15, fontWeight: '700', color: '#9ca3af', letterSpacing: 0.5 },
   stepActions: { flexDirection: 'row', gap: 4, marginRight: -8 },
   iconBtn: { padding: 8, borderRadius: 8 },
 
@@ -1795,7 +1785,7 @@ const styles = StyleSheet.create({
   emptyCardPressedLight: { backgroundColor: '#f3f4f6' },
   emptyCardDark: { backgroundColor: '#18181b', borderColor: '#3f3f46' },
   emptyCardPressedDark: { backgroundColor: '#27272a' },
-  emptyCardText: { fontSize: 16, fontWeight: '500', fontFamily: 'Outfit_500Medium' },
+  emptyCardText: { fontSize: 16, fontWeight: '500' },
 
   filledCard: {
     padding: 16,
@@ -1805,8 +1795,8 @@ const styles = StyleSheet.create({
   cardDark: { backgroundColor: '#18181b', borderColor: '#27272a' },
   cardLight: { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2, width: '100%' },
-  actionTitle: { fontSize: 16, fontWeight: '600', fontFamily: 'Outfit_600SemiBold', flex: 1 },
-  actionDesc: { fontSize: 14, fontFamily: 'Outfit_400Regular', flex: 1, lineHeight: 18 },
+  actionTitle: { fontSize: 16, fontWeight: '600', flex: 1 },
+  actionDesc: { fontSize: 14, flex: 1, lineHeight: 18 },
 
   squareEyeBtn: { 
     width: 24, 
@@ -1837,15 +1827,15 @@ const styles = StyleSheet.create({
 
   bottomRow: { flexDirection: 'row', gap: 12, marginTop: 24, marginBottom: 8 },
   addStepBtn: { flex: 1, height: 48, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  addStepText: { fontSize: 14, fontWeight: '600', fontFamily: 'Outfit_600SemiBold' },
+  addStepText: { fontSize: 14, fontWeight: '600' },
   createBtn: { flex: 1, height: 48, borderRadius: 12, backgroundColor: Colors.light.primary, alignItems: 'center', justifyContent: 'center' },
-  createBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '600', fontFamily: 'Outfit_600SemiBold' },
+  createBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
 
   modalOverlay: { flex: 1, flexDirection: 'column' },
   modalKeyboard: { justifyContent: 'flex-end', width: '100%' },
   modalContent: { borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden', flexDirection: 'column', width: '100%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Outfit_700Bold' },
+  modalTitle: { fontSize: 18, fontWeight: '700' },
   closeBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   closeBtnLight: { backgroundColor: '#e5e7eb' },
   closeBtnDark: { backgroundColor: '#27272a' },
@@ -1902,7 +1892,6 @@ const styles = StyleSheet.create({
   imagePickerText: {
     fontSize: 14,
     fontWeight: '500',
-    fontFamily: 'Outfit_500Medium',
   },
 
   // Generic Viewer Modal Specific styles
@@ -1922,17 +1911,17 @@ const styles = StyleSheet.create({
   slideRedDark: { backgroundColor: '#7f1d1d15', borderColor: '#991b1b50' },
   slidePurple: { backgroundColor: '#faf5ff90', borderColor: '#e9d5ff' },
   slidePurpleDark: { backgroundColor: '#18181b', borderColor: '#27272a' },
-  carouselSlideText: { fontSize: 14, fontWeight: '500', textAlign: 'left', fontFamily: 'Outfit_500Medium', lineHeight: 21 },
+  carouselSlideText: { fontSize: 14, fontWeight: '500', textAlign: 'left', lineHeight: 21 },
   // Plain text content box (Action Title + Action Description) — gray card matching web app
   viewerTextBox: { width: '100%', borderRadius: 12, padding: 16, borderWidth: 1, marginBottom: 24 },
   viewerTextBoxLight: { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' },
   viewerTextBoxDark: { backgroundColor: 'rgba(39,39,42,0.5)', borderColor: 'rgba(63,63,70,0.5)' },
-  viewerTextContent: { fontSize: 15, lineHeight: 22, fontFamily: 'Outfit_400Regular' },
+  viewerTextContent: { fontSize: 15, lineHeight: 22 },
   // Action Title plain text — bold, no box, matches web app
-  viewerTitleContent: { fontSize: 15, fontWeight: '600', lineHeight: 22, fontFamily: 'Outfit_600SemiBold', marginBottom: 24 },
+  viewerTitleContent: { fontSize: 15, fontWeight: '600', lineHeight: 22, marginBottom: 24 },
   // Product details
-  viewerProductTitle: { fontSize: 15, fontWeight: '600', marginBottom: 4, textAlign: 'left', fontFamily: 'Outfit_600SemiBold', width: '100%' },
-  viewerProductDesc: { fontSize: 14, textAlign: 'left', marginBottom: 20, fontFamily: 'Outfit_400Regular', width: '100%' },
+  viewerProductTitle: { fontSize: 15, fontWeight: '600', marginBottom: 4, textAlign: 'left', width: '100%' },
+  viewerProductDesc: { fontSize: 14, textAlign: 'left', marginBottom: 20, width: '100%' },
   viewerProductImageContainer: { width: '100%', aspectRatio: 1, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 24, backgroundColor: '#f9fafb' },
   viewerProductImageContainerDark: { borderColor: 'rgba(63,63,70,0.5)', backgroundColor: 'rgba(39,39,42,0.5)' },
   viewerProductImage: { width: '100%', height: '100%', resizeMode: 'cover' },
@@ -1945,15 +1934,15 @@ const styles = StyleSheet.create({
   linkButtonTextDark: { color: '#d1d5db' },
   // Close button — full width purple, same as web (py-2.5 = 10px vertical, mt-auto)
   viewerCloseBtn: { width: '100%', height: 40, borderRadius: 12, backgroundColor: Colors.light.primary, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
-  viewerCloseBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '600', fontFamily: 'Outfit_600SemiBold' },
+  viewerCloseBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
 
   // Custom Confirmation Dialogs
   dialogOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   dialogCard: { width: '80%', borderRadius: 20, padding: 24, boxShadow: '0px 8px 16px rgba(0, 0, 0, 0.25)', elevation: 8 },
   dialogCardLight: { backgroundColor: '#ffffff' },
   dialogCardDark: { backgroundColor: '#1c1c1e' },
-  dialogTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8, fontFamily: 'Outfit_700Bold' },
-  dialogDesc: { fontSize: 14, lineHeight: 20, marginBottom: 24, fontFamily: 'Outfit_400Regular' },
+  dialogTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  dialogDesc: { fontSize: 14, lineHeight: 20, marginBottom: 24 },
   dialogActions: { flexDirection: 'row', gap: 12, width: '100%' },
   dialogBtn: { flex: 1, height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   dialogBtnCancel: { borderWidth: 1 },
@@ -1961,7 +1950,7 @@ const styles = StyleSheet.create({
   dialogBtnCancelDark: { backgroundColor: '#27272a', borderColor: '#3f3f46' },
   dialogBtnDelete: { backgroundColor: '#ef4444' },
   dialogBtnSave: { backgroundColor: Colors.light.primary },
-  dialogBtnText: { fontSize: 14, fontWeight: '600', fontFamily: 'Outfit_600SemiBold' },
+  dialogBtnText: { fontSize: 14, fontWeight: '600' },
   warningIconContainer: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   warningIconContainerLight: { backgroundColor: '#fef3c7' },
   warningIconContainerDark: { backgroundColor: 'rgba(245, 158, 11, 0.15)' },
@@ -1984,24 +1973,25 @@ const styles = StyleSheet.create({
   // Dark mode: white bg with gray-900 text — same as web app
   toastDark: { backgroundColor: '#ffffff', borderColor: '#e5e7eb' },
   // Text always contrasts the background
-  toastTextLight: { fontSize: 14, fontWeight: '500', fontFamily: 'Outfit_500Medium', textAlign: 'center', color: '#ffffff' },
-  toastTextDark: { fontSize: 14, fontWeight: '500', fontFamily: 'Outfit_500Medium', textAlign: 'center', color: '#111827' },
+  toastTextLight: { fontSize: 14, fontWeight: '500', textAlign: 'center', color: '#ffffff' },
+  toastTextDark: { fontSize: 14, fontWeight: '500', textAlign: 'center', color: '#111827' },
 
-  // Cover Image Card
+  // Cover Image Card - Uplifted card design matching Daily Journal cards
   coverCard: {
     width: '100%',
     minHeight: 180,
     borderRadius: 22,
     marginBottom: 20,
     borderWidth: 1.5,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   coverCardLight: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
     borderColor: '#d1d5db',
     borderStyle: 'dashed',
   },
@@ -2011,7 +2001,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   coverImageWrapper: {
-    borderRadius: 20,
+    borderRadius: 22,
     overflow: 'hidden',
     width: '100%',
     height: 180,
@@ -2025,27 +2015,32 @@ const styles = StyleSheet.create({
     minHeight: 180,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 32,
+    gap: 8,
+    paddingVertical: 28,
+    paddingHorizontal: 20,
   },
   coverIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
   },
-  coverIconCircleLight: { backgroundColor: '#e5e7eb' },
+  coverIconCircleLight: { backgroundColor: '#f3f4f6' },
   coverIconCircleDark: { backgroundColor: '#27272a' },
   coverPlaceholderTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Outfit_600SemiBold',
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    textAlign: 'center',
   },
   coverPlaceholderSub: {
     fontSize: 13,
-    fontFamily: 'Outfit_400Regular',
+    fontWeight: '500',
+    textAlign: 'center',
+    maxWidth: '90%',
+    lineHeight: 18,
   },
   coverChangeBtn: {
     position: 'absolute',
@@ -2059,7 +2054,6 @@ const styles = StyleSheet.create({
   coverChangeBtnText: {
     color: '#ffffff',
     fontSize: 13,
-    fontFamily: 'Outfit_600SemiBold',
     fontWeight: '600',
   },
   coverRemoveBtn: {
@@ -2096,14 +2090,12 @@ const styles = StyleSheet.create({
   sheetTopToastTextLight: {
     fontSize: 13,
     fontWeight: '500',
-    fontFamily: 'Outfit_500Medium',
     color: '#ffffff',
     textAlign: 'center',
   },
   sheetTopToastTextDark: {
     fontSize: 13,
     fontWeight: '500',
-    fontFamily: 'Outfit_500Medium',
     color: '#111827',
     textAlign: 'center',
   },

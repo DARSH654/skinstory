@@ -70,6 +70,7 @@ interface RoutineCardProps {
   onPress?: () => void;
   onStartRoutine?: () => void;
   cardWidth?: DimensionValue;
+  disableElevation?: boolean;
 }
 
 export default function RoutineCard({
@@ -83,6 +84,7 @@ export default function RoutineCard({
   onPress,
   onStartRoutine,
   cardWidth,
+  disableElevation = false,
 }: RoutineCardProps) {
   const stepsCount = routine?.stepsCount || (routine?.stepData ? Object.keys(routine.stepData).length : 1);
   const routineCode = routine?.shareCode || routine?.id?.slice(-6).toUpperCase() || '------';
@@ -111,7 +113,7 @@ export default function RoutineCard({
       style={[
         styles.cardOuter,
         cardWidth ? { width: cardWidth } : null,
-        isDark
+        (isDark || disableElevation)
           ? { shadowOpacity: 0, elevation: 0 }
           : { shadowOpacity: 0.22, elevation: 6 },
       ]}

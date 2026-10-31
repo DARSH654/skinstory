@@ -1,0 +1,1289 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  View, 
+  StyleSheet, 
+  TextInput, 
+  Pressable, 
+  Modal, 
+  KeyboardAvoidingView, 
+  Platform,
+  ScrollView,
+  Animated,
+  PanResponder,
+  Dimensions,
+  BackHandler,
+  ImageBackground,
+  Image
+} from 'react-native';
+import { Text } from '@/components/AppText';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import * as Clipboard from 'expo-clipboard';
+import { Search, Plus, Copy, Eye, EyeOff, Pencil, Trash2, Droplet, FlaskConical, Leaf } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { CustomClockIcon } from '@/components/custom-icons';
+import { useRouter } from 'expo-router';
+import { Colors } from '@/constants/theme';
+import Header from '@/components/layout/Header';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchRoutines, deleteRoutine, mapSupabaseRoutine } from '@/services/routineService';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useFocusEffect } from 'expo-router';
+import { DraggableScrollDownCircle, useDraggableScroll } from '@/components/ui/draggable-scroll-down-circle';
+import LottieView from 'lottie-react-native';
+import EnterRoutineCodeSheet, { EnterRoutineCodeSheetRef } from '@/components/routine/EnterRoutineCodeSheet';
+import RoutineDeleteModal from '@/components/routine/RoutineDeleteModal';
+import RoutineCard from '@/components/routine/RoutineCard';
+import RoutineCardSkeleton from '@/components/routine/RoutineCardSkeleton';
+
+const levenshtein = (a: string, b: string): number => {
+  const matrix = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+  for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[a.length][b.length];
+};
+
+const getSimilarityScore = (query: string, target: string): number => {
+  const q = query.toLowerCase();
+  const t = target.toLowerCase();
+  if (t.includes(q)) return 100;
+  
+  const qChars = q.split('');
+  let matchCount = 0;
+  let tTemp = t;
+  qChars.forEach(char => {
+    if (tTemp.includes(char)) {
+      matchCount++;
+      tTemp = tTemp.replace(char, '');
+    }
+  });
+  
+  const overlapScore = q.length > 0 ? (matchCount / q.length) * 60 : 0; 
+  
+  const dist = levenshtein(q, t);
+  const maxLength = Math.max(q.length, t.length);
+  const levScore = maxLength > 0 ? ((maxLength - dist) / maxLength) * 40 : 0;
+  
+  return overlapScore + levScore;
+};
+
+const getRoutineImage = (routine: any) => {
+  if (routine.coverImage) return { uri: routine.coverImage };
+  if (routine.image) return { uri: routine.image };
+  if (routine.productImage) return { uri: routine.productImage };
+  if (routine.stepData) {
+    for (const key of Object.keys(routine.stepData)) {
+      if (routine.stepData[key]?.productImage) {
+        return { uri: routine.stepData[key].productImage };
+      }
+    }
+  }
+  return require('../../../assets/images/routine_placeholder.jpg');
+};
+
+const getRoutineSubtitle = (routine: any) => {
+  if (routine.description && routine.description.trim()) return routine.description.trim();
+  if (routine.subtitle && routine.subtitle.trim()) return routine.subtitle.trim();
+  if (routine.stepData) {
+    for (const key of Object.keys(routine.stepData)) {
+      const step = routine.stepData[key];
+      if (step?.actionDesc && step.actionDesc.trim()) return step.actionDesc.trim();
+      if (step?.productDesc && step.productDesc.trim()) return step.productDesc.trim();
+    }
+  }
+  return "My go-to sequence for deeply nourishing dry winter skin. Focuses on layering...";
+};
+
+export default function RoutineScreen() {
+  const router = useRouter();
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
+  const insets = useSafeAreaInsets();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [routines, setRoutines] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  const fabMenuAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (fabMenuOpen) {
+      Animated.spring(fabMenuAnim, {
+        toValue: 1,
+        friction: 6,
+        tension: 65,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(fabMenuAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [fabMenuOpen]);
+
+  // ScrollView tracking for main page to show/hide the scroll down circle
+  const mainScrollViewRef = useRef<ScrollView>(null);
+  const { scrollHandlers: mainScrollHandlers, isSaveBtnVisible: isMainSaveBtnVisible } = useDraggableScroll({
+    modalOpen: true,
+    activeStep: null,
+    scrollViewRef: mainScrollViewRef,
+    shouldScrollToTop: false,
+  });
+
+  const [userProfile, setUserProfile] = useState<{ name: string; avatarUri: string | null } | null>(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadData = async () => {
+        try {
+          // Try Supabase first
+          try {
+            const rows = await fetchRoutines();
+            const mapped = rows.map(mapSupabaseRoutine);
+            mapped.sort((a: any, b: any) => {
+              const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+              const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+              return timeB - timeA;
+            });
+            setRoutines(mapped);
+            // Sync to AsyncStorage for offline access
+            await AsyncStorage.setItem('routines', JSON.stringify(mapped));
+          } catch (supabaseErr) {
+            // Supabase unavailable (no auth / offline) — fall back to local
+            console.log("Supabase fetch failed, using local storage", supabaseErr);
+            const stored = await AsyncStorage.getItem('routines');
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              parsed.sort((a: any, b: any) => {
+                const timeA = new Date(a.createdAt || a.updatedAt || parseInt(a.id) || 0).getTime();
+                const timeB = new Date(b.createdAt || b.updatedAt || parseInt(b.id) || 0).getTime();
+                return timeB - timeA;
+              });
+              setRoutines(parsed);
+            }
+          }
+          const storedProfile = await AsyncStorage.getItem('user_profile');
+          if (storedProfile) {
+            setUserProfile(JSON.parse(storedProfile));
+          }
+        } catch (e) {
+          console.error("Failed to load routines or profile", e);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      loadData();
+    }, [])
+  );
+
+  const [hiddenCodes, setHiddenCodes] = useState<{ [key: string]: boolean }>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyCode = async (code: string) => {
+    await Clipboard.setStringAsync(code);
+    setCopiedId(code);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
+
+  const toggleCodeVisibility = (routineId: string) => {
+    setHiddenCodes(prev => ({ ...prev, [routineId]: !prev[routineId] }));
+  };
+
+  const addCodeSheetRef = useRef<EnterRoutineCodeSheetRef>(null);
+  const [isAddCodeSheetOpen, setIsAddCodeSheetOpen] = useState(false);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isAddCodeSheetOpen) {
+        addCodeSheetRef.current?.dismiss();
+        return true; // block navigation
+      }
+      return false; // let system handle
+    });
+    return () => sub.remove();
+  }, [isAddCodeSheetOpen]);
+  
+  // Toast State — two separate toasts
+  // 1. Error toast: lives INSIDE the modal (above blur), for "Enter a 6-digit code"
+  const [toastMessage, setToastMessage] = useState("");
+  const toastSlideAnim = React.useRef(new Animated.Value(-80)).current;
+  const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 2. Success toast: lives OUTSIDE the modal in root View, persists after slide closes
+  const [successToastMessage, setSuccessToastMessage] = useState("");
+  const successToastSlideAnim = React.useRef(new Animated.Value(-80)).current;
+  const successToastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (msg: string) => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    toastSlideAnim.stopAnimation();
+    toastSlideAnim.setValue(-80);
+    setToastMessage(msg);
+    Animated.spring(toastSlideAnim, {
+      toValue: 0,
+      damping: 20,
+      stiffness: 200,
+      mass: 0.8,
+      useNativeDriver: true,
+    }).start(() => {
+      toastTimerRef.current = setTimeout(() => {
+        Animated.timing(toastSlideAnim, {
+          toValue: -80,
+          duration: 250,
+          useNativeDriver: true,
+        }).start(() => {
+          setToastMessage("");
+          toastTimerRef.current = null;
+        });
+      }, 3000);
+    });
+  };
+
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const lottieRef = useRef<LottieView>(null);
+
+  const showSuccessToast = (msg: string) => {
+    // trigger animation and toast in parallel
+    setShowSuccessAnimation(true);
+
+    if (successToastTimerRef.current) {
+      clearTimeout(successToastTimerRef.current);
+      successToastTimerRef.current = null;
+    }
+    successToastSlideAnim.stopAnimation();
+    successToastSlideAnim.setValue(-80);
+    setSuccessToastMessage(msg);
+    Animated.spring(successToastSlideAnim, {
+      toValue: 0,
+      damping: 20,
+      stiffness: 200,
+      mass: 0.8,
+      useNativeDriver: true,
+    }).start(() => {
+      // Fallback timer matching exact Lottie duration (126 frames @ 25fps = ~5040ms)
+      successToastTimerRef.current = setTimeout(() => {
+        dismissSuccessToast();
+      }, 5040);
+    });
+  };
+
+  // Swipe-up-to-dismiss for error toast
+  const dismissErrorToast = () => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    Animated.timing(toastSlideAnim, {
+      toValue: -80,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setToastMessage("");
+    });
+  };
+
+  const errorToastPanResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
+      onPanResponderMove: (_, g) => {
+        if (g.dy < 0) {
+          toastSlideAnim.setValue(g.dy);
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy < -20) {
+          dismissErrorToast();
+        } else {
+          Animated.spring(toastSlideAnim, {
+            toValue: 0,
+            damping: 20,
+            stiffness: 200,
+            mass: 0.8,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  // Swipe-up-to-dismiss for success toast
+  const dismissSuccessToast = () => {
+    if (successToastTimerRef.current) {
+      clearTimeout(successToastTimerRef.current);
+      successToastTimerRef.current = null;
+    }
+    Animated.timing(successToastSlideAnim, {
+      toValue: -80,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setSuccessToastMessage("");
+    });
+  };
+
+  const successToastPanResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
+      onPanResponderMove: (_, g) => {
+        if (g.dy < 0) {
+          successToastSlideAnim.setValue(g.dy);
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy < -20) {
+          dismissSuccessToast();
+        } else {
+          Animated.spring(successToastSlideAnim, {
+            toValue: 0,
+            damping: 20,
+            stiffness: 200,
+            mass: 0.8,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+  
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [routineToDelete, setRoutineToDelete] = useState<any>(null);
+
+  const handleDeleteClick = (routine: any) => {
+    setRoutineToDelete(routine);
+    setDeleteConfirmOpen(true);
+  };
+
+  const executeDelete = async () => {
+    if (routineToDelete) {
+      const newRoutines = routines.filter((r: any) => r.id !== routineToDelete.id);
+      setRoutines(newRoutines);
+      try {
+        await AsyncStorage.setItem('routines', JSON.stringify(newRoutines));
+        // Also delete from Supabase
+        try {
+          await deleteRoutine(routineToDelete.id);
+        } catch (supabaseErr) {
+          console.log("Supabase delete failed (offline or not authed)", supabaseErr);
+        }
+      } catch (e) {
+        console.error("Failed to delete routine", e);
+      }
+    }
+    setDeleteConfirmOpen(false);
+    setRoutineToDelete(null);
+  };
+  const emptyStateMessage = "Adjust your search to find relevant results";
+
+  const filteredRoutines = React.useMemo(() => {
+    let result = [...routines];
+
+    if (searchQuery.trim().length > 0) {
+      result = result.map((r: any) => ({
+        ...r,
+        searchScore: getSimilarityScore(searchQuery.trim(), r.title || '')
+      }))
+      .filter((r: any) => r.searchScore >= 40)
+      .sort((a: any, b: any) => b.searchScore - a.searchScore);
+    }
+    return result;
+  }, [routines, searchQuery]);
+
+  return (
+    <View style={[styles.container, isDark ? styles.bgDark : styles.bgLight]}>
+      <ScrollView 
+        ref={mainScrollViewRef} 
+        style={styles.container} 
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 4 }} 
+        showsVerticalScrollIndicator={false}
+        {...mainScrollHandlers}
+      >
+        <Header title="Routines" />
+        
+        <View style={styles.content}>
+          {/* Search Bar Container always visible by default */}
+          <View style={[styles.searchContainer, isDark ? styles.searchBgDark : styles.searchBgLight]}>
+            <Search size={20} color={isDark ? "#71717a" : "#9ca3af"} style={styles.searchIcon} />
+            <TextInput
+              key="routine-search-input"
+              style={[styles.searchInput, isDark ? styles.textDark : styles.textLight]}
+              placeholder="Search routines..."
+              placeholderTextColor={isDark ? "#71717a" : "#9ca3af"}
+              defaultValue={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+
+          {isLoading ? (
+            <View style={styles.routineList}>
+              <RoutineCardSkeleton isDark={isDark} />
+              <RoutineCardSkeleton isDark={isDark} />
+              <RoutineCardSkeleton isDark={isDark} />
+            </View>
+          ) : routines.length > 0 ? (
+            <>
+
+              {filteredRoutines.length > 0 ? (
+                <View style={styles.routineList}>
+                  {filteredRoutines.map((routine: any) => (
+                    <RoutineCard
+                      key={routine.id}
+                      routine={routine}
+                      isDark={isDark}
+                      userProfile={userProfile}
+                      copiedId={copiedId}
+                      onCopyCode={handleCopyCode}
+                      onEdit={() => router.push(`/routine/create?edit=${routine.id}`)}
+                      onDelete={() => handleDeleteClick(routine)}
+                      onPress={() => router.push(`/routine/${routine.id}`)}
+                      onStartRoutine={() => router.push(`/routine/start?id=${routine.id}`)}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.emptySearchState}>
+                   <Text style={[styles.emptySearchTitle, isDark ? styles.textDark : styles.textLight]}>
+                      No result found
+                   </Text>
+                   <Text style={[styles.emptySearchSubtitle, isDark ? styles.subtextDark : styles.subtextLight]}>
+                      {emptyStateMessage}
+                   </Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.emptyState}>
+               <CustomClockIcon size={96} color={isDark ? "#52525b" : "#d1d5db"} style={styles.emptyIcon} />
+               <Text style={[styles.emptyTitle, isDark ? styles.textDark : styles.textLight]}>
+                  No routine added yet
+               </Text>
+               <Text style={[styles.emptySubtitle, isDark ? styles.subtextDark : styles.subtextLight]}>
+                  {"Build your routines and track your progress,\nstay consistent & achieve your goals."}
+               </Text>
+               <Pressable style={styles.createBtn} onPress={() => router.push('/routine/create')}>
+                 <Plus size={15} color="#fff" />
+                 <Text style={styles.createBtnText}>Create Routine</Text>
+               </Pressable>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Main Page Draggable Scroll-Down Circle */}
+      <DraggableScrollDownCircle
+        scrollViewRef={mainScrollViewRef}
+        isSaveBtnVisible={isMainSaveBtnVisible}
+        modalOpen={true}
+        isDark={isDark}
+        isFullScreenModal={false}
+        bottomOffset={16}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <RoutineDeleteModal
+        visible={deleteConfirmOpen}
+        isDark={isDark}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onDelete={executeDelete}
+      />
+
+
+      {showSuccessAnimation && (
+        <View style={styles.lottieOverlay} pointerEvents="none">
+          <LottieView
+            ref={lottieRef}
+            source={require('../../../assets/animations/success_line.json')}
+            autoPlay
+            loop={false}
+            resizeMode="cover"
+            style={styles.lottieAnim}
+            onAnimationFinish={() => {
+              setShowSuccessAnimation(false);
+              dismissSuccessToast();
+            }}
+          />
+        </View>
+      )}
+
+      {/* Success Toast — OUTSIDE modal so it persists after slide closes */}
+      {successToastMessage ? (
+        <Animated.View
+          {...successToastPanResponder.panHandlers}
+          style={[
+            styles.toastContainer,
+            isDark ? styles.toastDark : styles.toastLight,
+            {
+              transform: [{ translateY: successToastSlideAnim }],
+              top: Math.max(insets.top, 16) + 10,
+            }
+          ]}
+        >
+          <Text style={isDark ? styles.toastTextDark : styles.toastTextLight}>
+            {successToastMessage}
+          </Text>
+        </Animated.View>
+      ) : null}
+
+      {/* Add Code Bottom Sheet Component */}
+      <EnterRoutineCodeSheet
+        ref={addCodeSheetRef}
+        isDark={isDark}
+        onSuccess={(msg) => showSuccessToast(msg)}
+        onDismiss={() => setIsAddCodeSheetOpen(false)}
+      />
+
+      {/* FAB dismiss backdrop — transparent, closes the menu on outside tap */}
+      {fabMenuOpen && (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => setFabMenuOpen(false)}
+        />
+      )}
+
+      {/* Floating Action Button (FAB) and Separate Floating Menu Boxes */}
+      <View style={[styles.fabWrapper, { bottom: 16 }]} pointerEvents="box-none">
+        {fabMenuOpen && (
+          <View style={styles.fabMenuContainer}>
+            {/* Box 1: Create Routine */}
+            <Animated.View
+              style={[
+                styles.fabFloatingBox,
+                isDark ? styles.fabBoxDark : styles.fabBoxLight,
+                {
+                  opacity: fabMenuAnim.interpolate({
+                    inputRange: [0, 0.3, 1],
+                    outputRange: [0, 0.2, 1],
+                  }),
+                  transform: [
+                    {
+                      translateY: fabMenuAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [30, 0],
+                      }),
+                    },
+                    {
+                      scale: fabMenuAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.7, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Pressable 
+                style={({ pressed }) => [
+                  styles.fabMenuItemPressable,
+                  pressed && (isDark ? { backgroundColor: '#27272a' } : { backgroundColor: '#f3f4f6' }),
+                ]}
+                onPress={() => {
+                  setFabMenuOpen(false);
+                  router.push('/routine/create');
+                }}
+              >
+                <Plus size={16} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.5} />
+                <Text style={[styles.fabMenuText, isDark ? styles.textDark : styles.textLight]}>Create Routine</Text>
+              </Pressable>
+            </Animated.View>
+
+            {/* Box 2: Add Code */}
+            <Animated.View
+              style={[
+                styles.fabFloatingBox,
+                isDark ? styles.fabBoxDark : styles.fabBoxLight,
+                {
+                  opacity: fabMenuAnim.interpolate({
+                    inputRange: [0, 0.1, 1],
+                    outputRange: [0, 0.4, 1],
+                  }),
+                  transform: [
+                    {
+                      translateY: fabMenuAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [15, 0],
+                      }),
+                    },
+                    {
+                      scale: fabMenuAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.8, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Pressable 
+                style={({ pressed }) => [
+                  styles.fabMenuItemPressable,
+                  pressed && (isDark ? { backgroundColor: '#27272a' } : { backgroundColor: '#f3f4f6' }),
+                ]}
+                onPress={() => {
+                  setFabMenuOpen(false);
+                  setIsAddCodeSheetOpen(true);
+                  addCodeSheetRef.current?.present();
+                }}
+              >
+                <Plus size={16} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.5} />
+                <Text style={[styles.fabMenuText, isDark ? styles.textDark : styles.textLight]}>Add Code</Text>
+              </Pressable>
+            </Animated.View>
+          </View>
+        )}
+        <Pressable 
+          style={[styles.fabButton, { backgroundColor: Colors.light.primary }]}
+          onPress={() => setFabMenuOpen(!fabMenuOpen)}
+        >
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  rotate: fabMenuAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '45deg'],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Plus size={24} color="#ffffff" strokeWidth={2.5} />
+          </Animated.View>
+        </Pressable>
+      </View>
+
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  bgLight: { backgroundColor: '#f5f5f7' },
+  bgDark: { backgroundColor: '#121212' },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 0,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 24, // Pill shape
+    paddingHorizontal: 16,
+    height: 48,
+    borderWidth: 1,
+    zIndex: 10,
+  },
+  searchBgLight: {
+    backgroundColor: '#f9fafb',
+    borderColor: '#e5e7eb',
+  },
+  searchBgDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 15,
+  },
+  textLight: { color: '#111827' },
+  textDark: { color: '#ffffff' },
+  subtextLight: { color: '#6b7280' },
+  subtextDark: { color: '#a1a1aa' },
+  
+  emptySearchState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 48,
+    width: '100%',
+  },
+  emptySearchTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
+  emptySearchSubtitle: {
+    fontSize: 13,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 0,
+    paddingHorizontal: 0,
+  },
+  emptyIcon: {
+    marginBottom: 16,
+    alignSelf: 'center',
+  },
+  emptyIconBg: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  iconBgLight: { backgroundColor: '#f9fafb' },
+  iconBgDark: { backgroundColor: '#18181b' },
+  emptyTitle: {
+    fontSize: 21,
+    fontWeight: '700',
+    fontFamily: 'Montserrat_700Bold',
+    marginBottom: 8,
+    textAlign: 'center',
+    alignSelf: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 14,
+    alignSelf: 'stretch',
+    paddingHorizontal: 32,
+  },
+  createBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 13,
+    gap: 7,
+    marginTop: 0,
+  },
+  createBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  createBtnMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.light.primary,
+    height: 48,
+    borderRadius: 12,
+    gap: 6,
+  },
+  createBtnMainText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  addCodeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
+  },
+  addCodeBtnLight: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#e5e7eb',
+  },
+  addCodeBtnDark: {
+    backgroundColor: '#27272a',
+    borderColor: '#3f3f46',
+  },
+  addCodeBtnText: {
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  routineList: {
+    flex: 1,
+    marginTop: 16,
+  },
+  routineCardOuter: {
+    borderRadius: 22,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  cardImageBg: {
+    width: '100%',
+  },
+  cardImageStyle: {
+    borderRadius: 22,
+    resizeMode: 'cover',
+  },
+  cardGradientOverlay: {
+    padding: 16,
+    borderRadius: 22,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  authorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingRight: 12,
+    borderRadius: 20,
+    gap: 7,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  authorAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+  },
+  authorNameText: {
+    color: '#2d3748',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'Montserrat_700Bold',
+  },
+  stepsPill: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  stepsPillText: {
+    color: '#000000',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    fontFamily: 'Montserrat_700Bold',
+  },
+  cardMiddleSection: {
+    marginBottom: 2,
+  },
+  cardRoutineTitle: {
+    fontSize: 24,
+    lineHeight: 29,
+    fontWeight: '700',
+    color: '#ffffff',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(255, 255, 255, 0.88)',
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  cardDividerLine: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  routineCodePillBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3e8ff',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    gap: 6,
+  },
+  routineCodeBottomText: {
+    color: Colors.light.primary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    fontFamily: 'Montserrat_700Bold',
+  },
+  cardActionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  cardBareActionBtn: {
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent', // Removed dark background
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  modalContent: {
+    position: 'absolute',
+    top: 130,
+    right: 16,
+    width: 200,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    // shadow
+    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
+    elevation: 8,
+  },
+  deleteModalContent: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.2)',
+    elevation: 10,
+  },
+  deleteModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  deleteModalDesc: {
+    fontSize: 14,
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  deleteModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteActionBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBgLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  modalBgDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
+  },
+  modalTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 12,
+    letterSpacing: 1,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  filterInput: {
+    width: 60,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    textAlign: 'right',
+    fontSize: 14,
+    fontWeight: '500',
+    paddingLeft: 4,
+    paddingRight: 8,
+    paddingTop: 0,
+    paddingBottom: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  inputBgLight: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#e5e7eb',
+  },
+  inputBgDark: {
+    backgroundColor: '#27272a',
+    borderColor: '#3f3f46',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 12,
+  },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  applyBtn: {
+    backgroundColor: Colors.light.primary,
+  },
+  applyBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  disabledBtn: {
+    opacity: 0.5,
+  },
+  disabledText: {
+    opacity: 0.5,
+  },
+
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  sheetKeyboard: {
+    justifyContent: 'flex-end',
+    width: '100%',
+  },
+  sheetContent: {
+    width: '100%',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    boxShadow: '0px -10px 40px rgba(0, 0, 0, 0.15)',
+    elevation: 20,
+    overflow: 'hidden',
+  },
+  sheetDragHandleContainer: {
+    width: '100%',
+    paddingTop: 16,
+    paddingBottom: 8,
+    alignItems: 'center',
+  },
+  sheetDragHandle: {
+    width: 56,
+    height: 6,
+    borderRadius: 3,
+  },
+  dragHandleLight: {
+    backgroundColor: '#d1d5db',
+  },
+  dragHandleDark: {
+    backgroundColor: '#3f3f46',
+  },
+  sheetInner: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  sheetInput: {
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  sheetInputLight: {
+    backgroundColor: '#f9fafb',
+    borderColor: '#e5e7eb',
+  },
+  sheetInputDark: {
+    backgroundColor: '#27272a',
+    borderColor: '#3f3f46',
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sheetActionBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetBtnCancelLight: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  sheetBtnCancelDark: {
+    backgroundColor: '#27272a',
+    borderWidth: 1,
+    borderColor: '#3f3f46',
+  },
+  sheetBtnCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sheetBtnEnter: {
+    backgroundColor: Colors.light.primary,
+  },
+  sheetBtnEnterText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  toastContainer: {
+    position: 'absolute',
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    boxShadow: '0px 10px 40px rgba(0, 0, 0, 0.2)',
+    elevation: 10,
+    borderWidth: 1,
+    zIndex: 9999,
+  },
+  toastLight: { backgroundColor: '#111827', borderColor: '#374151' },
+  toastDark: { backgroundColor: '#ffffff', borderColor: '#e5e7eb' },
+  toastTextLight: { fontSize: 14, fontWeight: '500', textAlign: 'center', color: '#ffffff' },
+  toastTextDark: { fontSize: 14, fontWeight: '500', textAlign: 'center', color: '#111827' },
+
+  // ── FAB (Floating Action Button) ──────────────────────────────────────────
+  fabWrapper: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    alignItems: 'flex-end',
+    zIndex: 100,
+  },
+  fabButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 12,
+  },
+  fabMenuContainer: {
+    marginBottom: 12,
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  fabFloatingBox: {
+    borderRadius: 24, // Pill shape
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  fabBoxLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  fabBoxDark: {
+    backgroundColor: '#1c1c1e',
+    borderColor: '#27272a',
+  },
+  fabMenuItemPressable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 6,
+  },
+  fabMenuText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  lottieOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9998,
+    pointerEvents: 'none',
+  },
+  lottieAnim: {
+    width: '100%',
+    height: '100%',
+  },
+  modalToastOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+});

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { MOCK_SCANS } from '@/constants/mockScans';
 
 export interface QuestionDef {
   key: string;
@@ -8,6 +9,13 @@ export interface QuestionDef {
   options: { label: string; value: string }[];
   disabled?: boolean;
   createdAt?: number;
+  dataType?: 'multi_select' | 'boolean' | 'single_choice' | 'text' | 'scale' | 'numeric';
+  placeholderText?: string;
+  scaleRange?: '1-3' | '1-5' | '1-10';
+  stepLabels?: string[];
+  unit?: string;
+  stepSize?: number;
+  maxValue?: string;
 }
 
 export const INITIAL_QUESTIONS: QuestionDef[] = [
@@ -16,6 +24,7 @@ export const INITIAL_QUESTIONS: QuestionDef[] = [
     prefix: 'Routine ',
     highlight: 'Compliance',
     subtitle: 'Are you following your skincare routine today?',
+    dataType: 'single_choice',
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
     options: [
       { label: 'Morning & evening routine', value: 'Morning & Evening' },
@@ -30,13 +39,16 @@ export const INITIAL_QUESTIONS: QuestionDef[] = [
     prefix: 'Water ',
     highlight: 'Intake',
     subtitle: 'How much water have you had today?',
+    dataType: 'numeric',
+    unit: 'glasses',
+    stepSize: 1,
+    maxValue: '20',
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
     options: [
-      { label: 'Less than 500ml', value: 'Less than 500ml' },
-      { label: 'Around 1L', value: 'Around 1L' },
-      { label: 'Around 1.5L', value: 'Around 1.5L' },
-      { label: 'Around 2L', value: 'Around 2L' },
-      { label: 'More than 2L', value: 'More than 2L' },
+      { label: '0 glasses', value: '0 glasses' },
+      { label: '1 glasses', value: '1 glasses' },
+      { label: '2 glasses', value: '2 glasses' },
+      { label: '20 glasses+', value: '20 glasses+' },
     ],
   },
   {
@@ -44,13 +56,22 @@ export const INITIAL_QUESTIONS: QuestionDef[] = [
     prefix: 'Sleep ',
     highlight: 'Quality',
     subtitle: 'How was your sleep last night?',
+    dataType: 'scale',
+    scaleRange: '1-5',
+    stepLabels: [
+      'Less than 5 hrs (very poor)',
+      '5–6 hrs, restless',
+      '6–7 hrs, fair',
+      '7–8 hrs, good',
+      '8+ hrs, deep and refreshing',
+    ],
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 1,
     options: [
-      { label: 'Less than 5 hours', value: 'Less than 5 hours' },
-      { label: '5–6 hours, restless', value: '5–6 hours, restless' },
-      { label: '6–7 hours, okay', value: '6–7 hours, okay' },
-      { label: '7–8 hours, good', value: '7–8 hours, good' },
-      { label: '8+ hours, excellent', value: '8+ hours, excellent' },
+      { label: '1 - Less than 5 hrs (very poor)', value: '1' },
+      { label: '2 - 5–6 hrs, restless', value: '2' },
+      { label: '3 - 6–7 hrs, fair', value: '3' },
+      { label: '4 - 7–8 hrs, good', value: '4' },
+      { label: '5 - 8+ hrs, deep and refreshing', value: '5' },
     ],
   },
   {
@@ -58,13 +79,22 @@ export const INITIAL_QUESTIONS: QuestionDef[] = [
     prefix: 'Stress ',
     highlight: 'Check',
     subtitle: 'How stressed have you been today?',
+    dataType: 'scale',
+    scaleRange: '1-5',
+    stepLabels: [
+      'Completely calm & relaxed',
+      'Mild stress, manageable',
+      'Moderately stressed',
+      'Quite stressed today',
+      'Extremely overwhelmed',
+    ],
     createdAt: Date.now() - 1000 * 60 * 60 * 12,
     options: [
-      { label: 'Completely calm & relaxed', value: 'Completely calm & relaxed' },
-      { label: 'Mild stress, manageable', value: 'Mild stress, manageable' },
-      { label: 'Moderately stressed', value: 'Moderately stressed' },
-      { label: 'Quite stressed today', value: 'Quite stressed today' },
-      { label: 'Extremely overwhelmed', value: 'Extremely overwhelmed' },
+      { label: '1 - Completely calm & relaxed', value: '1' },
+      { label: '2 - Mild stress, manageable', value: '2' },
+      { label: '3 - Moderately stressed', value: '3' },
+      { label: '4 - Quite stressed today', value: '4' },
+      { label: '5 - Extremely overwhelmed', value: '5' },
     ],
   },
   {
@@ -72,12 +102,11 @@ export const INITIAL_QUESTIONS: QuestionDef[] = [
     prefix: 'Sunscreen ',
     highlight: 'Application',
     subtitle: 'Did you apply and reapply SPF today?',
+    dataType: 'boolean',
     createdAt: Date.now() - 1000 * 60 * 60 * 6,
     options: [
-      { label: 'Applied & reapplied every 2 hrs', value: 'Applied & Reapplied' },
-      { label: 'Applied once in morning', value: 'Applied once' },
-      { label: 'Stayed indoors all day', value: 'Indoors' },
-      { label: 'Forgot sunscreen today', value: 'Forgot' },
+      { label: 'Yes', value: 'Yes' },
+      { label: 'No', value: 'No' },
     ],
   },
 ];
@@ -88,13 +117,22 @@ export const INITIAL_AVAILABLE_QUESTIONS: QuestionDef[] = [
     prefix: "Today's ",
     highlight: 'Diet',
     subtitle: 'How clean was your diet today?',
+    dataType: 'scale',
+    scaleRange: '1-5',
+    stepLabels: [
+      'Ate a lot of junk food',
+      'Mostly junk, some healthy',
+      'Mix of both',
+      'Mostly healthy meals',
+      'Extremely clean & nutrient-rich',
+    ],
     createdAt: Date.now() - 1000 * 60 * 60 * 20,
     options: [
-      { label: 'Ate a lot of junk food', value: 'Ate a lot of junk food' },
-      { label: 'Mostly junk, some healthy', value: 'Mostly junk, some healthy' },
-      { label: 'Mix of both', value: 'Mix of both' },
-      { label: 'Mostly healthy', value: 'Mostly healthy' },
-      { label: 'Very clean diet', value: 'Very clean diet' },
+      { label: '1 - Ate a lot of junk food', value: '1' },
+      { label: '2 - Mostly junk, some healthy', value: '2' },
+      { label: '3 - Mix of both', value: '3' },
+      { label: '4 - Mostly healthy meals', value: '4' },
+      { label: '5 - Extremely clean & nutrient-rich', value: '5' },
     ],
   },
   {
@@ -102,6 +140,7 @@ export const INITIAL_AVAILABLE_QUESTIONS: QuestionDef[] = [
     prefix: 'Breakouts & ',
     highlight: 'Acne',
     subtitle: 'Did you notice any new breakouts or pimples?',
+    dataType: 'multi_select',
     createdAt: Date.now() - 1000 * 60 * 60 * 15,
     options: [
       { label: 'Completely clear skin', value: 'Clear' },
@@ -116,6 +155,7 @@ export const INITIAL_AVAILABLE_QUESTIONS: QuestionDef[] = [
     prefix: 'Skin ',
     highlight: 'Sensitivity',
     subtitle: 'Did your skin experience burning, redness, or peeling?',
+    dataType: 'multi_select',
     createdAt: Date.now() - 1000 * 60 * 60 * 10,
     options: [
       { label: 'No irritation at all', value: 'None' },
@@ -129,6 +169,7 @@ export const INITIAL_AVAILABLE_QUESTIONS: QuestionDef[] = [
     prefix: 'Skin ',
     highlight: 'Hydration',
     subtitle: 'How did your skin feel midday?',
+    dataType: 'single_choice',
     createdAt: Date.now() - 1000 * 60 * 60 * 8,
     options: [
       { label: 'Balanced and comfortable', value: 'Balanced' },
@@ -142,31 +183,186 @@ export const INITIAL_AVAILABLE_QUESTIONS: QuestionDef[] = [
     prefix: 'Physical ',
     highlight: 'Activity',
     subtitle: 'Did you sweat or workout today?',
+    dataType: 'boolean',
     createdAt: Date.now() - 1000 * 60 * 60 * 4,
     options: [
-      { label: 'Intense workout & washed face', value: 'Intense workout' },
-      { label: 'Moderate exercise / walk', value: 'Moderate' },
-      { label: 'Light daily movement', value: 'Light' },
-      { label: 'Rest day / no workout', value: 'Rest day' },
+      { label: 'Yes', value: 'Yes' },
+      { label: 'No', value: 'No' },
     ],
+  },
+];
+
+export interface JournalHistoryRecord {
+  id: string;
+  dateStr: string;
+  dayName: string;
+  isoDate: string;
+  image?: any;
+  answers: Record<string, string>;
+}
+
+export const DEMO_HISTORY_RECORDS: JournalHistoryRecord[] = [
+  {
+    id: 'rec-1',
+    dateStr: 'Today',
+    dayName: 'Saturday',
+    isoDate: '2026-10-18',
+    image: MOCK_SCANS[0]?.image,
+    answers: {
+      q_routine: 'Morning & Evening',
+      q_water: 'Around 2L',
+    },
+  },
+  {
+    id: 'rec-2',
+    dateStr: 'Yesterday',
+    dayName: 'Friday',
+    isoDate: '2026-10-17',
+    image: MOCK_SCANS[1]?.image,
+    answers: {
+      q_routine: 'Morning',
+      q_water: 'Around 1.5L',
+      q_sleep: '6–7 hours, okay',
+      q_stress: 'Mild stress, manageable',
+      q_sunscreen: 'Applied once',
+    },
+  },
+  {
+    id: 'rec-3',
+    dateStr: 'Oct 15, 2026',
+    dayName: 'Wednesday',
+    isoDate: '2026-10-15',
+    image: MOCK_SCANS[2]?.image,
+    answers: {},
+  },
+  {
+    id: 'rec-4',
+    dateStr: 'Oct 12, 2026',
+    dayName: 'Sunday',
+    isoDate: '2026-10-12',
+    image: MOCK_SCANS[3]?.image,
+    answers: {
+      q_routine: 'Morning & Evening',
+      q_water: 'More than 2L',
+    },
+  },
+  {
+    id: 'rec-5',
+    dateStr: 'Oct 09, 2026',
+    dayName: 'Thursday',
+    isoDate: '2026-10-09',
+    image: MOCK_SCANS[4]?.image,
+    answers: {
+      q_routine: 'Evening',
+      q_water: 'Around 1L',
+      q_sleep: 'Less than 5 hours',
+      q_stress: 'Quite stressed today',
+      q_sunscreen: 'Applied once',
+    },
+  },
+  {
+    id: 'rec-6',
+    dateStr: 'Oct 04, 2026',
+    dayName: 'Saturday',
+    isoDate: '2026-10-04',
+    image: MOCK_SCANS[0]?.image,
+    answers: {
+      q_routine: 'Morning & Evening',
+      q_water: 'Around 2L',
+      q_sleep: '7–8 hours, good',
+    },
+  },
+  {
+    id: 'rec-7',
+    dateStr: 'Oct 01, 2026',
+    dayName: 'Wednesday',
+    isoDate: '2026-10-01',
+    image: MOCK_SCANS[1]?.image,
+    answers: {
+      q_routine: 'Morning & Evening',
+      q_water: 'More than 2L',
+      q_sleep: '8+ hours, great',
+      q_stress: 'Relaxed, no stress',
+      q_sunscreen: 'Applied twice',
+    },
+  },
+  {
+    id: 'rec-8',
+    dateStr: 'Sep 27, 2026',
+    dayName: 'Saturday',
+    isoDate: '2026-09-27',
+    image: MOCK_SCANS[2]?.image,
+    answers: {},
+  },
+  {
+    id: 'rec-9',
+    dateStr: 'Sep 23, 2026',
+    dayName: 'Tuesday',
+    isoDate: '2026-09-23',
+    image: MOCK_SCANS[3]?.image,
+    answers: {
+      q_routine: 'Evening',
+      q_water: 'Less than 1L',
+      q_sleep: '5–6 hours, tired',
+    },
+  },
+  {
+    id: 'rec-10',
+    dateStr: 'Sep 18, 2026',
+    dayName: 'Thursday',
+    isoDate: '2026-09-18',
+    image: MOCK_SCANS[4]?.image,
+    answers: {
+      q_routine: 'Morning & Evening',
+      q_water: 'Around 2L',
+      q_sleep: '7–8 hours, good',
+      q_stress: 'Mild stress, manageable',
+      q_sunscreen: 'Applied once',
+    },
+  },
+  {
+    id: 'rec-11',
+    dateStr: 'Sep 14, 2026',
+    dayName: 'Sunday',
+    isoDate: '2026-09-14',
+    image: MOCK_SCANS[0]?.image,
+    answers: {
+      q_routine: 'Morning',
+      q_water: 'Around 1.5L',
+    },
   },
 ];
 
 interface JournalState {
   questions: QuestionDef[];
   availableQuestions: QuestionDef[];
+  historyRecords: JournalHistoryRecord[];
+  pendingReanswerKey: string | null;
   setQuestions: (updater: QuestionDef[] | ((prev: QuestionDef[]) => QuestionDef[])) => void;
   setAvailableQuestions: (updater: QuestionDef[] | ((prev: QuestionDef[]) => QuestionDef[])) => void;
-  updateQuestion: (key: string, newTitle: string, newOptions: string[]) => void;
+  setHistoryRecords: (updater: JournalHistoryRecord[] | ((prev: JournalHistoryRecord[]) => JournalHistoryRecord[])) => void;
+  clearTodayAnswerForQuestion: (key: string) => void;
+  hasTodayAnswerForQuestion: (key: string) => boolean;
+  setPendingReanswerKey: (key: string | null) => void;
+  addQuestion: (q: QuestionDef) => void;
+  updateQuestion: (
+    key: string,
+    newTitle: string,
+    newOptions: string[],
+    extraMeta?: Partial<Omit<QuestionDef, 'key' | 'subtitle' | 'options'>>
+  ) => void;
   deleteQuestion: (key: string, from: 'active' | 'available') => void;
   disableOrEnableQuestion: (qTarget: QuestionDef, from: 'active' | 'available') => void;
   moveToAvailable: (q: QuestionDef) => void;
   moveToActive: (q: QuestionDef) => void;
+  deleteHistoryRecord: (id: string) => void;
 }
 
-export const useJournalStore = create<JournalState>((set) => ({
+export const useJournalStore = create<JournalState>((set, get) => ({
   questions: INITIAL_QUESTIONS,
   availableQuestions: INITIAL_AVAILABLE_QUESTIONS,
+  historyRecords: DEMO_HISTORY_RECORDS,
+  pendingReanswerKey: null,
 
   setQuestions: (updater) =>
     set((state) => ({
@@ -179,12 +375,46 @@ export const useJournalStore = create<JournalState>((set) => ({
         typeof updater === 'function' ? updater(state.availableQuestions) : updater,
     })),
 
-  updateQuestion: (key, newTitle, newOptions) =>
+  setHistoryRecords: (updater) =>
+    set((state) => ({
+      historyRecords:
+        typeof updater === 'function' ? updater(state.historyRecords) : updater,
+    })),
+
+  clearTodayAnswerForQuestion: (key: string) =>
+    set((state) => ({
+      historyRecords: state.historyRecords.map((r) => {
+        if (r.dateStr.toLowerCase() === 'today' || r.id === 'rec-1') {
+          const updatedAnswers = { ...(r.answers || {}) };
+          delete updatedAnswers[key];
+          return { ...r, answers: updatedAnswers };
+        }
+        return r;
+      }),
+    })),
+
+  hasTodayAnswerForQuestion: (key: string) => {
+    const today = get().historyRecords.find(
+      (r) => r.dateStr.toLowerCase() === 'today' || r.id === 'rec-1'
+    );
+    return Boolean(today?.answers && today.answers[key]);
+  },
+
+  setPendingReanswerKey: (key: string | null) =>
+    set({ pendingReanswerKey: key }),
+
+  addQuestion: (q) =>
+    set((state) => ({
+      questions: [q, ...state.questions.filter((item) => item.key !== q.key)],
+    })),
+
+  updateQuestion: (key, newTitle, newOptions, extraMeta) =>
     set((state) => {
       const transformQuestion = (q: QuestionDef) => {
         if (q.key !== key) return q;
         return {
           ...q,
+          ...extraMeta,
           subtitle: newTitle,
           options: newOptions.map((opt) => ({ label: opt, value: opt })),
         };
@@ -197,13 +427,17 @@ export const useJournalStore = create<JournalState>((set) => ({
     }),
 
   deleteQuestion: (key, from) =>
-    set((state) => ({
-      questions: from === 'active' ? state.questions.filter((q) => q.key !== key) : state.questions,
-      availableQuestions:
-        from === 'available'
-          ? state.availableQuestions.filter((q) => q.key !== key)
-          : state.availableQuestions,
-    })),
+    set((state) => {
+      // Default system questions can never be permanently deleted
+      if (key.startsWith('q_')) return state;
+      return {
+        questions: from === 'active' ? state.questions.filter((q) => q.key !== key) : state.questions,
+        availableQuestions:
+          from === 'available'
+            ? state.availableQuestions.filter((q) => q.key !== key)
+            : state.availableQuestions,
+      };
+    }),
 
   disableOrEnableQuestion: (qTarget, from) =>
     set((state) => {
@@ -237,12 +471,23 @@ export const useJournalStore = create<JournalState>((set) => ({
   moveToAvailable: (qToRemove) =>
     set((state) => ({
       questions: state.questions.filter((q) => q.key !== qToRemove.key),
-      availableQuestions: [qToRemove, ...state.availableQuestions],
+      availableQuestions: [
+        qToRemove,
+        ...state.availableQuestions.filter((q) => q.key !== qToRemove.key),
+      ],
     })),
 
   moveToActive: (qToAdd) =>
     set((state) => ({
       availableQuestions: state.availableQuestions.filter((q) => q.key !== qToAdd.key),
-      questions: [...state.questions, qToAdd],
+      questions: [
+        ...state.questions.filter((q) => q.key !== qToAdd.key),
+        qToAdd,
+      ],
+    })),
+
+  deleteHistoryRecord: (id) =>
+    set((state) => ({
+      historyRecords: state.historyRecords.filter((r) => r.id !== id),
     })),
 }));

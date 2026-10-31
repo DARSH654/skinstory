@@ -1,18 +1,15 @@
 import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
-import { View, Pressable, StyleSheet, Platform, DeviceEventEmitter } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { ScanFace, Clock, Home } from 'lucide-react-native';
+import { ScanFace, BookOpenText } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence } from 'react-native-reanimated';
-import { CustomProgressIcon, CustomHomeIcon, CustomClockIcon } from './custom-icons';
+import { CustomProgressIcon, CustomHomeIcon } from './custom-icons';
 import { Colors } from '@/constants/theme';
 
-let isRoutineCreateDirty = false;
-DeviceEventEmitter.addListener('createRoutineDirtyState', (isDirty) => {
-  isRoutineCreateDirty = isDirty;
-});
+
 
 function TabItem({ routeName, isFocused, isDark, onPress, label, Icon }: any) {
   const textColor = isFocused
@@ -25,20 +22,14 @@ function TabItem({ routeName, isFocused, isDark, onPress, label, Icon }: any) {
 
   const pillBgColor = isDark ? '#2d253c' : '#e8e3f1';
 
-  const focusAnim = useSharedValue(isFocused ? 1 : 0);
-
-  useEffect(() => {
-    focusAnim.value = withTiming(isFocused ? 1 : 0, { duration: 150 });
-  }, [isFocused]);
-
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
-        { scale: 0.6 + focusAnim.value * 0.4 },
+        { scale: withTiming(isFocused ? 1 : 0.6, { duration: 150 }) },
       ],
-      opacity: focusAnim.value,
+      opacity: withTiming(isFocused ? 1 : 0, { duration: 150 }),
     };
-  });
+  }, [isFocused]);
 
   return (
     <Pressable
@@ -48,16 +39,15 @@ function TabItem({ routeName, isFocused, isDark, onPress, label, Icon }: any) {
       style={styles.tabItem}
     >
       <View style={styles.iconContainer}>
-        {isFocused && (
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              styles.iconActivePill,
-              { backgroundColor: pillBgColor },
-              animatedStyle,
-            ]}
-          />
-        )}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.iconActivePill,
+            { backgroundColor: pillBgColor },
+            animatedStyle,
+          ]}
+        />
         <View>
           {Icon && (
             <Icon 
@@ -106,7 +96,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               ? options.title
               : route.name;
 
-          if (!['index', 'progress', 'routine', 'scan'].includes(route.name)) return null;
+          if (!['index', 'progress', 'journal', 'scan'].includes(route.name)) return null;
 
           const isFocused = state.index === index;
           const isScan = route.name === 'scan';
@@ -114,11 +104,6 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           const onPress = () => {
             if (route.name === 'scan') {
               navigation.navigate('camera');
-              return;
-            }
-
-            if (!isFocused && isRoutineCreateDirty) {
-              DeviceEventEmitter.emit('showUnsavedWarning', { name: route.name, params: route.params });
               return;
             }
 
@@ -137,7 +122,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           if (route.name === 'index') Icon = CustomHomeIcon;
           else if (route.name === 'progress') Icon = CustomProgressIcon;
           else if (route.name === 'scan') Icon = ScanFace;
-          else if (route.name === 'routine') Icon = CustomClockIcon;
+          else if (route.name === 'journal') Icon = BookOpenText;
           else Icon = CustomHomeIcon;
 
           // ── Floating Scan FAB ──────────────────────────────────────────
@@ -277,8 +262,9 @@ export default function AppTabs() {
     >
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
       <Tabs.Screen name="progress" options={{ title: 'Insights' }} />
-      <Tabs.Screen name="routine" options={{ title: 'Routine' }} />
+      <Tabs.Screen name="journal" options={{ title: 'Journal' }} />
       <Tabs.Screen name="scan" options={{ title: 'Scan' }} />
+      <Tabs.Screen name="routine" options={{ href: null, title: 'Routine' }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );

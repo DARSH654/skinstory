@@ -259,6 +259,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 14,
     fontFamily: 'Outfit_700Bold',
+    textAlign: 'center',
   },
   pillsWrap: {
     flexDirection: 'row',

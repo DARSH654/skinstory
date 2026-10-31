@@ -51,9 +51,6 @@ export default function Header({ title, showBack = false, onBack }: { title: str
             <Moon size={18} color="#4b5563" />
           )}
         </Pressable>
-        <Pressable onPress={() => router.push('/profile')} style={[styles.actionBtn, isDark ? styles.actionBtnDark : styles.actionBtnLight]}>
-          <User size={18} color={isDark ? "#a1a1aa" : "#4b5563"} />
-        </Pressable>
       </View>
     </View>
   );

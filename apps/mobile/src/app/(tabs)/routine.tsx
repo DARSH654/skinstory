@@ -18,7 +18,7 @@ import {
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as Clipboard from 'expo-clipboard';
-import { Search, SlidersHorizontal, Plus, Copy, Eye, EyeOff, Pencil, Trash2, Droplet, FlaskConical, Leaf } from 'lucide-react-native';
+import { Search, Plus, Copy, Eye, EyeOff, Pencil, Trash2, Droplet, FlaskConical, Leaf } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { CustomClockIcon } from '@/components/custom-icons';
@@ -33,7 +33,6 @@ import { useFocusEffect } from 'expo-router';
 import { DraggableScrollDownCircle, useDraggableScroll } from '@/components/ui/draggable-scroll-down-circle';
 import LottieView from 'lottie-react-native';
 import EnterRoutineCodeSheet, { EnterRoutineCodeSheetRef } from '@/components/routine/EnterRoutineCodeSheet';
-import RoutineFilterModal from '@/components/routine/RoutineFilterModal';
 import RoutineDeleteModal from '@/components/routine/RoutineDeleteModal';
 import RoutineCard from '@/components/routine/RoutineCard';
 import RoutineCardSkeleton from '@/components/routine/RoutineCardSkeleton';
@@ -394,70 +393,10 @@ export default function RoutineScreen() {
     setDeleteConfirmOpen(false);
     setRoutineToDelete(null);
   };
-
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filterMinSteps, setFilterMinSteps] = useState("");
-  const [filterMinDos, setFilterMinDos] = useState("");
-  const [filterMinDonts, setFilterMinDonts] = useState("");
-  const [appliedFilters, setAppliedFilters] = useState<{ steps: number | null; dos: number | null; donts: number | null }>({ steps: null, dos: null, donts: null });
-
-  // Clear button: enabled only when there are actually applied filters
-  const isFilterApplied = appliedFilters.steps !== null || appliedFilters.dos !== null || appliedFilters.donts !== null;
-
-  // Apply button: enabled only when current inputs differ from what's already applied
-  const appliedStepsStr = appliedFilters.steps !== null ? appliedFilters.steps.toString() : '';
-  const appliedDosStr = appliedFilters.dos !== null ? appliedFilters.dos.toString() : '';
-  const appliedDontsStr = appliedFilters.donts !== null ? appliedFilters.donts.toString() : '';
-  const hasChanges = (
-    filterMinSteps !== appliedStepsStr ||
-    filterMinDos !== appliedDosStr ||
-    filterMinDonts !== appliedDontsStr
-  );
-
-  let emptyStateMessage = "Adjust your search to find relevant results";
-  if (isFilterApplied && searchQuery.trim().length > 0) {
-    emptyStateMessage = "Adjust your search and filters to find relevant results";
-  } else if (isFilterApplied) {
-    emptyStateMessage = "Adjust your filters to find relevant results";
-  }
-
-  // When filter modal opens, sync inputs to currently applied values
-  const openFilter = () => {
-    setFilterMinSteps(appliedStepsStr);
-    setFilterMinDos(appliedDosStr);
-    setFilterMinDonts(appliedDontsStr);
-    setFilterOpen(true);
-  };
-
-  const applyFilters = () => {
-    const newFilters = {
-      steps: filterMinSteps === "" ? null : parseInt(filterMinSteps),
-      dos: filterMinDos === "" ? null : parseInt(filterMinDos),
-      donts: filterMinDonts === "" ? null : parseInt(filterMinDonts),
-    };
-    setAppliedFilters(newFilters);
-    setFilterOpen(false);
-  };
-
-  // Auto-clear applied filters when all inputs are emptied
-  React.useEffect(() => {
-    if (filterMinSteps === "" && filterMinDos === "" && filterMinDonts === "" && isFilterApplied) {
-      setAppliedFilters({ steps: null, dos: null, donts: null });
-    }
-  }, [filterMinSteps, filterMinDos, filterMinDonts]);
+  const emptyStateMessage = "Adjust your search to find relevant results";
 
   const filteredRoutines = React.useMemo(() => {
     let result = [...routines];
-
-    if (appliedFilters.steps !== null) {
-      result = result.filter((r: any) => (r.stepsCount || 0) >= appliedFilters.steps!);
-    }
-    if (appliedFilters.dos !== null) {
-      result = result.filter((r: any) => (r.dosCount || 0) >= appliedFilters.dos!);
-    }
-    if (appliedFilters.donts !== null) {
-      result = result.filter((r: any) => (r.dontsCount || 0) >= appliedFilters.donts!);
-    }
 
     if (searchQuery.trim().length > 0) {
       result = result.map((r: any) => ({
@@ -468,32 +407,7 @@ export default function RoutineScreen() {
       .sort((a: any, b: any) => b.searchScore - a.searchScore);
     }
     return result;
-  }, [routines, searchQuery, appliedFilters]);
-
-  const resetFilters = () => {
-    setFilterMinSteps("");
-    setFilterMinDos("");
-    setFilterMinDonts("");
-    setAppliedFilters({ steps: null, dos: null, donts: null });
-  };
-
-  const handleStepsChange = (val: string) => {
-    if (val === '') { setFilterMinSteps(''); return; }
-    const num = parseInt(val);
-    if (!isNaN(num)) setFilterMinSteps(num > 999 ? '999' : num.toString());
-  };
-
-  const handleDosChange = (val: string) => {
-    if (val === '') { setFilterMinDos(''); return; }
-    const num = parseInt(val);
-    if (!isNaN(num)) setFilterMinDos(num > 999 ? '999' : num.toString());
-  };
-
-  const handleDontsChange = (val: string) => {
-    if (val === '') { setFilterMinDonts(''); return; }
-    const num = parseInt(val);
-    if (!isNaN(num)) setFilterMinDonts(num > 999 ? '999' : num.toString());
-  };
+  }, [routines, searchQuery]);
 
   return (
     <View style={[styles.container, isDark ? styles.bgDark : styles.bgLight]}>
@@ -518,17 +432,6 @@ export default function RoutineScreen() {
               defaultValue={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <Pressable 
-              onPress={openFilter} 
-              style={({ pressed }) => [
-                styles.filterBtn,
-                isFilterApplied 
-                  ? { backgroundColor: Colors.light.primary } 
-                  : (pressed ? (isDark ? { backgroundColor: '#27272a' } : { backgroundColor: '#f3f4f6' }) : null)
-              ]}
-            >
-              <SlidersHorizontal size={18} color={isFilterApplied ? "#ffffff" : (isDark ? "#71717a" : "#9ca3af")} />
-            </Pressable>
           </View>
 
           {isLoading ? (
@@ -558,14 +461,11 @@ export default function RoutineScreen() {
                   ))}
                 </View>
               ) : (
-                <View style={[styles.emptyState, { marginTop: 100, flex: 0 }]}>
-                   <View style={[styles.emptyIconBg, isDark ? styles.iconBgDark : styles.iconBgLight]}>
-                      <Search size={72} color={isDark ? "#52525b" : "#d1d5db"} strokeWidth={2.5} />
-                   </View>
-                   <Text style={[styles.emptyTitle, isDark ? styles.textDark : styles.textLight]}>
+                <View style={styles.emptySearchState}>
+                   <Text style={[styles.emptySearchTitle, isDark ? styles.textDark : styles.textLight]}>
                       No result found
                    </Text>
-                   <Text style={[styles.emptySubtitle, isDark ? styles.subtextDark : styles.subtextLight]}>
+                   <Text style={[styles.emptySearchSubtitle, isDark ? styles.subtextDark : styles.subtextLight]}>
                       {emptyStateMessage}
                    </Text>
                 </View>
@@ -596,7 +496,7 @@ export default function RoutineScreen() {
         modalOpen={true}
         isDark={isDark}
         isFullScreenModal={false}
-        bottomOffset={20}
+        bottomOffset={16}
       />
 
       {/* Delete Confirmation Modal */}
@@ -607,22 +507,6 @@ export default function RoutineScreen() {
         onDelete={executeDelete}
       />
 
-      {/* Filter Modal */}
-      <RoutineFilterModal
-        visible={filterOpen}
-        isDark={isDark}
-        filterMinSteps={filterMinSteps}
-        filterMinDos={filterMinDos}
-        filterMinDonts={filterMinDonts}
-        hasChanges={hasChanges}
-        hasAnyApplied={isFilterApplied}
-        onClose={() => setFilterOpen(false)}
-        onStepsChange={handleStepsChange}
-        onDosChange={handleDosChange}
-        onDontsChange={handleDontsChange}
-        onReset={resetFilters}
-        onApply={applyFilters}
-      />
 
       {showSuccessAnimation && (
         <View style={styles.lottieOverlay} pointerEvents="none">
@@ -677,7 +561,7 @@ export default function RoutineScreen() {
       )}
 
       {/* Floating Action Button (FAB) and Separate Floating Menu Boxes */}
-      <View style={styles.fabWrapper} pointerEvents="box-none">
+      <View style={[styles.fabWrapper, { bottom: 16 }]} pointerEvents="box-none">
         {fabMenuOpen && (
           <View style={styles.fabMenuContainer}>
             {/* Box 1: Create Routine */}
@@ -826,19 +710,31 @@ const styles = StyleSheet.create({
     height: '100%',
     fontSize: 15,
   },
-  filterBtn: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 4,
-    borderRadius: 16, // Pill shape
-  },
   textLight: { color: '#111827' },
   textDark: { color: '#ffffff' },
   subtextLight: { color: '#6b7280' },
   subtextDark: { color: '#a1a1aa' },
   
+  emptySearchState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 48,
+    width: '100%',
+  },
+  emptySearchTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
+  emptySearchSubtitle: {
+    fontSize: 13,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
   emptyState: {
     flex: 1,
     alignItems: 'center',

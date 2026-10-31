@@ -24,8 +24,17 @@ import {
   ArrowRight,
   X
 } from 'lucide-react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withRepeat, 
+  withTiming, 
+  Easing,
+  FadeIn,
+  FadeOut
+} from 'react-native-reanimated';
 import { Colors } from '@/constants/theme';
-import { AddJournalQuestionDetailsSheet, AddJournalQuestionDetailsSheetRef } from '@/components/AddJournalQuestionDetailsSheet';
+import { AddJournalQuestionDetailsSheet, AddJournalQuestionDetailsSheetRef } from '@/components/journal/AddJournalQuestionDetailsSheet';
 
 export type QuestionDataType = 
   | 'multi_select'
@@ -192,6 +201,68 @@ export const DATA_TYPES: DataTypeOption[] = [
   },
 ];
 
+function CardSkeleton({ isDark }: { isDark: boolean }) {
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withTiming(0.85, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  const bgPlaceholder = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e5e7eb';
+
+  return (
+    <View
+      style={[
+        styles.horizontalCard,
+        isDark ? styles.cardDark : styles.cardLight,
+      ]}
+    >
+      <Animated.View style={[{ gap: 10 }, animatedStyle]}>
+        {/* Top Header Row Placeholder */}
+        <View style={styles.cardHeaderRow}>
+          <View style={[styles.cardIconWrap, { backgroundColor: bgPlaceholder }]} />
+          <View style={styles.cardHeaderContent}>
+            <View style={styles.titleAndPillRow}>
+              <View style={{ width: 110, height: 16, borderRadius: 6, backgroundColor: bgPlaceholder }} />
+              <View style={{ width: 68, height: 18, borderRadius: 999, backgroundColor: bgPlaceholder }} />
+            </View>
+            <View style={{ width: '85%', height: 12, borderRadius: 4, backgroundColor: bgPlaceholder, marginTop: 4 }} />
+          </View>
+        </View>
+
+        {/* Use Cases Box Placeholder */}
+        <View
+          style={[
+            styles.useCasesBox,
+            {
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)',
+            },
+          ]}
+        >
+          <View style={{ width: 60, height: 10, borderRadius: 3, backgroundColor: bgPlaceholder, marginBottom: 4 }} />
+          <View style={styles.useCasesGrid}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <View key={i} style={styles.useCaseItem}>
+                <View style={[styles.useCaseBulletDot, { backgroundColor: bgPlaceholder, borderColor: 'transparent' }]} />
+                <View style={{ width: '70%', height: 10, borderRadius: 3, backgroundColor: bgPlaceholder }} />
+              </View>
+            ))}
+          </View>
+        </View>
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function AddJournalQuestionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -200,10 +271,14 @@ export default function AddJournalQuestionScreen() {
   const { width: screenWidth } = Dimensions.get('window');
   const responsivePadding = Math.max(16, screenWidth * 0.05);
 
-  const primaryColor = Colors.light.primary;
 
-  // By default, nothing is selected
+
+  const primaryColor = Colors.light.primary;
   const [selectedType, setSelectedType] = useState<QuestionDataType | null>(null);
+
+  const [isReady, setIsReady] = useState(true);
+
+
 
   // Slide open tracking for Android hardware back button
   const [isSlideOpen, setIsSlideOpen] = useState(false);
@@ -247,7 +322,9 @@ export default function AddJournalQuestionScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: isDark ? '#121212' : '#f5f5f7' }]}>
+    <View 
+      style={[styles.root, { backgroundColor: isDark ? '#121212' : '#f5f5f7' }]}
+    >
       {/* ScrollView contains the header so it scrolls with content and doesn't stick to top */}
       <ScrollView
         style={styles.scrollView}
@@ -256,13 +333,15 @@ export default function AddJournalQuestionScreen() {
           { 
             paddingTop: insets.top + 10,
             paddingHorizontal: responsivePadding, 
-            paddingBottom: selectedType ? insets.bottom + 100 : insets.bottom + 28 
+            paddingBottom: selectedType ? Math.max(insets.bottom, 8) + 4 + 68 : insets.bottom + 28,
           }
         ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Navigation Bar / Header: Back Button + Centered Title */}
-        <View style={styles.header}>
+        <View 
+          style={styles.header}
+        >
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => [
@@ -294,10 +373,22 @@ export default function AddJournalQuestionScreen() {
         </View>
 
         {/* Horizontal Scrollable Data Type Cards List */}
-        <View style={styles.cardsList}>
-          {DATA_TYPES.map((item) => {
-            const IconComp = item.icon;
-            const isSelected = selectedType === item.type;
+        <View 
+          style={styles.cardsList}
+        >
+          {!isReady ? (
+            <>
+              <CardSkeleton isDark={isDark} />
+              <CardSkeleton isDark={isDark} />
+              <CardSkeleton isDark={isDark} />
+              <CardSkeleton isDark={isDark} />
+              <CardSkeleton isDark={isDark} />
+              <CardSkeleton isDark={isDark} />
+            </>
+          ) : (
+            DATA_TYPES.map((item, cardIndex) => {
+              const IconComp = item.icon;
+              const isSelected = selectedType === item.type;
             return (
               <Pressable
                 key={item.type}
@@ -307,11 +398,13 @@ export default function AddJournalQuestionScreen() {
                 style={({ pressed }) => [
                   styles.horizontalCard,
                   isDark ? styles.cardDark : styles.cardLight,
+                  pressed && {
+                    backgroundColor: isDark ? '#27272a' : '#f0f0f2',
+                  },
                   isSelected && {
                     borderColor: primaryColor,
                     borderWidth: 2.5, // Matches Select Photos border thickness
                   },
-                  { opacity: pressed ? 0.88 : 1 }
                 ]}
               >
                 {/* Checkmark in top-right corner of the whole card (a bit above the title) */}
@@ -401,19 +494,20 @@ export default function AddJournalQuestionScreen() {
                 </View>
               </Pressable>
             );
-          })}
-        </View>
+          })
+        )}
+      </View>
       </ScrollView>
 
-      {/* Floating Continue Button (no bottom shadow effect, balanced vertical gaps) */}
+      {/* Continue button — absolute positioned, always sticks to the bottom of the screen */}
       {selectedType && (
-        <View 
+        <View
           style={[
-            styles.floatingBottomContainer, 
-            { 
+            styles.floatingBottomContainer,
+            {
               left: responsivePadding,
               right: responsivePadding,
-              bottom: Math.max(insets.bottom, 16) + 8,
+              bottom: Math.max(insets.bottom, 8) + 4,
             }
           ]}
           pointerEvents="box-none"
@@ -552,10 +646,10 @@ export default function AddJournalQuestionScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-      {/* Slide / Bottom Sheet for Question Details */}
+      {/* Slide / Bottom Sheet for Question Details (Pre-measured in advance to eliminate the 750ms layout block and start animation under 100ms) */}
       <AddJournalQuestionDetailsSheet
         ref={detailsSheetRef}
-        selectedType={selectedType}
+        selectedType={selectedType || 'multi_select'}
         isDark={isDark}
         onDismiss={() => setIsSlideOpen(false)}
       />
@@ -609,18 +703,24 @@ const styles = StyleSheet.create({
   horizontalCard: {
     width: '100%',
     padding: 16,
-    borderRadius: 20,
-    borderWidth: 1.5,
+    borderRadius: 22,
+    borderWidth: 1,
     gap: 10,
     position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardLight: {
     backgroundColor: '#ffffff',
     borderColor: '#e5e7eb',
   },
   cardDark: {
-    backgroundColor: '#1c1c20',
-    borderColor: '#2b2b30',
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
   },
   checkCircle: {
     position: 'absolute',

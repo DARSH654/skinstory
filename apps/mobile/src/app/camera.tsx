@@ -9,6 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { Text } from '@/components/AppText';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import {
@@ -41,6 +42,9 @@ export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const howToSheetRef = useRef<BottomSheetModal>(null);
+
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
 
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -483,15 +487,17 @@ export default function CameraScreen() {
         enablePanDownToClose
         bottomInset={insets.bottom}
         backdropComponent={renderBackdrop}
-        handleIndicatorStyle={styles.sheetDragHandle}
-        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={[styles.sheetDragHandle, isDark ? { backgroundColor: '#3f3f46' } : { backgroundColor: '#d1d5db' }]}
+        backgroundStyle={[
+          styles.sheetBackground,
+          { backgroundColor: isDark ? '#121212' : '#ffffff' }
+        ]}
       >
         <BottomSheetView style={styles.sheetContent}>
           <View style={styles.sheetHeader}>
-            <View style={styles.sheetTitleRow}>
-              <Sparkles size={20} color="#937abd" />
-              <Text style={styles.sheetTitle}>How to take a scan</Text>
-            </View>
+            <Text style={[styles.sheetTitle, { color: isDark ? '#ffffff' : '#111827', textAlign: 'center' }]}>
+              How to take a scan
+            </Text>
           </View>
 
           <View style={styles.instructionList}>
@@ -499,7 +505,7 @@ export default function CameraScreen() {
               <View style={styles.instructionDot}>
                 <Check size={14} color="#ffffff" strokeWidth={3} />
               </View>
-              <Text style={styles.instructionText}>
+              <Text style={[styles.instructionText, isDark ? styles.instructionTextDark : styles.instructionTextLight]}>
                 Position your face inside the white corner guide brackets.
               </Text>
             </View>
@@ -508,7 +514,7 @@ export default function CameraScreen() {
               <View style={styles.instructionDot}>
                 <Check size={14} color="#ffffff" strokeWidth={3} />
               </View>
-              <Text style={styles.instructionText}>
+              <Text style={[styles.instructionText, isDark ? styles.instructionTextDark : styles.instructionTextLight]}>
                 Ensure bright, even lighting with no harsh shadows on your skin.
               </Text>
             </View>
@@ -517,7 +523,7 @@ export default function CameraScreen() {
               <View style={styles.instructionDot}>
                 <Check size={14} color="#ffffff" strokeWidth={3} />
               </View>
-              <Text style={styles.instructionText}>
+              <Text style={[styles.instructionText, isDark ? styles.instructionTextDark : styles.instructionTextLight]}>
                 Keep a neutral facial expression and remove glasses or hats.
               </Text>
             </View>
@@ -527,7 +533,7 @@ export default function CameraScreen() {
             style={styles.sheetGotItButton}
             onPress={() => howToSheetRef.current?.dismiss()}
           >
-            <Text style={styles.sheetGotItText}>Got It</Text>
+            <Text style={styles.sheetGotItText}>Got It!</Text>
           </Pressable>
         </BottomSheetView>
       </BottomSheetModal>
@@ -684,7 +690,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   instructionList: {
-    gap: 14,
+    gap: 16,
     marginBottom: 24,
   },
   instructionRow: {
@@ -703,13 +709,18 @@ const styles = StyleSheet.create({
   instructionText: {
     flex: 1,
     fontSize: 14,
-    color: '#d1d5db',
     lineHeight: 20,
+  },
+  instructionTextLight: {
+    color: '#1f2937',
+  },
+  instructionTextDark: {
+    color: '#e4e4e7',
   },
   sheetGotItButton: {
     backgroundColor: '#937abd',
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 9999,
     alignItems: 'center',
     justifyContent: 'center',
   },

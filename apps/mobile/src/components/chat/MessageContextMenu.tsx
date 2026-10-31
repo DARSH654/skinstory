@@ -9,9 +9,8 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Copy, TextSelect, Pencil, X, Trash2 } from 'lucide-react-native';
-import { Text } from '@/components/AppText';
 import { Message } from './types';
-import AppBottomSheet, { AppBottomSheetRef } from '@/components/common/AppBottomSheet';
+import SelectTextMessageSheet, { SelectTextMessageSheetRef } from './SelectTextMessageSheet';
 
 interface MessageContextMenuProps {
   message: Message;
@@ -30,7 +29,7 @@ export default function MessageContextMenu({
   onClose,
   onEdit,
 }: MessageContextMenuProps) {
-  const sheetRef = useRef<AppBottomSheetRef>(null);
+  const sheetRef = useRef<SelectTextMessageSheetRef>(null);
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(message.text);
@@ -112,7 +111,7 @@ export default function MessageContextMenu({
         </View>
       </View>
 
-      <AppBottomSheet
+      <SelectTextMessageSheet
         ref={sheetRef}
         snapPoints={['50%', '90%']}
         isDark={isDark}
@@ -141,7 +140,7 @@ export default function MessageContextMenu({
             </Text>
           </ScrollView>
         </View>
-      </AppBottomSheet>
+      </SelectTextMessageSheet>
     </>
   );
 }

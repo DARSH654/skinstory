@@ -30,7 +30,6 @@ const CustomDarkTheme = {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
-import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -86,27 +85,25 @@ export default function RootLayout() {
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <BottomSheetModalProvider>
-          <KeyboardProvider>
-            <ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
-              <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="camera" />
-                <Stack.Screen name="insight" />
-                <Stack.Screen name="select-scans" />
-                <Stack.Screen name="scan/[id]" options={{ headerShown: false }} />
-                <Stack.Screen name="streak" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="badges" options={{ headerShown: false, animation: 'slide_from_right' }} />
-                <Stack.Screen name="daily-journal" options={{ headerShown: false, animation: 'slide_from_right' }} />
-                <Stack.Screen name="add-journal-question" options={{ headerShown: false, animation: 'slide_from_right' }} />
-                <Stack.Screen name="new-chat" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              </Stack>
-              <AuthModal
-                visible={showAuthModal}
-                onClose={() => setShowAuthModal(false)}
-                onSuccess={() => setShowAuthModal(false)}
-              />
-            </ThemeProvider>
-          </KeyboardProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
+            <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="camera" />
+              <Stack.Screen name="insight" />
+              <Stack.Screen name="select-scans" />
+              <Stack.Screen name="scan/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="streak" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="badges" options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="daily-journal" options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="add-journal-question" options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="new-chat" options={{ headerShown: false, animation: 'slide_from_right' }} />
+            </Stack>
+            <AuthModal
+              visible={showAuthModal}
+              onClose={() => setShowAuthModal(false)}
+              onSuccess={() => setShowAuthModal(false)}
+            />
+          </ThemeProvider>
         </BottomSheetModalProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>

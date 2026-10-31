@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,17 +6,18 @@ import {
   useWindowDimensions,
   StatusBar,
   ScrollView,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Text } from '@/components/AppText';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { X, Flame, ArrowUpRight } from 'lucide-react-native';
-import Svg, { Polygon, Defs, LinearGradient as SvgGradient, Stop, Path } from 'react-native-svg';
-import { LinearGradient } from 'expo-linear-gradient';
+import { X, Flame } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
 import fireAnimation from '../../assets/animations/fire.json';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+
+const AnimatedLottieView = Animated.createAnimatedComponent(LottieView);
 
 interface DayItem {
   day: string;
@@ -33,101 +34,6 @@ const WEEK_DAYS: DayItem[] = [
   { day: 'Thu', isCompleted: false, dateStr: '08' },
   { day: 'Fri', isCompleted: false, dateStr: '09' },
 ];
-
-interface Badge {
-  days: number;
-  unlocked: boolean;
-  colorGrad: [string, string];
-  borderColor: string;
-  shadowColor: string;
-}
-
-const BADGES: Badge[] = [
-  {
-    days: 3,
-    unlocked: true,
-    colorGrad: ['#ff6b6b', '#ee5253'],
-    borderColor: '#ff8787',
-    shadowColor: '#ee5253',
-  },
-  {
-    days: 7,
-    unlocked: true,
-    colorGrad: ['#ff74a4', '#f04380'],
-    borderColor: '#ffa2c0',
-    shadowColor: '#f04380',
-  },
-  {
-    days: 14,
-    unlocked: false,
-    colorGrad: ['#9ca3af', '#6b7280'],
-    borderColor: '#cbd5e1',
-    shadowColor: '#6b7280',
-  },
-  {
-    days: 30,
-    unlocked: false,
-    colorGrad: ['#94a3b8', '#64748b'],
-    borderColor: '#cbd5e1',
-    shadowColor: '#64748b',
-  },
-  {
-    days: 60,
-    unlocked: false,
-    colorGrad: ['#d1d5db', '#9ca3af'],
-    borderColor: '#e5e7eb',
-    shadowColor: '#9ca3af',
-  },
-];
-
-function HexagonBadge({ badge }: { badge: Badge }) {
-  const W = 136;
-  const H = 150;
-  const gradId = `hexGrad-${badge.days}`;
-  const strokeGradId = `hexStroke-${badge.days}`;
-
-  // Sharp pointy-topped hexagon SVG points for 136x150 container
-  const points = '68,5 129,40 129,110 68,145 7,110 7,40';
-  const innerGlossPoints = '68,10 124,42 124,75 68,75 12,75 12,42';
-
-  return (
-    <View style={styles.badgeHexagonOuter}>
-      <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-        <Defs>
-          <SvgGradient id={gradId} x1="0" y1="0" x2="0.8" y2="1">
-            <Stop offset="0" stopColor={badge.colorGrad[0]} stopOpacity="1" />
-            <Stop offset="1" stopColor={badge.colorGrad[1]} stopOpacity="1" />
-          </SvgGradient>
-          <SvgGradient id={strokeGradId} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={badge.borderColor} stopOpacity="1" />
-            <Stop offset="1" stopColor="rgba(255,255,255,0.4)" stopOpacity="0.8" />
-          </SvgGradient>
-        </Defs>
-
-        {/* Outer Hexagon Shape */}
-        <Polygon
-          points={points}
-          fill={`url(#${gradId})`}
-          stroke={`url(#${strokeGradId})`}
-          strokeWidth="3.5"
-          strokeLinejoin="round"
-        />
-
-        {/* Top Gloss Highlight */}
-        <Polygon
-          points={innerGlossPoints}
-          fill="rgba(255, 255, 255, 0.22)"
-        />
-      </Svg>
-
-      {/* Centered Badge Number */}
-      <View style={styles.badgeTextCenter}>
-        <Text style={styles.badgeText}>{badge.days}</Text>
-        <Text style={styles.badgeDaysLabel}>DAYS</Text>
-      </View>
-    </View>
-  );
-}
 
 export default function StreakScreen() {
   const router = useRouter();
@@ -169,23 +75,23 @@ export default function StreakScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 24 },
+          { paddingBottom: insets.bottom + 90 },
         ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Animated Fire Icon Section */}
-        <View style={styles.fireWrapper}>
+        <View style={styles.fireWrapper} collapsable={false}>
           <LottieView
             source={fireAnimation}
             autoPlay
             loop
-            speed={1.2}
+            speed={1.5}
             style={{ width: 175, height: 175 }}
           />
         </View>
 
         {/* Title and Motivational Subtitle */}
-        <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.titleSection}>
+        <View style={styles.titleSection}>
           <Text style={[styles.mainTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
             5 Days Streaks
           </Text>
@@ -197,11 +103,10 @@ export default function StreakScreen() {
           >
             Great job! Just 2 more days to earn your trophy.
           </Text>
-        </Animated.View>
+        </View>
 
         {/* Days Tracker Card (Sat, Sun, Mon, Tue, Wed, Thu, Fri) */}
-        <Animated.View
-          entering={FadeInDown.delay(250).duration(500)}
+        <View
           style={[
             styles.weekCard,
             {
@@ -236,9 +141,7 @@ export default function StreakScreen() {
                           backgroundColor: isDark
                             ? 'rgba(147, 122, 189, 0.2)'
                             : '#f0ecf7',
-                          borderColor: isDark
-                            ? '#937abd'
-                            : '#937abd',
+                          borderColor: '#937abd',
                         },
                       ]}
                     >
@@ -282,52 +185,7 @@ export default function StreakScreen() {
               );
             })}
           </View>
-        </Animated.View>
-
-        {/* My Badges Card */}
-        <Animated.View
-          entering={FadeInDown.delay(350).duration(500)}
-          style={[
-            styles.badgesCard,
-            {
-              backgroundColor: isDark ? '#1c1c1e' : '#ffffff',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-            },
-          ]}
-        >
-          <View style={styles.badgesHeader}>
-            <Text style={[styles.badgesTitle, { color: isDark ? '#ffffff' : '#000000' }]}>
-              My Badges
-            </Text>
-            <Pressable
-              onPress={() => router.push('/badges')}
-              style={({ pressed }) => [
-                styles.viewAllBtn,
-                { opacity: pressed ? 0.7 : 1 }
-              ]}
-              hitSlop={8}
-            >
-              <Text style={[styles.viewAllText, { color: isDark ? '#ffffff' : '#000000' }]}>
-                View all achievements
-              </Text>
-              <ArrowUpRight size={17} color={isDark ? '#ffffff' : '#000000'} strokeWidth={2.6} />
-            </Pressable>
-          </View>
-
-          {/* Smooth free-sliding horizontal badges carousel */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.badgesScrollContent}
-            decelerationRate="normal"
-          >
-            {BADGES.map((b, idx) => (
-              <View key={idx} style={styles.badgeItem}>
-                <HexagonBadge badge={b} />
-              </View>
-            ))}
-          </ScrollView>
-        </Animated.View>
+        </View>
       </ScrollView>
 
       {/* Fixed Bottom "Let's go!" Button with consistent gap */}
@@ -402,9 +260,9 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 24,
     borderWidth: 1,
-    marginTop: 18,
-    paddingVertical: 20,
-    paddingHorizontal: 10,
+    marginTop: 36,
+    paddingVertical: 22,
+    paddingHorizontal: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
@@ -443,110 +301,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  /* My Badges Card */
-  badgesCard: {
-    width: '100%',
-    minHeight: 255,
-    borderRadius: 24,
-    borderWidth: 1,
-    paddingTop: 20,
-    paddingBottom: 22,
-    paddingHorizontal: 16,
-    marginTop: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  badgesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  badgesTitle: {
-    fontSize: 23,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-  },
-  viewAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  viewAllText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  /* Badges Carousel */
-  badgesScrollContent: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    gap: 18,
-  },
-  badgeItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeHexagonOuter: {
-    width: 136,
-    height: 150,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  badgeTextCenter: {
+  bottomBarFixed: {
     position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-  },
-  badgeText: {
-    fontSize: 40,
-    fontWeight: '900',
-    color: '#ffffff',
-    textShadowColor: 'rgba(0, 0, 0, 0.35)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-    lineHeight: 44,
-  },
-  badgeDaysLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: 'rgba(255, 255, 255, 0.85)',
-    letterSpacing: 1.4,
-    marginTop: -2,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-
-  /* Fixed Bottom Let's Go Button */
-  bottomBarFixed: {
     paddingHorizontal: 20,
-    paddingTop: 10,
-    backgroundColor: 'transparent',
+    paddingTop: 12,
   },
   letsGoBtn: {
     width: '100%',
-    height: 54,
-    borderRadius: 27,
-    alignItems: 'center',
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#937abd',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 4,
   },
   letsGoBtnText: {
-    color: '#ffffff',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    color: '#ffffff',
     letterSpacing: -0.2,
   },
 });

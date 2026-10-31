@@ -290,15 +290,23 @@ export default function ScanLandingScreen() {
                   <View style={{ position: 'relative', zIndex: 30 }}>
                     <Pressable 
                       onPress={() => setIsTimelineDropdownOpen(!isTimelineDropdownOpen)}
-                      style={[styles.filterChipButton, isDark ? styles.chipDark : styles.chipLight]}
+                      style={({ pressed }) => [
+                        styles.filterChipButton,
+                        {
+                          backgroundColor: pressed
+                            ? (isDark ? '#27272a' : '#f0f0f2')
+                            : (isDark ? '#18181b' : '#ffffff'),
+                          borderColor: isDark ? '#27272a' : '#e4e4e7',
+                        },
+                      ]}
                     >
                       <Text style={[styles.filterChipText, { color: isDark ? '#ffffff' : '#111827' }]}>
                         {getTimelineLabel()}
                       </Text>
                       {isTimelineDropdownOpen ? (
-                        <ChevronUp size={13} color={isDark ? '#a1a1aa' : '#6b7280'} />
+                        <ChevronUp size={14} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={2.75} />
                       ) : (
-                        <ChevronDown size={13} color={isDark ? '#a1a1aa' : '#6b7280'} />
+                        <ChevronDown size={14} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={2.75} />
                       )}
                     </Pressable>
 
@@ -935,6 +943,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   chipLight: {
     backgroundColor: '#ffffff',
@@ -946,7 +959,7 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   // Dropdown Overlay Menu

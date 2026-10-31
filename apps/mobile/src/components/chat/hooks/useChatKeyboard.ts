@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
+import { Keyboard, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import { useSharedValue, withTiming, runOnJS, useAnimatedStyle } from 'react-native-reanimated';
 
 export function useChatKeyboard(onKeyboardShow?: () => void, enabled: boolean = true) {
@@ -16,19 +16,27 @@ export function useChatKeyboard(onKeyboardShow?: () => void, enabled: boolean = 
     }
   }, [enabled, bottomInset, enabledShared, footerPad]);
 
-  useKeyboardHandler({
-    onStart: (e) => {
-      'worklet';
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
       if (!enabledShared.value) return;
-      footerPad.value = withTiming(
-        e.progress === 1 ? e.height + 8 : bottomInset + 8,
-        { duration: 180 }
-      );
-      if (e.progress === 1 && onKeyboardShow) {
-        runOnJS(onKeyboardShow)();
+      footerPad.value = withTiming(e.endCoordinates.height + 8, { duration: 180 });
+      if (onKeyboardShow) {
+        onKeyboardShow();
       }
-    },
-  });
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      footerPad.value = withTiming(bottomInset + 8, { duration: 180 });
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [bottomInset, enabledShared, footerPad, onKeyboardShow]);
 
   const footerStyle = useAnimatedStyle(() => ({
     paddingBottom: footerPad.value,

@@ -130,6 +130,49 @@ function ToggleSwitch({
   );
 }
 
+// Memoized modal action button that owns its disabled state so typing never re-renders the parent modal
+const MemoizedModalSubmitButton = React.memo(({
+  primaryColor,
+  isDark,
+  label,
+  onPress,
+  registerFieldMutated,
+  checkFormValid,
+}: {
+  primaryColor: string;
+  isDark: boolean;
+  label: string;
+  onPress: () => void;
+  registerFieldMutated: (cb: () => void) => void;
+  checkFormValid: () => boolean;
+}) => {
+  const [isDisabled, setIsDisabled] = React.useState(true);
+
+  const handleFieldMutated = React.useCallback(() => {
+    const valid = checkFormValid();
+    setIsDisabled((prev) => (prev !== !valid ? !valid : prev));
+  }, [checkFormValid]);
+
+  React.useEffect(() => {
+    registerFieldMutated(handleFieldMutated);
+  }, [registerFieldMutated, handleFieldMutated]);
+
+  return (
+    <Pressable
+      style={[
+        styles.modalActionBtn,
+        { backgroundColor: !isDisabled ? primaryColor : (isDark ? '#27272a' : '#e5e7eb') },
+      ]}
+      disabled={isDisabled}
+      onPress={onPress}
+    >
+      <Text style={[styles.confirmBtnText, { color: !isDisabled ? '#ffffff' : (isDark ? '#71717a' : '#9ca3af') }]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+});
+
 export default function ProfileScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
@@ -152,15 +195,15 @@ export default function ProfileScreen() {
 
   // Support Form Modal State
   const [showSupportModal, setShowSupportModal] = React.useState(false);
-  const [hasSupportIssue, setHasSupportIssue] = React.useState(false);
   const supportNameRef = React.useRef('');
   const supportEmailRef = React.useRef('');
   const supportIssueRef = React.useRef('');
+  const notifySupportMutatedRef = React.useRef<() => void>(() => {});
 
   // Feedback Form Modal State
   const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
-  const [hasFeedbackText, setHasFeedbackText] = React.useState(false);
   const feedbackTextRef = React.useRef('');
+  const notifyFeedbackMutatedRef = React.useRef<() => void>(() => {});
 
   const primary = Colors.light.primary;
 
@@ -263,10 +306,18 @@ export default function ProfileScreen() {
         <View style={styles.topHeader}>
           <Pressable
             onPress={() => router.back()}
-            style={styles.topBackBtn}
-            hitSlop={15}
+            style={({ pressed }) => [
+              styles.topBackBtn,
+              {
+                backgroundColor: pressed
+                  ? (isDark ? '#27272a' : '#f0f0f2')
+                  : (isDark ? '#18181b' : '#ffffff'),
+                borderColor: isDark ? '#27272a' : '#e5e7eb',
+              },
+            ]}
+            hitSlop={10}
           >
-            <ChevronLeft size={26} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.4} />
+            <ChevronLeft size={20} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.4} />
           </Pressable>
         </View>
 
@@ -289,34 +340,43 @@ export default function ProfileScreen() {
         <View style={styles.content}>
 
           {/* Name */}
-          <Text style={[styles.sectionTitle, isDark ? styles.textDark : styles.textLight]}>Name</Text>
-          <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
+          <Text style={[styles.inputSectionHeading, isDark ? styles.textDark : styles.textLight]}>Name</Text>
+          <View style={[styles.card, styles.inputCard, isDark ? styles.cardDark : styles.cardLight]}>
             <TextInput
               key={`profile-name-input-${name ? 'loaded' : 'empty'}`}
               style={[styles.fieldInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
               placeholder="Enter your name"
-              placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
+              placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
               defaultValue={name}
               onChangeText={handleNameChange}
               maxLength={20}
-              returnKeyType="next"
+              autoCapitalize="none"
               autoCorrect={false}
+              spellCheck={false}
+              multiline={false}
+              scrollEnabled={false}
+              returnKeyType="done"
+              blurOnSubmit={true}
             />
           </View>
 
           {/* Email */}
-          <Text style={[styles.sectionTitle, isDark ? styles.textDark : styles.textLight, { marginTop: 22 }]}>Email</Text>
-          <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
+          <Text style={[styles.inputSectionHeading, isDark ? styles.textDark : styles.textLight, { marginTop: 18 }]}>Email</Text>
+          <View style={[styles.card, styles.inputCard, isDark ? styles.cardDark : styles.cardLight]}>
             <TextInput
               key={`profile-email-input-${email ? 'loaded' : 'empty'}`}
               style={[styles.fieldInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
               placeholder="Enter your email"
-              placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
+              placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
               defaultValue={email}
               onChangeText={handleEmailChange}
-              keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+              multiline={false}
+              scrollEnabled={false}
               returnKeyType="done"
+              blurOnSubmit={true}
             />
           </View>
 
@@ -325,32 +385,6 @@ export default function ProfileScreen() {
             Permissions
           </Text>
           <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
-
-            {/* Make routines public — routine clock tab icon + info button */}
-            <View style={styles.row}>
-              <CustomClockIcon size={20} color={isDark ? '#a1a1aa' : '#6b7280'} />
-              <View style={styles.labelWithInfo}>
-                <Text style={[styles.rowText, isDark ? styles.textDark : styles.textLight]}>
-                  Make your routines public
-                </Text>
-                <Pressable
-                  onPress={() => setShowPublicModal(true)}
-                  hitSlop={8}
-                  style={styles.infoBtn}
-                >
-                  <Info size={16} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={2} />
-                </Pressable>
-              </View>
-              <ToggleSwitch
-                value={isPublic}
-                onValueChange={setIsPublic}
-                activeColor={primary}
-                isDark={isDark}
-              />
-            </View>
-
-            <View style={[styles.divider, isDark ? styles.dividerDark : styles.dividerLight]} />
-
             {/* Allow Notifications — plain bell, muted color, no circle */}
             <View style={styles.row}>
               <Bell size={18} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={2} />
@@ -424,7 +458,6 @@ export default function ProfileScreen() {
                 supportNameRef.current = nameRef.current || name;
                 supportEmailRef.current = emailRef.current || email;
                 supportIssueRef.current = '';
-                setHasSupportIssue(false);
                 setShowSupportModal(true);
               }}
             >
@@ -444,7 +477,6 @@ export default function ProfileScreen() {
               style={styles.option}
               onPress={() => {
                 feedbackTextRef.current = '';
-                setHasFeedbackText(false);
                 setShowFeedbackModal(true);
               }}
             >
@@ -669,7 +701,7 @@ export default function ProfileScreen() {
               key={`profile-delete-${showDeleteModal ? 'open' : 'closed'}`}
               style={[styles.deleteInput, isDark ? styles.deleteInputDark : styles.deleteInputLight]}
               placeholder="delete"
-              placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
+              placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
               defaultValue={deleteInputRef.current}
               onChangeText={(val) => {
                 deleteInputRef.current = val;
@@ -680,11 +712,20 @@ export default function ProfileScreen() {
               }}
               autoCapitalize="none"
               autoCorrect={false}
+              spellCheck={false}
+              multiline={false}
+              scrollEnabled={false}
+              returnKeyType="done"
+              blurOnSubmit={true}
             />
 
             <View style={styles.modalBtnRow}>
               <Pressable
-                style={[styles.modalActionBtn, isDark ? styles.cancelBtnDark : styles.cancelBtnLight]}
+                style={({ pressed }) => [
+                  styles.modalActionBtn,
+                  isDark ? styles.cancelBtnDark : styles.cancelBtnLight,
+                  { opacity: pressed ? 0.75 : 1 },
+                ]}
                 onPress={() => {
                   deleteInputRef.current = '';
                   setCanDelete(false);
@@ -697,9 +738,9 @@ export default function ProfileScreen() {
               </Pressable>
 
               <Pressable
-                style={[
+                style={({ pressed }) => [
                   styles.modalActionBtn,
-                  { backgroundColor: canDelete ? '#ef4444' : (isDark ? '#27272a' : '#e5e7eb') },
+                  { backgroundColor: canDelete ? '#ef4444' : (isDark ? '#27272a' : '#e5e7eb'), opacity: pressed ? 0.85 : 1 },
                 ]}
                 disabled={!canDelete}
                 onPress={() => {
@@ -733,9 +774,10 @@ export default function ProfileScreen() {
             onPress={(e) => e.stopPropagation()}
           >
             <ScrollView
-              showsVerticalScrollIndicator={true}
+              showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingBottom: 8 }}
+              style={{ overflow: 'visible' }}
+              contentContainerStyle={{ paddingHorizontal: 4, paddingBottom: 8 }}
             >
               {/* Header row */}
               <View style={styles.largeModalHeader}>
@@ -747,59 +789,69 @@ export default function ProfileScreen() {
                     Get Support
                   </Text>
                   <Text style={[styles.modalDescTwoLines, isDark ? styles.modalDescDark : styles.modalDescLight]}>
-                    Tell us what issue you are facing and{'\n'}our support team will help you promptly.
+                    Tell us what issue you are facing and our support team will help you promptly.
                   </Text>
                 </View>
               </View>
 
               {/* Name */}
               <Text style={[styles.formFieldLabel, isDark ? styles.textDark : styles.textLight]}>Name</Text>
-              <View style={[styles.formFieldCard, isDark ? styles.cardDark : styles.cardLight]}>
+              <View style={[styles.formFieldCard, styles.inputCard, isDark ? styles.cardDark : styles.cardLight]}>
                 <TextInput
                   key={`support-name-${showSupportModal ? 'open' : 'closed'}`}
-                  style={[styles.formFieldInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
+                  style={[styles.fieldInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
                   placeholder="Enter your name"
-                  placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
+                  placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
                   defaultValue={supportNameRef.current}
                   onChangeText={(val) => { supportNameRef.current = val; }}
+                  autoCapitalize="none"
                   autoCorrect={false}
+                  spellCheck={false}
+                  multiline={false}
+                  scrollEnabled={false}
+                  returnKeyType="done"
+                  blurOnSubmit={true}
                 />
               </View>
 
               {/* Email */}
               <Text style={[styles.formFieldLabel, isDark ? styles.textDark : styles.textLight, { marginTop: 14 }]}>Email</Text>
-              <View style={[styles.formFieldCard, isDark ? styles.cardDark : styles.cardLight]}>
+              <View style={[styles.formFieldCard, styles.inputCard, isDark ? styles.cardDark : styles.cardLight]}>
                 <TextInput
                   key={`support-email-${showSupportModal ? 'open' : 'closed'}`}
-                  style={[styles.formFieldInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
+                  style={[styles.fieldInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
                   placeholder="Enter your email"
-                  placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
+                  placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
                   defaultValue={supportEmailRef.current}
                   onChangeText={(val) => { supportEmailRef.current = val; }}
-                  keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  spellCheck={false}
+                  multiline={false}
+                  scrollEnabled={false}
+                  returnKeyType="done"
+                  blurOnSubmit={true}
                 />
               </View>
 
-              {/* Message */}
-              <Text style={[styles.formFieldLabel, isDark ? styles.textDark : styles.textLight, { marginTop: 14 }]}>Your Message</Text>
-              <View style={[styles.formFieldCard, isDark ? styles.cardDark : styles.cardLight]}>
+              {/* Message (Text Area) */}
+              <Text style={[styles.formFieldLabel, isDark ? styles.textDark : styles.textLight, { marginTop: 14 }]}>Your message</Text>
+              <View style={[styles.formFieldCardArea, isDark ? styles.cardDark : styles.cardLight]}>
                 <TextInput
                   key={`support-issue-${showSupportModal ? 'open' : 'closed'}`}
-                  style={[styles.formFieldInput, styles.largeFormMessageInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
-                  placeholder="Describe your issue in detail..."
-                  placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
+                  style={[styles.formTextAreaInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
+                  placeholder="Describe your issue..."
+                  placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
                   defaultValue={supportIssueRef.current}
                   onChangeText={(val) => {
                     supportIssueRef.current = val;
-                    const has = val.trim().length > 0;
-                    if (has !== hasSupportIssue) {
-                      setHasSupportIssue(has);
-                    }
+                    notifySupportMutatedRef.current();
                   }}
-                  multiline
-                  textAlignVertical="top"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  spellCheck={false}
+                  multiline={true}
+                  returnKeyType="default"
                 />
               </View>
 
@@ -814,25 +866,20 @@ export default function ProfileScreen() {
                   </Text>
                 </Pressable>
 
-                <Pressable
-                  style={[
-                    styles.modalActionBtn,
-                    { backgroundColor: hasSupportIssue ? primary : (isDark ? '#27272a' : '#e5e7eb') },
-                  ]}
-                  disabled={!hasSupportIssue}
+                <MemoizedModalSubmitButton
+                  primaryColor={primary}
+                  isDark={isDark}
+                  label="Submit"
+                  checkFormValid={() => supportIssueRef.current.trim().length > 0}
+                  registerFieldMutated={(cb) => { notifySupportMutatedRef.current = cb; }}
                   onPress={() => {
                     supportNameRef.current = '';
                     supportEmailRef.current = '';
                     supportIssueRef.current = '';
-                    setHasSupportIssue(false);
                     setShowSupportModal(false);
                     Alert.alert('Request Sent', 'Thank you! Our support team has received your request and will contact you shortly.');
                   }}
-                >
-                  <Text style={[styles.confirmBtnText, { color: hasSupportIssue ? '#ffffff' : (isDark ? '#71717a' : '#9ca3af') }]}>
-                    Submit
-                  </Text>
-                </Pressable>
+                />
               </View>
             </ScrollView>
           </Pressable>
@@ -855,9 +902,10 @@ export default function ProfileScreen() {
             onPress={(e) => e.stopPropagation()}
           >
             <ScrollView
-              showsVerticalScrollIndicator={true}
+              showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingBottom: 8 }}
+              style={{ overflow: 'visible' }}
+              contentContainerStyle={{ paddingHorizontal: 4, paddingBottom: 8 }}
             >
               <View style={{ alignItems: 'center' }}>
                 <View style={[styles.modalIconWrap, isDark ? styles.modalIconWrapDark : styles.modalIconWrapLight]}>
@@ -869,27 +917,27 @@ export default function ProfileScreen() {
                 </Text>
 
                 <Text style={[styles.modalDescTwoLines, { textAlign: 'center', marginBottom: 18 }, isDark ? styles.modalDescDark : styles.modalDescLight]}>
-                  We'd love to know what you think of Skin Story{'\n'}and how we can make your experience even better!
+                  We'd love to know what you think of Skin Story and how we can make your experience even better!
                 </Text>
               </View>
 
-              {/* Feedback Description Area (Bigger) */}
-              <View style={[styles.formFieldCard, isDark ? styles.cardDark : styles.cardLight]}>
+              {/* Feedback Description Area (Text Area) */}
+              <View style={[styles.formFieldCardArea, isDark ? styles.cardDark : styles.cardLight]}>
                 <TextInput
                   key={`feedback-text-${showFeedbackModal ? 'open' : 'closed'}`}
-                  style={[styles.formFieldInput, styles.largeFeedbackTextarea, isDark ? styles.inputTextDark : styles.inputTextLight]}
-                  placeholder="Write your suggestions, bugs, or thoughts here..."
-                  placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
+                  style={[styles.formTextAreaInput, isDark ? styles.inputTextDark : styles.inputTextLight]}
+                  placeholder="Write your feedback..."
+                  placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
                   defaultValue={feedbackTextRef.current}
                   onChangeText={(val) => {
                     feedbackTextRef.current = val;
-                    const has = val.trim().length > 0;
-                    if (has !== hasFeedbackText) {
-                      setHasFeedbackText(has);
-                    }
+                    notifyFeedbackMutatedRef.current();
                   }}
-                  multiline
-                  textAlignVertical="top"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  spellCheck={false}
+                  multiline={true}
+                  returnKeyType="default"
                 />
               </View>
 
@@ -903,23 +951,18 @@ export default function ProfileScreen() {
                   </Text>
                 </Pressable>
 
-                <Pressable
-                  style={[
-                    styles.modalActionBtn,
-                    { backgroundColor: hasFeedbackText ? primary : (isDark ? '#27272a' : '#e5e7eb') },
-                  ]}
-                  disabled={!hasFeedbackText}
+                <MemoizedModalSubmitButton
+                  primaryColor={primary}
+                  isDark={isDark}
+                  label="Submit"
+                  checkFormValid={() => feedbackTextRef.current.trim().length > 0}
+                  registerFieldMutated={(cb) => { notifyFeedbackMutatedRef.current = cb; }}
                   onPress={() => {
                     feedbackTextRef.current = '';
-                    setHasFeedbackText(false);
                     setShowFeedbackModal(false);
                     Alert.alert('Feedback Received', 'Thank you for helping us improve Skin Story!');
                   }}
-                >
-                  <Text style={[styles.confirmBtnText, { color: hasFeedbackText ? '#ffffff' : (isDark ? '#71717a' : '#9ca3af') }]}>
-                    Submit
-                  </Text>
-                </Pressable>
+                />
               </View>
             </ScrollView>
           </Pressable>
@@ -969,30 +1012,53 @@ const styles = StyleSheet.create({
   /* Content */
   content: { paddingTop: 16 },
 
-  /* Section title — matches Appearance style and aligned with text inside cards */
+  /* Section title — sentence case (first letter capital), aligned with cards */
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: -0.2,
     marginBottom: 8,
-    paddingLeft: 16,
-    opacity: 0.5,
+    paddingLeft: 4,
+  },
+  inputSectionHeading: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    marginBottom: 4,
+    paddingLeft: 4,
   },
   textLight: { color: '#111827' },
   textDark: { color: '#ffffff' },
 
-  /* Card */
-  card: { borderRadius: 16, overflow: 'hidden' },
+  /* Card — uplifted like progress report cards */
+  card: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
   cardLight: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e5e7eb' },
   cardDark: { backgroundColor: '#18181b', borderWidth: 1, borderColor: '#27272a' },
+  inputCard: {
+    borderRadius: 999,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
+  },
 
-  /* Text input inside card */
+  /* Text input inside card — matches AddJournalQuestionDetailsSheet titleInput styling */
   fieldInput: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: 14,
     paddingHorizontal: 16,
-    paddingVertical: 15,
+    paddingVertical: 10,
+    height: 48,
   },
   inputTextLight: { color: '#111827' },
   inputTextDark: { color: '#ffffff' },
@@ -1014,7 +1080,7 @@ const styles = StyleSheet.create({
   infoBtn: {
     padding: 2,
   },
-  rowText: { fontSize: 15, fontWeight: '500' },
+  rowText: { fontSize: 14, fontWeight: '700' },
 
   /* Divider — inset on both sides so it doesn't touch card edges */
   divider: { height: 1, marginHorizontal: 16 },
@@ -1024,7 +1090,7 @@ const styles = StyleSheet.create({
   /* Appearance option rows */
   option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
   optionLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  optionText: { fontSize: 16, fontWeight: '500' },
+  optionText: { fontSize: 14, fontWeight: '700' },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#d1d5db' },
   radioActive: { borderColor: Colors.light.primary, borderWidth: 6 },
 
@@ -1049,12 +1115,14 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   modalCardLight: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FAF8F6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   modalCardDark: {
-    backgroundColor: '#1f1f23',
+    backgroundColor: '#121212',
     borderWidth: 1,
-    borderColor: '#2e2e34',
+    borderColor: '#2b2b30',
   },
   modalIconWrap: {
     width: 52,
@@ -1063,6 +1131,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   modalTitle: {
     fontSize: 18,
@@ -1085,14 +1158,19 @@ const styles = StyleSheet.create({
   modalCloseBtn: {
     width: '100%',
     paddingVertical: 13,
-    borderRadius: 14,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   modalCloseBtnText: {
     color: '#ffffff',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   /* Bottom Account Action Buttons (Side by Side) */
@@ -1106,9 +1184,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 16,
+    paddingVertical: 13,
+    borderRadius: 999,
     gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   logoutBtnLight: {
     backgroundColor: '#ffffff',
@@ -1122,14 +1205,14 @@ const styles = StyleSheet.create({
   },
   logoutBtnText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   deleteBtn: {
     backgroundColor: '#ef4444',
   },
   deleteBtnText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#ffffff',
   },
 
@@ -1146,10 +1229,14 @@ const styles = StyleSheet.create({
 
   /* Modal Icon Wraps */
   modalIconWrapLight: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   modalIconWrapDark: {
-    backgroundColor: '#27272a',
+    backgroundColor: '#18181b',
+    borderWidth: 1,
+    borderColor: '#27272a',
   },
 
   /* Modal Action Rows & Inputs */
@@ -1162,24 +1249,33 @@ const styles = StyleSheet.create({
   modalActionBtn: {
     flex: 1,
     paddingVertical: 13,
-    borderRadius: 14,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   cancelBtnLight: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   cancelBtnDark: {
-    backgroundColor: '#27272a',
+    backgroundColor: '#18181b',
+    borderWidth: 1,
+    borderColor: '#27272a',
   },
   cancelBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   confirmBtnText: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   deleteInstruction: {
     fontSize: 13,
@@ -1195,36 +1291,48 @@ const styles = StyleSheet.create({
   deleteInput: {
     width: '100%',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    fontSize: 15,
+    paddingVertical: 10,
+    borderRadius: 999,
+    fontSize: 14,
+    height: 48,
     textAlign: 'center',
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
   },
   deleteInputLight: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e5e7eb',
     color: '#111827',
   },
   deleteInputDark: {
-    backgroundColor: '#18181b',
+    backgroundColor: '#1c1c20',
     borderWidth: 1,
-    borderColor: '#27272a',
+    borderColor: '#2b2b30',
     color: '#ffffff',
   },
 
   /* Top Back Button Header */
   topHeader: {
     paddingHorizontal: 0,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   topBackBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'flex-start',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   /* Support & Feedback Form Modal Inputs (legacy — kept for feedback modal) */
@@ -1254,6 +1362,9 @@ const styles = StyleSheet.create({
     maxHeight: '88%',
     borderRadius: 24,
     padding: 22,
+    backgroundColor: '#FAF8F6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
@@ -1269,6 +1380,7 @@ const styles = StyleSheet.create({
   modalDescTwoLines: {
     fontSize: 13,
     lineHeight: 19,
+    flexWrap: 'wrap',
   },
 
   /* Large Feedback Modal Card */
@@ -1278,6 +1390,9 @@ const styles = StyleSheet.create({
     maxHeight: '85%',
     borderRadius: 24,
     padding: 22,
+    backgroundColor: '#FAF8F6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
@@ -1288,30 +1403,41 @@ const styles = StyleSheet.create({
     minHeight: 140,
     textAlignVertical: 'top',
     paddingTop: 14,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    fontWeight: '700',
   },
 
   /* Profile-style form field labels and cards inside Support & Feedback modals */
   formFieldLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    opacity: 0.5,
-    marginBottom: 6,
+    letterSpacing: -0.2,
+    marginBottom: 4,
+    paddingLeft: 4,
   },
   formFieldCard: {
-    borderRadius: 14,
+    borderRadius: 999,
     overflow: 'hidden',
   },
-  formFieldInput: {
-    fontSize: 15,
-    fontWeight: '400',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+  formFieldCardArea: {
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  largeFormMessageInput: {
-    minHeight: 110,
+  formTextAreaInput: {
+    fontSize: 14,
+    lineHeight: 20,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+    height: 80,
+    maxHeight: 80,
     textAlignVertical: 'top',
-    paddingTop: 13,
   },
 });

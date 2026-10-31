@@ -8,19 +8,19 @@ import {
 } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export interface AppBottomSheetRef {
+export interface SelectTextMessageSheetRef {
   present: () => void;
   dismiss: () => void;
 }
 
-export interface AppBottomSheetProps {
+export interface SelectTextMessageSheetProps {
   snapPoints?: string[];
   isDark: boolean;
   onClose?: () => void;
   children: React.ReactNode;
 }
 
-export const AppBottomSheet = forwardRef<AppBottomSheetRef, AppBottomSheetProps>(
+export const SelectTextMessageSheet = forwardRef<SelectTextMessageSheetRef, SelectTextMessageSheetProps>(
   ({ snapPoints = ['45%'], isDark, onClose, children }, ref) => {
     const insets = useSafeAreaInsets();
     const bottomSheetModalRef = useRef<BottomSheetModal>(null);
@@ -72,7 +72,7 @@ export const AppBottomSheet = forwardRef<AppBottomSheetRef, AppBottomSheetProps>
   }
 );
 
-export default AppBottomSheet;
+export default SelectTextMessageSheet;
 
 const styles = StyleSheet.create({
   roundedTop: {
