@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Message } from '../types';
+import { fetchGeminiChatResponse } from '@/services/geminiChat';
 
 export function useChatMessages() {
   // Store all messages created in the conversation tree
@@ -61,7 +62,15 @@ export function useChatMessages() {
   }, [currentLeafId]);
 
   const handleSendMessage = (textToSend?: string) => {
-    const content = (textToSend || inputText).trim();
+    const rawContent = textToSend ?? inputText;
+    const content = rawContent.trim();
+    console.log('[useChatMessages] handleSendMessage invoked:', {
+      rawContent,
+      trimmedContent: content,
+      rawLength: rawContent?.length,
+      trimmedLength: content?.length,
+      lastCharacters: content ? content.slice(-10) : '',
+    });
     if (!content || isBotThinking) return;
 
     const now = Date.now();
@@ -94,21 +103,25 @@ export function useChatMessages() {
     setIsBotThinking(true);
     setRegeneratingMessageId(null);
 
-    // Simulate smart AI skincare response
-    setTimeout(() => {
-      let aiResponseText =
-        'Based on your recent scan metrics, keeping your skin barrier balanced is key. Maintaining steady hydration and gentle cleansing will help your skin repair effectively.';
-
-      const lower = content.toLowerCase();
-      if (lower.includes('hydration') || lower.includes('dry')) {
+    // Call real Gemini AI model
+    (async () => {
+      let aiResponseText = '';
+      try {
+        const history = messages.map((m) => ({
+          sender: m.sender,
+          text: m.text,
+        }));
+        console.log('[useChatMessages] Sending to Gemini API with history count:', history.length);
+        aiResponseText = await fetchGeminiChatResponse(history, content);
+        console.log('[useChatMessages] Received Gemini response:', {
+          length: aiResponseText?.length,
+          snippet: aiResponseText?.slice(0, 50),
+          tail: aiResponseText ? aiResponseText.slice(-30) : '',
+        });
+      } catch (err) {
+        console.warn('[Chat] Gemini generation failed:', err);
         aiResponseText =
-          'Your moisture barrier thrives on gentle humectants. Incorporate hyaluronic acid on damp skin followed by a ceramide-rich moisturizer to seal in hydration throughout the day.';
-      } else if (lower.includes('routine') || lower.includes('order')) {
-        aiResponseText =
-          'Ideal skincare order: Cleanser -> Toner/Essence -> Targeted Treatment (Serums) -> Moisturizer -> Sunscreen (AM). Let each layer absorb for 30–60 seconds.';
-      } else if (lower.includes('scan') || lower.includes('compare') || lower.includes('score')) {
-        aiResponseText =
-          'Comparing your latest scans indicates steady recovery around the cheek and forehead zones. Continue tracking daily to catch barrier sensitivity early.';
+          'Based on your skin profile, keeping your skin barrier balanced is key. Maintaining steady hydration and gentle cleansing will help your skin repair effectively.';
       }
 
       const aiNow = Date.now();
@@ -139,7 +152,7 @@ export function useChatMessages() {
       setCurrentLeafId(aiMsgId);
       setIsBotThinking(false);
       setRegeneratingMessageId(null);
-    }, 1100);
+    })();
   };
 
   const regenerateAiResponse = (targetAiMessage: Message, promptText: string) => {
@@ -197,21 +210,21 @@ export function useChatMessages() {
     setIsBotThinking(true);
     setRegeneratingMessageId(newAiMsgId);
 
-    // 3. Complete generation after delay and fill in final text
-    setTimeout(() => {
-      const lower = promptText.toLowerCase();
-      let regeneratedVariation =
-        'To optimize your current skin results, ensure consistent barrier protection and gentle application. Focus on lightweight formulas and adequate SPF during daylight.';
-
-      if (lower.includes('hydration') || lower.includes('dry')) {
+    // 3. Fetch real Gemini regeneration
+    (async () => {
+      let regeneratedVariation = '';
+      try {
+        const history = messages
+          .filter((m) => m.id !== targetAiMessage.id && m.id !== newAiMsgId)
+          .map((m) => ({
+            sender: m.sender,
+            text: m.text,
+          }));
+        regeneratedVariation = await fetchGeminiChatResponse(history, promptText);
+      } catch (err) {
+        console.warn('[Chat] Gemini regeneration failed:', err);
         regeneratedVariation =
-          'Alternative hydration tip: Layer a soothing hydrating mist between serum and moisturizer. Look for glycerin, panthenol, and beta-glucan for deep, long-lasting barrier resilience.';
-      } else if (lower.includes('routine') || lower.includes('order')) {
-        regeneratedVariation =
-          'Simplified routine option: Keep it minimalist with a low-pH cleanser, barrier repairing lotion, and daily broad-spectrum SPF 50. Less is often more when repairing sensitivity.';
-      } else if (lower.includes('scan') || lower.includes('compare') || lower.includes('score')) {
-        regeneratedVariation =
-          'Looking closer at your skin mapping, redness and oil balance show progressive improvement. Consistency over 14 days will yield the clearest trend.';
+          'To optimize your current skin results, ensure consistent barrier protection and gentle application. Focus on lightweight formulas and adequate SPF during daylight.';
       }
 
       setMessagesMap((prev) => {
@@ -248,7 +261,7 @@ export function useChatMessages() {
 
       setIsBotThinking(false);
       setRegeneratingMessageId(null);
-    }, 1100);
+    })();
   };
 
   // Switch versions / branches at a specific message

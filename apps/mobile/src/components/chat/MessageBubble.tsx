@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet, Animated, Easing, TouchableOpacity, Pressable, GestureResponderEvent } from 'react-native';
+import { View, StyleSheet, Animated, Easing, TouchableOpacity, Pressable, GestureResponderEvent, Text as RNText, TextInput } from 'react-native';
 import { Copy, ThumbsUp, ThumbsDown, RotateCw, Trash2, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/AppText';
@@ -96,7 +96,8 @@ export default function MessageBubble({
                 ? [
                     styles.bubbleUser,
                     {
-                      backgroundColor: isDark ? '#27272a' : '#f3f4f6',
+                      backgroundColor: isDark ? '#18181b' : '#ffffff',
+                      borderColor: isDark ? '#27272a' : '#e4e4e7',
                     },
                   ]
                 : styles.bubbleAiPlain,
@@ -107,16 +108,28 @@ export default function MessageBubble({
                 <TypingIndicator isDark={isDark} />
               </View>
             ) : (
-              <Text
-                style={[
-                  styles.messageText,
-                  {
-                    color: isDark ? '#ffffff' : '#000000',
-                  },
-                ]}
-              >
-                {message.text}
-              </Text>
+              (() => {
+                console.log(`[MessageBubble] Rendering ${message.sender} msg (${message.id}):`, {
+                  text: message.text,
+                  length: message.text?.length,
+                  lastWord: message.text ? message.text.slice(-10) : '',
+                });
+                return (
+                  <TextInput
+                    editable={false}
+                    multiline={true}
+                    scrollEnabled={false}
+                    pointerEvents="none"
+                    underlineColorAndroid="transparent"
+                    style={[
+                      isUser ? styles.userChatText : styles.aiChatText,
+                      styles.chatTextInputMessage,
+                      { color: isDark ? '#ffffff' : '#000000' },
+                    ]}
+                    value={message.text}
+                  />
+                );
+              })()
             )}
           </View>
         </TouchableOpacity>
@@ -338,6 +351,12 @@ const styles = StyleSheet.create({
   },
   bubbleUser: {
     borderBottomRightRadius: 4,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   bubbleAiPlain: {
     paddingHorizontal: 0,
@@ -345,10 +364,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 0,
   },
-  messageText: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '500',
+  chatTextInputMessage: {
+    padding: 0,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    includeFontPadding: false,
+  },
+  userChatText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  aiChatText: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '700',
   },
   actionRow: {
     flexDirection: 'row',

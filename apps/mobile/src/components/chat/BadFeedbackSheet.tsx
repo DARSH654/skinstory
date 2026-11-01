@@ -129,9 +129,6 @@ const BadFeedbackSheet = forwardRef<BadFeedbackSheetRef, BadFeedbackSheetProps>(
 
   const bg = isDark ? '#121212' : '#FAF8F6';
   const textColor = isDark ? '#ffffff' : '#111827';
-  const subColor = isDark ? '#a1a1aa' : '#71717a';
-  const inputBg = isDark ? '#27272a' : '#f9fafb';
-  const inputBorder = isDark ? '#3f3f46' : '#e5e7eb';
 
   return (
     <BottomSheetModal
@@ -174,14 +171,16 @@ const BadFeedbackSheet = forwardRef<BadFeedbackSheetRef, BadFeedbackSheetProps>(
                 style={[
                   styles.pill,
                   {
-                    backgroundColor: isSelected ? Colors.light.primary : (isDark ? '#27272a' : '#f4f4f5'),
+                    backgroundColor: isSelected
+                      ? Colors.light.primary
+                      : (isDark ? '#18181b' : '#ffffff'),
                     borderColor: isSelected
                       ? (isDark ? '#ffffff' : '#000000')
-                      : (isDark ? '#3f3f46' : '#e5e7eb'),
+                      : (isDark ? '#27272a' : '#e4e4e7'),
                   },
                 ]}
               >
-                <Text style={[styles.pillText, { color: isSelected ? '#ffffff' : subColor }]}>
+                <Text style={[styles.pillText, { color: isSelected ? '#ffffff' : (isDark ? '#ffffff' : '#111827') }]}>
                   {tag}
                 </Text>
               </TouchableOpacity>
@@ -194,27 +193,35 @@ const BadFeedbackSheet = forwardRef<BadFeedbackSheetRef, BadFeedbackSheetProps>(
           Having any other issue:
         </Text>
 
-        {/* Text input */}
-        <BottomSheetTextInput
-          key={`comment-${pills.length}`}
+        {/* Text input with uplifted wrapper */}
+        <View
           style={[
-            styles.input,
+            styles.inputCard,
             {
-              color: textColor,
-              borderColor: inputBorder,
-              backgroundColor: inputBg,
+              backgroundColor: isDark ? '#18181b' : '#ffffff',
+              borderColor: isDark ? '#27272a' : '#e5e7eb',
             },
           ]}
-          defaultValue={commentRef.current}
-          onChangeText={(val) => {
-            commentRef.current = val;
-            const filled = val.trim().length > 0;
-            setHasComment((prev) => (prev !== filled ? filled : prev));
-          }}
-          placeholder="Tell us about your issue"
-          placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-          maxLength={2000}
-        />
+        >
+          <BottomSheetTextInput
+            key={`comment-${pills.length}`}
+            style={[
+              styles.input,
+              {
+                color: textColor,
+              },
+            ]}
+            defaultValue={commentRef.current}
+            onChangeText={(val) => {
+              commentRef.current = val;
+              const filled = val.trim().length > 0;
+              setHasComment((prev) => (prev !== filled ? filled : prev));
+            }}
+            placeholder="Tell us about your issue"
+            placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
+            maxLength={2000}
+          />
+        </View>
 
         {/* Submit button only */}
         <TouchableOpacity
@@ -223,10 +230,25 @@ const BadFeedbackSheet = forwardRef<BadFeedbackSheetRef, BadFeedbackSheetProps>(
           activeOpacity={hasContent ? 0.8 : 1}
           style={[
             styles.submitBtn,
-            { backgroundColor: Colors.light.primary, opacity: hasContent ? 1 : 0.4 },
+            {
+              backgroundColor: hasContent
+                ? Colors.light.primary
+                : (isDark ? '#27272a' : '#e5e7eb'),
+            },
           ]}
         >
-          <Text style={styles.submitText}>Submit Feedback</Text>
+          <Text
+            style={[
+              styles.submitText,
+              {
+                color: hasContent
+                  ? '#ffffff'
+                  : (isDark ? '#71717a' : '#9ca3af'),
+              },
+            ]}
+          >
+            Submit Feedback
+          </Text>
         </TouchableOpacity>
       </BottomSheetView>
     </BottomSheetModal>
@@ -268,37 +290,55 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   pill: {
-    paddingHorizontal: 13,
+    paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: 20,
+    borderRadius: 100,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   pillText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   inputLabel: {
     fontSize: 15,
     fontWeight: '700',
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  input: {
-    height: 44,
+  inputCard: {
     borderRadius: 999,
     borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
+    marginBottom: 16,
+  },
+  input: {
+    height: 48,
     paddingHorizontal: 16,
+    paddingVertical: 10,
     fontSize: 14,
-    marginBottom: 10,
+    textAlign: 'left',
   },
   submitBtn: {
     paddingVertical: 13,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   submitText: {
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
   },

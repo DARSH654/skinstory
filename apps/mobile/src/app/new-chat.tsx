@@ -109,6 +109,7 @@ export default function NewChatScreen() {
   }, [messages, isBotThinking]);
 
   const onSendMessage = (textToSend?: string) => {
+    Keyboard.dismiss();
     AsyncStorage.setItem('ss_chat_greeted_once', '1').catch(() => {});
     handleSendMessage(textToSend);
   };
@@ -179,14 +180,14 @@ export default function NewChatScreen() {
         }}
       />
 
-      <View style={{ flex: 1 }}>
+      <View style={styles.chatBody}>
         <ScrollView
           ref={scrollViewRef}
           style={styles.messageScroll}
           contentContainerStyle={[
             styles.messageScrollContent,
             {
-              paddingBottom: 80 + insets.bottom,
+              paddingBottom: insets.bottom + 16,
               justifyContent: messages.length === 0 ? 'center' : 'flex-start',
             },
           ]}
@@ -362,7 +363,7 @@ export default function NewChatScreen() {
           resetFooter();
         }}
         onDismiss={() => {
-          // Fired after any dismiss (including post-submit). Only reset footer.
+          // Fired after any dismiss (including post-submit).
           setFeedbackTargetMessage(null);
           resetFooter();
         }}
@@ -451,11 +452,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
+  chatBody: {
+    flex: 1,
+    flexDirection: 'column',
+  },
   inputFooter: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    // In-flow flex child — no position:absolute.
+    // The Reanimated paddingBottom (from useChatKeyboard) grows when keyboard opens,
+    // compressing the ScrollView above it via flex. Messages can never render behind the input bar.
   },
   scrollButtonWrapper: {
     position: 'absolute',

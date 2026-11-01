@@ -6,6 +6,7 @@ import {
   ScrollView,
   Dimensions,
   Keyboard,
+  Text,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Copy, TextSelect, Pencil, X, Trash2 } from 'lucide-react-native';

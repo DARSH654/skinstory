@@ -70,13 +70,13 @@ export default function ChatNavbar({
           },
         ]}
       >
-        <Zap size={14} strokeWidth={2} color={isDark ? '#e4e4e7' : '#18181b'} />
+        <Zap size={14} strokeWidth={2.4} color={isDark ? '#ffffff' : '#111827'} />
         <Text
           numberOfLines={1}
           ellipsizeMode="tail"
           style={[
             styles.creditsText,
-            { color: isDark ? '#a1a1aa' : '#71717a' },
+            { color: isDark ? '#ffffff' : '#111827' },
           ]}
         >
           12 credits left
@@ -102,6 +102,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   titleRow: {
     flexDirection: 'row',
@@ -119,15 +124,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: 100,
     borderWidth: 1,
-    maxWidth: '40%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   creditsText: {
-    fontSize: 12,
-    fontWeight: '600',
-    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

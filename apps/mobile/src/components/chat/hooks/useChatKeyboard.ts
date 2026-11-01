@@ -22,7 +22,10 @@ export function useChatKeyboard(onKeyboardShow?: () => void, enabled: boolean = 
 
     const showSub = Keyboard.addListener(showEvent, (e) => {
       if (!enabledShared.value) return;
-      footerPad.value = withTiming(e.endCoordinates.height + 8, { duration: 180 });
+      const targetPadding = Platform.OS === 'android'
+        ? e.endCoordinates.height + bottomInset + 8
+        : e.endCoordinates.height + 8;
+      footerPad.value = withTiming(targetPadding, { duration: 180 });
       if (onKeyboardShow) {
         onKeyboardShow();
       }

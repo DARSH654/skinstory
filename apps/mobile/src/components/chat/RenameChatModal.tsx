@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Modal, TextInput, TouchableOpacity, Pressable } from 'react-native';
-import { X } from 'lucide-react-native';
+import { View, StyleSheet, Modal, TextInput, Pressable } from 'react-native';
 import { Text } from '@/components/AppText';
 import { Colors } from '@/constants/theme';
 
@@ -33,109 +32,89 @@ export default function RenameChatModal({
       animationType="fade"
       onRequestClose={onCancel}
     >
-      <View style={styles.modalBackdrop}>
-        <View
+      <Pressable style={styles.modalBackdrop} onPress={onCancel}>
+        <Pressable
           style={[
             styles.modalCard,
-            {
-              backgroundColor: isDark ? '#18181b' : '#ffffff',
-              borderColor: isDark ? '#27272a' : '#e4e4e7',
-            },
+            isDark ? styles.modalCardDark : styles.modalCardLight,
           ]}
+          onPress={(e) => e.stopPropagation()}
         >
-          <View style={styles.modalHeaderRow}>
-            <Text style={[styles.modalTitle, { color: isDark ? '#ffffff' : '#000000' }]}>
-              Rename Chat
-            </Text>
-            <Pressable
-              onPress={onCancel}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={({ pressed }) => [
-                styles.closePressable,
-                {
-                  backgroundColor: pressed
-                    ? isDark
-                      ? '#27272a'
-                      : '#f4f4f5'
-                    : 'transparent',
-                },
+          <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight]}>
+            Rename Chat
+          </Text>
+
+          <View
+            style={[
+              styles.inputCard,
+              isDark ? styles.inputCardDark : styles.inputCardLight,
+            ]}
+          >
+            <TextInput
+              key={`rename-${visible ? currentTitle : 'closed'}`}
+              style={[
+                styles.modalInput,
+                isDark ? styles.inputTextDark : styles.inputTextLight,
               ]}
-            >
-              <X size={18} color={isDark ? '#a1a1aa' : '#71717a'} />
-            </Pressable>
+              defaultValue={tempTitle}
+              onChangeText={onChangeText}
+              maxLength={100}
+              placeholder="Enter your chat title..."
+              placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
+              autoFocus
+            />
           </View>
 
-          <TextInput
-            key={`rename-${visible ? currentTitle : 'closed'}`}
-            style={[
-              styles.modalInput,
-              {
-                color: isDark ? '#ffffff' : '#000000',
-                borderColor: isDark ? '#3f3f46' : '#e5e7eb',
-                backgroundColor: isDark ? '#27272a' : '#f9fafb',
-              },
-            ]}
-            defaultValue={tempTitle}
-            onChangeText={onChangeText}
-            maxLength={100}
-            placeholder="Enter your chat title..."
-            placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-            autoFocus
-          />
-
           <View style={styles.modalActions}>
-            <TouchableOpacity
+            <Pressable
               onPress={onCancel}
               style={[
-                styles.modalBtn,
-                styles.modalCancelBtn,
-                { borderColor: isDark ? '#27272a' : '#e4e4e7' },
+                styles.modalActionBtn,
+                isDark ? styles.cancelBtnDark : styles.cancelBtnLight,
               ]}
             >
               <Text
-                style={{
-                  color: isDark ? '#a1a1aa' : '#71717a',
-                  fontWeight: '700',
-                  fontSize: 14,
-                }}
+                style={[
+                  styles.btnText,
+                  { color: isDark ? '#ffffff' : '#111827' },
+                ]}
               >
                 Cancel
               </Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
+            <Pressable
               onPress={saveDisabled ? undefined : onSave}
               disabled={saveDisabled}
               style={[
-                styles.modalBtn,
-                styles.modalSaveBtn,
+                styles.modalActionBtn,
                 {
                   backgroundColor: saveDisabled
                     ? isDark
                       ? '#27272a'
-                      : '#e4e4e7'
+                      : '#e5e7eb'
                     : Colors.light.primary,
-                  opacity: saveDisabled ? 0.6 : 1,
                 },
               ]}
             >
               <Text
-                style={{
-                  color: saveDisabled
-                    ? isDark
-                      ? '#52525b'
-                      : '#a1a1aa'
-                    : '#ffffff',
-                  fontWeight: '700',
-                  fontSize: 14,
-                }}
+                style={[
+                  styles.btnText,
+                  {
+                    color: saveDisabled
+                      ? isDark
+                        ? '#71717a'
+                        : '#9ca3af'
+                      : '#ffffff',
+                  },
+                ]}
               >
                 Save Changes
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -143,60 +122,107 @@ export default function RenameChatModal({
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
   },
   modalCard: {
     width: '100%',
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderWidth: 1,
+    maxWidth: 380,
+    borderRadius: 24,
+    paddingTop: 18,
+    paddingBottom: 20,
+    paddingHorizontal: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
   },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+  modalCardLight: {
+    backgroundColor: '#FAF8F6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  modalCardDark: {
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: '#2b2b30',
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
+    textAlign: 'left',
+    marginBottom: 12,
   },
-  closePressable: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+  textLight: {
+    color: '#111827',
+  },
+  textDark: {
+    color: '#ffffff',
+  },
+  inputCard: {
+    borderRadius: 999,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
+    marginBottom: 20,
+  },
+  inputCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  inputCardDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
   },
   modalInput: {
-    height: 46,
-    borderRadius: 14,
-    borderWidth: 1,
+    height: 48,
     paddingHorizontal: 16,
-    fontSize: 16,
+    paddingVertical: 10,
+    fontSize: 14,
     textAlign: 'left',
-    marginBottom: 4,
+  },
+  inputTextLight: {
+    color: '#111827',
+  },
+  inputTextDark: {
+    color: '#ffffff',
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 4,
-    gap: 10,
+    alignItems: 'center',
+    gap: 12,
   },
-  modalBtn: {
-    paddingVertical: 9,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
+  modalActionBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  modalCancelBtn: {},
-  modalSaveBtn: {
-    borderWidth: 0,
+  cancelBtnLight: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  cancelBtnDark: {
+    backgroundColor: '#18181b',
+    borderWidth: 1,
+    borderColor: '#27272a',
+  },
+  btnText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

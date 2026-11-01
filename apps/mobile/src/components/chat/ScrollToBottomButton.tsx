@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity } from 'react-native';
-import { ArrowDown } from 'lucide-react-native';
+import { ChevronDown } from 'lucide-react-native';
 
 interface ScrollToBottomButtonProps {
   isDark: boolean;
@@ -14,25 +14,32 @@ export default function ScrollToBottomButton({
   return (
     <TouchableOpacity
       onPress={onPress}
-      style={[styles.scrollButton, { backgroundColor: isDark ? '#27272a' : '#ffffff' }]}
-      activeOpacity={0.8}
+      style={[
+        styles.scrollButton,
+        {
+          backgroundColor: isDark ? '#18181b' : '#ffffff',
+          borderColor: isDark ? '#27272a' : '#e4e4e7',
+        },
+      ]}
+      activeOpacity={0.7}
     >
-      <ArrowDown size={20} color={isDark ? '#ffffff' : '#000000'} />
+      <ChevronDown size={20} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.4} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   scrollButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 5,
-    elevation: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
 });

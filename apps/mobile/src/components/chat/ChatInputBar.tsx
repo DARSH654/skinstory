@@ -31,7 +31,16 @@ export const ChatInputBar = React.memo(function ChatInputBar({
   }, [value]);
 
   const canSend = value.trim().length > 0 && !isBotThinking;
-  const isSingleLineOrEmpty = value.trim().length === 0;
+  const [isMultiLine, setIsMultiLine] = React.useState(false);
+
+  // If value has a newline or was cleared, update multiline state
+  React.useEffect(() => {
+    if (value === '') {
+      setIsMultiLine(false);
+    } else if (value.includes('\n')) {
+      setIsMultiLine(true);
+    }
+  }, [value]);
 
   return (
     <View
@@ -40,6 +49,7 @@ export const ChatInputBar = React.memo(function ChatInputBar({
         {
           backgroundColor: isDark ? '#18181b' : '#ffffff',
           borderColor: isDark ? '#27272a' : '#e4e4e7',
+          alignItems: isMultiLine ? 'flex-end' : 'center',
         },
       ]}
     >
@@ -48,21 +58,35 @@ export const ChatInputBar = React.memo(function ChatInputBar({
         style={[
           styles.inputField,
           { color: isDark ? '#ffffff' : '#000000' },
-          isSingleLineOrEmpty
-            ? { textAlignVertical: 'center', paddingVertical: 0 }
-            : { textAlignVertical: 'top', paddingVertical: 6 },
+          isMultiLine
+            ? { textAlignVertical: 'top', paddingTop: 2, paddingBottom: 0 }
+            : { textAlignVertical: 'center', paddingVertical: 0 },
         ]}
         placeholder={placeholder}
         placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
         defaultValue={value}
-        onChangeText={onChangeText}
+        onChangeText={(text) => {
+          console.log('[ChatInputBar] onChangeText:', { text, length: text.length });
+          onChangeText(text);
+        }}
+        onContentSizeChange={(e) => {
+          const height = e.nativeEvent.contentSize.height;
+          // When rendered content exceeds single line height (~28-30px), activate multiline
+          const multilineActive = height > 30 || value.includes('\n');
+          if (multilineActive !== isMultiLine) {
+            setIsMultiLine(multilineActive);
+          }
+        }}
         multiline={true}
         maxLength={1000}
         returnKeyType="default"
         blurOnSubmit={false}
       />
       <TouchableOpacity
-        onPress={onSend}
+        onPress={() => {
+          console.log('[ChatInputBar] Send button pressed with value:', { value, length: value.length });
+          onSend();
+        }}
         disabled={!canSend}
         activeOpacity={0.7}
         style={[
@@ -91,13 +115,19 @@ const styles = StyleSheet.create({
     paddingRight: 6,
     paddingVertical: 6,
     marginHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   inputField: {
     flex: 1,
-    fontSize: 16,
-    lineHeight: 23,
+    fontSize: 15,
+    lineHeight: 22,
     minHeight: 34,
     maxHeight: 250,
+    includeFontPadding: false,
   },
   sendBtn: {
     width: 36,
@@ -106,5 +136,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 6,
+    alignSelf: 'flex-end',
   },
 });
