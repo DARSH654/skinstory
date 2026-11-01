@@ -8,4 +8,5 @@ export interface Message {
   childrenIds?: string[];
   versions?: string[];
   activeVersionIndex?: number;
+  animateTypewriter?: boolean;
 }

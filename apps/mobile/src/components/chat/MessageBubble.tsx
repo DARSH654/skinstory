@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { View, StyleSheet, Animated, Easing, TouchableOpacity, Pressable, GestureResponderEvent, Text as RNText, TextInput } from 'react-native';
 import { Copy, ThumbsUp, ThumbsDown, RotateCw, Trash2, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -33,23 +33,74 @@ export default function MessageBubble({
   const isUser = message.sender === 'user';
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateYAnim = useRef(new Animated.Value(14)).current;
+  // Typewriter effect state for AI messages
+  const shouldAnimate = !isUser && Boolean(message.animateTypewriter) && Boolean(message.text && message.text !== '...');
+  const [displayedLength, setDisplayedLength] = useState(() => (shouldAnimate ? 0 : (message.text?.length || 0)));
 
   useEffect(() => {
+    if (!shouldAnimate || !message.text) {
+      setDisplayedLength(message.text?.length || 0);
+      return;
+    }
+
+    setDisplayedLength(0);
+    const fullText = message.text;
+    const fullLength = fullText.length;
+    let current = 0;
+
+    // Buttery smooth, comfortable reading pace (~1 word every 50ms)
+    const interval = setInterval(() => {
+      let nextPos = current + 3;
+      if (nextPos < fullLength) {
+        const nextSpace = fullText.indexOf(' ', nextPos);
+        if (nextSpace !== -1 && nextSpace - current <= 7) {
+          nextPos = nextSpace + 1;
+        }
+      } else {
+        nextPos = fullLength;
+      }
+
+      current = Math.min(nextPos, fullLength);
+      setDisplayedLength(current);
+
+      if (current >= fullLength) {
+        clearInterval(interval);
+        message.animateTypewriter = false;
+      }
+    }, 45);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [shouldAnimate, message.text]);
+
+  const displayedText = shouldAnimate && message.text
+    ? message.text.slice(0, displayedLength)
+    : message.text;
+
+  useEffect(() => {
+    // If this bubble is streaming, keep it completely stationary (no translateY overshoot)
+    if (shouldAnimate) {
+      fadeAnim.setValue(1);
+      translateYAnim.setValue(0);
+      return;
+    }
+
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 260,
+        duration: 220,
         useNativeDriver: true,
         easing: Easing.out(Easing.ease),
       }),
       Animated.timing(translateYAnim, {
         toValue: 0,
-        duration: 260,
+        duration: 220,
         useNativeDriver: true,
-        easing: Easing.out(Easing.back(1)),
+        easing: Easing.out(Easing.ease),
       }),
     ]).start();
-  }, [fadeAnim, translateYAnim]);
+  }, [fadeAnim, translateYAnim, shouldAnimate]);
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(message.text);
@@ -88,6 +139,7 @@ export default function MessageBubble({
           activeOpacity={isUser ? 0.8 : 1}
           delayLongPress={500}
           onLongPress={isUser ? handleLongPress : undefined}
+          style={isUser ? undefined : { width: '100%' }}
         >
           <View
             style={[
@@ -108,28 +160,15 @@ export default function MessageBubble({
                 <TypingIndicator isDark={isDark} />
               </View>
             ) : (
-              (() => {
-                console.log(`[MessageBubble] Rendering ${message.sender} msg (${message.id}):`, {
-                  text: message.text,
-                  length: message.text?.length,
-                  lastWord: message.text ? message.text.slice(-10) : '',
-                });
-                return (
-                  <TextInput
-                    editable={false}
-                    multiline={true}
-                    scrollEnabled={false}
-                    pointerEvents="none"
-                    underlineColorAndroid="transparent"
-                    style={[
-                      isUser ? styles.userChatText : styles.aiChatText,
-                      styles.chatTextInputMessage,
-                      { color: isDark ? '#ffffff' : '#000000' },
-                    ]}
-                    value={message.text}
-                  />
-                );
-              })()
+              <Text
+                style={[
+                  isUser ? styles.userChatText : styles.aiChatText,
+                  styles.chatTextMessage,
+                  { color: isDark ? '#ffffff' : '#000000' },
+                ]}
+              >
+                {displayedText}
+              </Text>
             )}
           </View>
         </TouchableOpacity>
@@ -342,7 +381,7 @@ const styles = StyleSheet.create({
   },
   aiMessageWrapper: {
     alignItems: 'flex-start',
-    maxWidth: '96%',
+    width: '100%',
   },
   messageBubble: {
     borderRadius: 18,
@@ -359,15 +398,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   bubbleAiPlain: {
+    width: '100%',
     paddingHorizontal: 0,
     paddingVertical: 4,
     backgroundColor: 'transparent',
     borderWidth: 0,
   },
-  chatTextInputMessage: {
+  chatTextMessage: {
     padding: 0,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
     includeFontPadding: false,
   },
   userChatText: {

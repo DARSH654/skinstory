@@ -136,6 +136,7 @@ export function useChatMessages() {
         childrenIds: [],
         versions: [aiResponseText],
         activeVersionIndex: 0,
+        animateTypewriter: true,
       };
 
       setMessagesMap((prev) => {
@@ -241,6 +242,7 @@ export function useChatMessages() {
             ...target,
             text: regeneratedVariation,
             versions: updatedVersions,
+            animateTypewriter: true,
           },
         };
 

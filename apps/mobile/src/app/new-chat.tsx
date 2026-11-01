@@ -52,6 +52,10 @@ export default function NewChatScreen() {
   const badFeedbackSheetRef = useRef<BadFeedbackSheetRef>(null);
   const isProgrammaticScrolling = useRef(false);
   const programmaticScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Whether we are in an active typewriter stream (suppress animated spring during stream)
+  const isTypewriterStreaming = useRef(false);
+  // Throttle ref: only allow one non-animated scroll follow per 80ms during streaming
+  const streamScrollThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollToBottom = useCallback((animated: boolean = true) => {
     isProgrammaticScrolling.current = true;
@@ -62,6 +66,16 @@ export default function NewChatScreen() {
       isProgrammaticScrolling.current = false;
       setShowScrollButton(false);
     }, 450);
+  }, []);
+
+  // Called every time the content height changes (typewriter expanding)
+  // Uses instant non-animated follow during streaming to avoid spring collision
+  const followBottom = useCallback(() => {
+    if (streamScrollThrottle.current) return; // already scheduled
+    streamScrollThrottle.current = setTimeout(() => {
+      streamScrollThrottle.current = null;
+      scrollViewRef.current?.scrollToEnd({ animated: false });
+    }, 80); // follow at most ~12fps — smooth but zero spring conflict
   }, []);
 
   const { footerStyle, resetFooter } = useChatKeyboard(() => scrollToBottom(false), !isEditingTitle);
@@ -100,13 +114,23 @@ export default function NewChatScreen() {
     loadGreeting();
   }, []);
 
+  // Only fire animated scroll when a truly new message is added (count changes) or thinking state changes.
+  // During typewriter streaming, onContentSizeChange handles scroll via followBottom (non-animated).
+  const prevMessageCountRef = useRef(0);
   useEffect(() => {
-    const timer = setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-      setShowScrollButton(false);
-    }, 120);
-    return () => clearTimeout(timer);
-  }, [messages, isBotThinking]);
+    const newCount = messages.length;
+    const countChanged = newCount !== prevMessageCountRef.current;
+    prevMessageCountRef.current = newCount;
+
+    if (countChanged || isBotThinking) {
+      // New discrete message: smooth animated snap to bottom
+      const timer = setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+        setShowScrollButton(false);
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [messages.length, isBotThinking]);
 
   const onSendMessage = (textToSend?: string) => {
     Keyboard.dismiss();
@@ -194,7 +218,7 @@ export default function NewChatScreen() {
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={(_w, contentHeight) => {
             if (contentHeight > 0) {
-              scrollToBottom(true);
+              followBottom();
             }
           }}
           onScroll={(e) => {
