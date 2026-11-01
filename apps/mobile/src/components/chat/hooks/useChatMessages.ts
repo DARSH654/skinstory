@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { Message } from '../types';
 import { fetchGeminiChatResponse } from '@/services/geminiChat';
 
@@ -9,8 +9,64 @@ export function useChatMessages() {
   const [currentLeafId, setCurrentLeafId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [isBotThinking, setIsBotThinking] = useState(false);
+  // Track message currently streaming its typewriter effect
+  const [activeStreamingMessageId, setActiveStreamingMessageId] = useState<string | null>(null);
   // Track which message is currently being regenerated (or null if new message at bottom)
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null);
+  // Abort controller to cancel ongoing network request immediately
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // isGenerating is TRUE while the bot is either fetching from API OR typing onto screen
+  const isGenerating = isBotThinking || activeStreamingMessageId !== null;
+
+  const stopGeneration = useCallback(() => {
+    // 1. Abort network request if pending
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    // 2. If a message is currently streaming, freeze it at its current state
+    if (activeStreamingMessageId) {
+      setMessagesMap((prev) => {
+        const currentMsg = prev[activeStreamingMessageId];
+        if (currentMsg) {
+          return {
+            ...prev,
+            [activeStreamingMessageId]: {
+              ...currentMsg,
+              animateTypewriter: false,
+            },
+          };
+        }
+        return prev;
+      });
+    }
+    setIsBotThinking(false);
+    setActiveStreamingMessageId(null);
+    setRegeneratingMessageId(null);
+  }, [activeStreamingMessageId]);
+
+  const onTypewriterComplete = useCallback((messageId: string, finalText?: string) => {
+    if (finalText !== undefined) {
+      setMessagesMap((prev) => {
+        const msg = prev[messageId];
+        if (!msg) return prev;
+        const activeIdx = msg.activeVersionIndex ?? 0;
+        const updatedVersions = [...(msg.versions || [msg.text])];
+        updatedVersions[activeIdx] = finalText;
+        return {
+          ...prev,
+          [messageId]: {
+            ...msg,
+            text: finalText,
+            versions: updatedVersions,
+            animateTypewriter: false,
+          },
+        };
+      });
+    }
+    setActiveStreamingMessageId((curr) => (curr === messageId ? null : curr));
+  }, []);
 
   // Compute active linear messages from root to current leaf
   const messages = useMemo(() => {
@@ -103,6 +159,9 @@ export function useChatMessages() {
     setIsBotThinking(true);
     setRegeneratingMessageId(null);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     // Call real Gemini AI model
     (async () => {
       let aiResponseText = '';
@@ -112,17 +171,23 @@ export function useChatMessages() {
           text: m.text,
         }));
         console.log('[useChatMessages] Sending to Gemini API with history count:', history.length);
-        aiResponseText = await fetchGeminiChatResponse(history, content);
+        aiResponseText = await fetchGeminiChatResponse(history, content, controller.signal);
         console.log('[useChatMessages] Received Gemini response:', {
           length: aiResponseText?.length,
           snippet: aiResponseText?.slice(0, 50),
           tail: aiResponseText ? aiResponseText.slice(-30) : '',
         });
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === 'AbortError' || controller.signal.aborted) {
+          console.log('[Chat] Generation aborted by user.');
+          return;
+        }
         console.warn('[Chat] Gemini generation failed:', err);
         aiResponseText =
           'Based on your skin profile, keeping your skin barrier balanced is key. Maintaining steady hydration and gentle cleansing will help your skin repair effectively.';
       }
+
+      if (controller.signal.aborted) return;
 
       const aiNow = Date.now();
       const aiMsgId = `ai-${aiNow}`;
@@ -152,7 +217,9 @@ export function useChatMessages() {
 
       setCurrentLeafId(aiMsgId);
       setIsBotThinking(false);
+      setActiveStreamingMessageId(aiMsgId);
       setRegeneratingMessageId(null);
+      abortControllerRef.current = null;
     })();
   };
 
@@ -211,6 +278,9 @@ export function useChatMessages() {
     setIsBotThinking(true);
     setRegeneratingMessageId(newAiMsgId);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     // 3. Fetch real Gemini regeneration
     (async () => {
       let regeneratedVariation = '';
@@ -221,12 +291,18 @@ export function useChatMessages() {
             sender: m.sender,
             text: m.text,
           }));
-        regeneratedVariation = await fetchGeminiChatResponse(history, promptText);
-      } catch (err) {
+        regeneratedVariation = await fetchGeminiChatResponse(history, promptText, controller.signal);
+      } catch (err: any) {
+        if (err?.name === 'AbortError' || controller.signal.aborted) {
+          console.log('[Chat] Regeneration aborted by user.');
+          return;
+        }
         console.warn('[Chat] Gemini regeneration failed:', err);
         regeneratedVariation =
           'To optimize your current skin results, ensure consistent barrier protection and gentle application. Focus on lightweight formulas and adequate SPF during daylight.';
       }
+
+      if (controller.signal.aborted) return;
 
       setMessagesMap((prev) => {
         const target = prev[newAiMsgId];
@@ -262,7 +338,9 @@ export function useChatMessages() {
       });
 
       setIsBotThinking(false);
+      setActiveStreamingMessageId(newAiMsgId);
       setRegeneratingMessageId(null);
+      abortControllerRef.current = null;
     })();
   };
 
@@ -322,9 +400,13 @@ export function useChatMessages() {
     inputText,
     setInputText,
     isBotThinking,
+    isGenerating,
+    activeStreamingMessageId,
     regeneratingMessageId,
     handleSendMessage,
     regenerateAiResponse,
     selectVersion,
+    stopGeneration,
+    onTypewriterComplete,
   };
 }

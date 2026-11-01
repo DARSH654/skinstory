@@ -86,10 +86,13 @@ export default function NewChatScreen() {
     inputText,
     setInputText,
     isBotThinking,
+    isGenerating,
     regeneratingMessageId,
     handleSendMessage,
     regenerateAiResponse,
     selectVersion,
+    stopGeneration,
+    onTypewriterComplete,
   } = useChatMessages();
 
   useEffect(() => {
@@ -317,6 +320,7 @@ export default function NewChatScreen() {
                   badFeedbackSheetRef.current?.present();
                 }
               }}
+              onTypewriterComplete={onTypewriterComplete}
             />
           ))}
 
@@ -349,7 +353,8 @@ export default function NewChatScreen() {
             value={inputText}
             onChangeText={setInputText}
             onSend={() => onSendMessage()}
-            isBotThinking={isBotThinking}
+            onStop={stopGeneration}
+            isBotThinking={isGenerating}
           />
         </Reanimated.View>
       </View>

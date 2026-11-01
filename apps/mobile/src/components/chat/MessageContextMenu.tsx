@@ -199,8 +199,9 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   contextMenuText: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '800',
+    includeFontPadding: false,
   },
   selectTextContainer: {
     flex: 1,

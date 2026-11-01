@@ -16,6 +16,7 @@ interface MessageBubbleProps {
   onLike?: (message: Message) => void;
   onDislike?: (message: Message) => void;
   onSelectVersion?: (message: Message, versionIndex: number) => void;
+  onTypewriterComplete?: (messageId: string, finalText?: string) => void;
   feedback?: 'liked' | 'disliked' | null;
 }
 
@@ -28,6 +29,7 @@ export default function MessageBubble({
   onLike,
   onDislike,
   onSelectVersion,
+  onTypewriterComplete,
   feedback = null,
 }: MessageBubbleProps) {
   const isUser = message.sender === 'user';
@@ -66,16 +68,26 @@ export default function MessageBubble({
       if (current >= fullLength) {
         clearInterval(interval);
         message.animateTypewriter = false;
+        onTypewriterComplete?.(message.id, fullText);
       }
     }, 45);
 
     return () => {
       clearInterval(interval);
+      // When interrupted (e.g., user tapped Stop button), permanently cut off at current word
+      if (current > 0 && current < fullLength) {
+        const truncated = fullText.slice(0, current);
+        onTypewriterComplete?.(message.id, truncated);
+      } else {
+        onTypewriterComplete?.(message.id);
+      }
     };
-  }, [shouldAnimate, message.text]);
+  }, [shouldAnimate, message.text, message.id, onTypewriterComplete]);
 
-  const displayedText = shouldAnimate && message.text
-    ? message.text.slice(0, displayedLength)
+  const displayedText = message.text
+    ? (shouldAnimate || (displayedLength > 0 && displayedLength < (message.text?.length || 0)))
+      ? message.text.slice(0, displayedLength)
+      : message.text
     : message.text;
 
   useEffect(() => {

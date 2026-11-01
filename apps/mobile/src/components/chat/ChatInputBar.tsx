@@ -7,6 +7,7 @@ export interface ChatInputBarProps {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
+  onStop?: () => void;
   isBotThinking?: boolean;
   placeholder?: string;
 }
@@ -16,6 +17,7 @@ export const ChatInputBar = React.memo(function ChatInputBar({
   value,
   onChangeText,
   onSend,
+  onStop,
   isBotThinking = false,
   placeholder = 'Type to get insights...',
 }: ChatInputBarProps) {
@@ -30,7 +32,7 @@ export const ChatInputBar = React.memo(function ChatInputBar({
     }
   }, [value]);
 
-  const canSend = value.trim().length > 0 && !isBotThinking;
+  const canSend = value.trim().length > 0;
   const [isMultiLine, setIsMultiLine] = React.useState(false);
 
   // If value has a newline or was cleared, update multiline state
@@ -66,7 +68,6 @@ export const ChatInputBar = React.memo(function ChatInputBar({
         placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
         defaultValue={value}
         onChangeText={(text) => {
-          console.log('[ChatInputBar] onChangeText:', { text, length: text.length });
           onChangeText(text);
         }}
         onContentSizeChange={(e) => {
@@ -82,22 +83,38 @@ export const ChatInputBar = React.memo(function ChatInputBar({
         returnKeyType="default"
         blurOnSubmit={false}
       />
-      <TouchableOpacity
-        onPress={() => {
-          console.log('[ChatInputBar] Send button pressed with value:', { value, length: value.length });
-          onSend();
-        }}
-        disabled={!canSend}
-        activeOpacity={0.7}
-        style={[
-          styles.sendBtn,
-          {
-            backgroundColor: canSend ? '#937abd' : isDark ? '#27272a' : '#e4e4e7',
-          },
-        ]}
-      >
-        <ArrowUp size={18} color={canSend ? '#ffffff' : isDark ? '#71717a' : '#9ca3af'} strokeWidth={2.4} />
-      </TouchableOpacity>
+
+      {isBotThinking ? (
+        <TouchableOpacity
+          onPress={() => {
+            onStop?.();
+          }}
+          activeOpacity={0.7}
+          style={styles.stopBtn}
+        >
+          <View style={styles.stopInnerSquare} />
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          onPress={() => {
+            if (canSend) onSend();
+          }}
+          disabled={!canSend}
+          activeOpacity={0.7}
+          style={[
+            styles.sendBtn,
+            {
+              backgroundColor: canSend ? '#937abd' : isDark ? '#27272a' : '#e4e4e7',
+            },
+          ]}
+        >
+          <ArrowUp
+            size={18}
+            color={canSend ? '#ffffff' : isDark ? '#71717a' : '#9ca3af'}
+            strokeWidth={2.4}
+          />
+        </TouchableOpacity>
+      )}
     </View>
   );
 });
@@ -137,5 +154,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 6,
     alignSelf: 'flex-end',
+  },
+  stopBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+    alignSelf: 'flex-end',
+    backgroundColor: '#937abd', // primary color
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  stopInnerSquare: {
+    width: 13,
+    height: 13,
+    borderRadius: 3,
+    backgroundColor: '#ffffff', // white square inside
   },
 });

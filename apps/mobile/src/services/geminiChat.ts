@@ -1,5 +1,6 @@
 // Gemini AI service for Skin Story Chat
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+const GEMINI_API_KEY =
+  process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 
 // Primary fast & cost-efficient model with fallback
 const PRIMARY_MODEL = 'gemini-3.5-flash';
@@ -22,7 +23,8 @@ interface HistoryItem {
 
 export async function fetchGeminiChatResponse(
   conversationHistory: HistoryItem[],
-  userPrompt: string
+  userPrompt: string,
+  signal?: AbortSignal
 ): Promise<string> {
   const contents = conversationHistory
     .filter((m) => m.text && m.text.trim().length > 0)
@@ -50,6 +52,7 @@ export async function fetchGeminiChatResponse(
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal,
       body: JSON.stringify({
         contents,
         systemInstruction: {
