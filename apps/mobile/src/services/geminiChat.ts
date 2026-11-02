@@ -47,7 +47,6 @@ export async function fetchGeminiChatResponse(
 
   const callModel = async (model: string): Promise<string | null> => {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-    console.log(`[GeminiChat] Requesting ${model} with prompt:`, userPrompt.slice(0, 60));
 
     const response = await fetch(url, {
       method: 'POST',
@@ -62,32 +61,17 @@ export async function fetchGeminiChatResponse(
     });
 
     if (!response.ok) {
-      const err = await response.text();
-      console.warn(`[GeminiChat] ${model} request failed (status ${response.status}):`, err);
       return null;
     }
 
     const data = await response.json();
     const candidate = data?.candidates?.[0];
     const finishReason = candidate?.finishReason;
-    const usage = data?.usageMetadata;
     const text = candidate?.content?.parts?.[0]?.text;
-
-    // Detailed debug logs to monitor cutoff and tokens
-    console.log(`[GeminiChat] ${model} response info:`, {
-      finishReason,
-      outputLength: text?.length,
-      usage,
-    });
-
-    if (finishReason && finishReason !== 'STOP') {
-      console.warn(`[GeminiChat] Warning: finishReason is ${finishReason} (not STOP). Tokens might be restricted.`);
-    }
 
     if (text && typeof text === 'string') {
       // Clean up any stray markdown asterisks for clean mobile chat rendering
       const cleaned = text.replace(/\*\*/g, '').replace(/\*/g, '').trim();
-      console.log(`[GeminiChat] Cleaned text (ends with):`, cleaned.slice(-40));
       return cleaned;
     }
     return null;
@@ -97,7 +81,7 @@ export async function fetchGeminiChatResponse(
     const result = await callModel(PRIMARY_MODEL);
     if (result) return result;
   } catch (err) {
-    console.warn('[GeminiChat] Primary model error:', err);
+    // Primary model failed, fall through to fallback
   }
 
   // Fallback to flash-lite
@@ -105,7 +89,7 @@ export async function fetchGeminiChatResponse(
     const fallbackResult = await callModel(FALLBACK_MODEL);
     if (fallbackResult) return fallbackResult;
   } catch (err) {
-    console.warn('[GeminiChat] Fallback model error:', err);
+    // Fallback model also failed
   }
 
   // Graceful fallback if network is completely offline

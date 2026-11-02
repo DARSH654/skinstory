@@ -45,7 +45,7 @@ export function useChatMessages() {
           }
         }
       } catch (err) {
-        console.warn('[useChatMessages] Failed to load local chat state:', err);
+        // Failed to load stored chat state
       } finally {
         isLoadedRef.current = true;
       }
@@ -64,11 +64,9 @@ export function useChatMessages() {
           messagesMap,
           currentLeafId,
         })
-      ).catch((err) => {
-        console.warn('[useChatMessages] Failed to save local chat state:', err);
-      });
+      ).catch(() => {});
     } catch (err) {
-      console.warn('[useChatMessages] Error saving chat state:', err);
+      // Failed to save chat state
     }
   }, [messagesMap, currentLeafId]);
 
@@ -176,13 +174,6 @@ export function useChatMessages() {
   const handleSendMessage = (textToSend?: string) => {
     const rawContent = textToSend ?? inputText;
     const content = rawContent.trim();
-    console.log('[useChatMessages] handleSendMessage invoked:', {
-      rawContent,
-      trimmedContent: content,
-      rawLength: rawContent?.length,
-      trimmedLength: content?.length,
-      lastCharacters: content ? content.slice(-10) : '',
-    });
     if (!content || isBotThinking) return;
 
     const now = Date.now();
@@ -226,19 +217,11 @@ export function useChatMessages() {
           sender: m.sender,
           text: m.text,
         }));
-        console.log('[useChatMessages] Sending to Gemini API with history count:', history.length);
         aiResponseText = await fetchGeminiChatResponse(history, content, controller.signal);
-        console.log('[useChatMessages] Received Gemini response:', {
-          length: aiResponseText?.length,
-          snippet: aiResponseText?.slice(0, 50),
-          tail: aiResponseText ? aiResponseText.slice(-30) : '',
-        });
       } catch (err: any) {
         if (err?.name === 'AbortError' || controller.signal.aborted) {
-          console.log('[Chat] Generation aborted by user.');
           return;
         }
-        console.warn('[Chat] Gemini generation failed:', err);
         aiResponseText =
           'Based on your skin profile, keeping your skin barrier balanced is key. Maintaining steady hydration and gentle cleansing will help your skin repair effectively.';
       }
@@ -282,23 +265,86 @@ export function useChatMessages() {
   const regenerateAiResponse = (targetAiMessage: Message, promptText: string) => {
     if (isBotThinking) return;
 
+    // Linear In-Place Retry (Gemini/ChatGPT standard):
+    // Directly rewrites the targeted AI response without creating any branch nodes.
+    const targetMsgId = targetAiMessage.id;
+
+    // Set loading placeholder on the existing message directly
+    setMessagesMap((prev) => {
+      const existing = prev[targetMsgId];
+      if (!existing) return prev;
+      return {
+        ...prev,
+        [targetMsgId]: {
+          ...existing,
+          text: '...',
+          animateTypewriter: false,
+        },
+      };
+    });
+
+    setIsBotThinking(true);
+    setRegeneratingMessageId(targetMsgId);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    (async () => {
+      let regeneratedVariation = '';
+      try {
+        const history = messages
+          .filter((m) => m.id !== targetMsgId)
+          .map((m) => ({
+            sender: m.sender,
+            text: m.text,
+          }));
+        regeneratedVariation = await fetchGeminiChatResponse(history, promptText, controller.signal);
+      } catch (err: any) {
+        if (err?.name === 'AbortError' || controller.signal.aborted) {
+          return;
+        }
+        regeneratedVariation =
+          'To optimize your current skin results, ensure consistent barrier protection and gentle application. Focus on lightweight formulas and adequate SPF during daylight.';
+      }
+
+      if (controller.signal.aborted) return;
+
+      // Update the existing message in-place with the newly generated response
+      setMessagesMap((prev) => {
+        const target = prev[targetMsgId];
+        if (!target) return prev;
+        return {
+          ...prev,
+          [targetMsgId]: {
+            ...target,
+            text: regeneratedVariation,
+            animateTypewriter: true,
+          },
+        };
+      });
+
+      setIsBotThinking(false);
+      setActiveStreamingMessageId(targetMsgId);
+      setRegeneratingMessageId(null);
+      abortControllerRef.current = null;
+    })();
+
+    /* PRESERVED BRANCHING REGENERATION LOGIC (Kept for reference):
     const aiNow = Date.now();
     const newAiMsgId = `ai-${aiNow}`;
 
-    // 1. Immediately create the new branch node with placeholder/loading state
     setMessagesMap((prev) => {
       const originalMsg = prev[targetAiMessage.id] || targetAiMessage;
       const existingVersions = originalMsg.versions && originalMsg.versions.length > 0
         ? [...originalMsg.versions]
         : [originalMsg.text];
-      // Append an empty/loading version placeholder
       const newVersions = [...existingVersions, '...'];
       const newVersionIndex = newVersions.length - 1;
 
       const placeholderAiMsg: Message = {
         id: newAiMsgId,
         sender: 'ai',
-        text: '', // Empty text while generating
+        text: '',
         timestamp: new Date(aiNow).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         createdAt: aiNow,
         parentId: originalMsg.parentId,
@@ -308,7 +354,6 @@ export function useChatMessages() {
       };
 
       const updated = { ...prev, [newAiMsgId]: placeholderAiMsg };
-
       const parentId = originalMsg.parentId;
       if (parentId && updated[parentId]) {
         const siblings = updated[parentId].childrenIds || [];
@@ -325,79 +370,11 @@ export function useChatMessages() {
           }
         });
       }
-
       return updated;
     });
 
-    // 2. Immediately switch the view to the new branch leaf!
     setCurrentLeafId(newAiMsgId);
-    setIsBotThinking(true);
-    setRegeneratingMessageId(newAiMsgId);
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    // 3. Fetch real Gemini regeneration
-    (async () => {
-      let regeneratedVariation = '';
-      try {
-        const history = messages
-          .filter((m) => m.id !== targetAiMessage.id && m.id !== newAiMsgId)
-          .map((m) => ({
-            sender: m.sender,
-            text: m.text,
-          }));
-        regeneratedVariation = await fetchGeminiChatResponse(history, promptText, controller.signal);
-      } catch (err: any) {
-        if (err?.name === 'AbortError' || controller.signal.aborted) {
-          console.log('[Chat] Regeneration aborted by user.');
-          return;
-        }
-        console.warn('[Chat] Gemini regeneration failed:', err);
-        regeneratedVariation =
-          'To optimize your current skin results, ensure consistent barrier protection and gentle application. Focus on lightweight formulas and adequate SPF during daylight.';
-      }
-
-      if (controller.signal.aborted) return;
-
-      setMessagesMap((prev) => {
-        const target = prev[newAiMsgId];
-        if (!target) return prev;
-
-        const updatedVersions = (target.versions || []).map((v, i) =>
-          i === (target.activeVersionIndex ?? target.versions!.length - 1) ? regeneratedVariation : v
-        );
-
-        const updated = {
-          ...prev,
-          [newAiMsgId]: {
-            ...target,
-            text: regeneratedVariation,
-            versions: updatedVersions,
-            animateTypewriter: true,
-          },
-        };
-
-        const parentId = target.parentId;
-        if (parentId && updated[parentId]) {
-          updated[parentId].childrenIds?.forEach((sibId) => {
-            if (updated[sibId]) {
-              updated[sibId] = {
-                ...updated[sibId],
-                versions: updatedVersions,
-              };
-            }
-          });
-        }
-
-        return updated;
-      });
-
-      setIsBotThinking(false);
-      setActiveStreamingMessageId(newAiMsgId);
-      setRegeneratingMessageId(null);
-      abortControllerRef.current = null;
-    })();
+    */
   };
 
   // Switch versions / branches at a specific message

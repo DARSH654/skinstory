@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { View, StyleSheet, Animated, Easing, TouchableOpacity, Pressable, GestureResponderEvent, Text as RNText, TextInput } from 'react-native';
-import { Copy, ThumbsUp, ThumbsDown, RotateCw, Trash2, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { Copy, ThumbsUp, ThumbsDown, RotateCw, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/AppText';
 import TypingIndicator from './TypingIndicator';
@@ -10,6 +10,7 @@ import { Colors } from '@/constants/theme';
 interface MessageBubbleProps {
   message: Message;
   isDark: boolean;
+  isStreaming?: boolean;
   onLongPress: (message: Message, pageY: number, align: 'left' | 'right') => void;
   onRegenerate?: (message: Message) => void;
   onDelete?: (message: Message) => void;
@@ -23,6 +24,7 @@ interface MessageBubbleProps {
 export default function MessageBubble({
   message,
   isDark,
+  isStreaming = false,
   onLongPress,
   onRegenerate,
   onDelete,
@@ -33,6 +35,8 @@ export default function MessageBubble({
   feedback = null,
 }: MessageBubbleProps) {
   const isUser = message.sender === 'user';
+  const [isUserExpanded, setIsUserExpanded] = useState(false);
+  const [canUserExpand, setCanUserExpand] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateYAnim = useRef(new Animated.Value(14)).current;
   // Typewriter effect state for AI messages
@@ -148,7 +152,8 @@ export default function MessageBubble({
     >
       <View style={isUser ? styles.userMessageWrapper : styles.aiMessageWrapper}>
         <TouchableOpacity
-          activeOpacity={isUser ? 0.8 : 1}
+          activeOpacity={1}
+          onPress={isUser && canUserExpand ? () => setIsUserExpanded((prev) => !prev) : undefined}
           delayLongPress={500}
           onLongPress={isUser ? handleLongPress : undefined}
           style={isUser ? undefined : { width: '100%' }}
@@ -172,22 +177,57 @@ export default function MessageBubble({
                 <TypingIndicator isDark={isDark} />
               </View>
             ) : (
-              <Text
-                style={[
-                  isUser ? styles.userChatText : styles.aiChatText,
-                  styles.chatTextMessage,
-                  { color: isDark ? '#ffffff' : '#000000' },
-                ]}
-              >
-                {displayedText}
-              </Text>
+              <View style={isUser && canUserExpand ? { position: 'relative' } : undefined}>
+                <Text
+                  onTextLayout={
+                    isUser
+                      ? (e) => {
+                          if (e.nativeEvent.lines.length > 4) {
+                            setCanUserExpand(true);
+                          }
+                        }
+                      : undefined
+                  }
+                  numberOfLines={isUser && canUserExpand && !isUserExpanded ? 4 : undefined}
+                  ellipsizeMode={isUser && canUserExpand && !isUserExpanded ? 'tail' : undefined}
+                  style={[
+                    isUser ? styles.userChatText : styles.aiChatText,
+                    styles.chatTextMessage,
+                    { color: isDark ? '#ffffff' : '#000000' },
+                    isUser && canUserExpand && !isUserExpanded && { paddingRight: 30 },
+                  ]}
+                >
+                  {displayedText}
+                </Text>
+
+                {isUser && canUserExpand && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setIsUserExpanded((prev) => !prev)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={[
+                      styles.expandChevronBtn,
+                      {
+                        backgroundColor: isDark ? '#27272a' : '#ffffff',
+                        borderColor: isDark ? '#3f3f46' : '#e4e4e7',
+                      },
+                    ]}
+                  >
+                    {isUserExpanded ? (
+                      <ChevronUp size={15} color={isDark ? '#e4e4e7' : '#3f3f46'} strokeWidth={2.4} />
+                    ) : (
+                      <ChevronDown size={15} color={isDark ? '#e4e4e7' : '#3f3f46'} strokeWidth={2.4} />
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
           </View>
         </TouchableOpacity>
 
-        {!isUser && (
+        {!isUser && !isStreaming && (
           <View style={styles.actionRow}>
-            {/* Version Switcher (e.g. < 2/2 >) if multiple versions exist */}
+            {/* Version Switcher (e.g. < 2/2 >) - Preserved but hidden from UI
             {message.versions && message.versions.length > 1 && (
               <View style={styles.versionContainer}>
                 <Pressable
@@ -262,7 +302,7 @@ export default function MessageBubble({
                   />
                 </Pressable>
               </View>
-            )}
+            )} */}
 
             {/* Copy */}
             <Pressable
@@ -389,7 +429,7 @@ const styles = StyleSheet.create({
   },
   userMessageWrapper: {
     alignItems: 'flex-end',
-    maxWidth: '82%',
+    maxWidth: '92%',
   },
   aiMessageWrapper: {
     alignItems: 'flex-start',
@@ -464,5 +504,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     paddingHorizontal: 3,
+  },
+  expandChevronBtn: {
+    position: 'absolute',
+    bottom: -3,
+    right: -4,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 3,
   },
 });

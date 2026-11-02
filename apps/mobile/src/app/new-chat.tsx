@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Keyboard, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Reanimated from 'react-native-reanimated';
@@ -90,6 +90,7 @@ export default function NewChatScreen() {
     setInputText,
     isBotThinking,
     isGenerating,
+    activeStreamingMessageId,
     regeneratingMessageId,
     handleSendMessage,
     regenerateAiResponse,
@@ -120,23 +121,53 @@ export default function NewChatScreen() {
     loadGreeting();
   }, []);
 
-  // Only fire animated scroll when a truly new message is added (count changes) or thinking state changes.
-  // During typewriter streaming, onContentSizeChange handles scroll via followBottom (non-animated).
+  // Track whether initial scroll to latest question has been performed on mount
+  const hasPerformedInitialScrollRef = useRef(false);
+  const messageLayoutYMap = useRef<Record<string, number>>({});
   const prevMessageCountRef = useRef(0);
+
+  // Identify the latest user question in history
+  const latestUserMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].sender === 'user') return messages[i].id;
+    }
+    return null;
+  }, [messages]);
+
   useEffect(() => {
     const newCount = messages.length;
-    const countChanged = newCount !== prevMessageCountRef.current;
+    const isInitialChatLoad = !hasPerformedInitialScrollRef.current && newCount > 0;
+    const isMessageAdded = newCount > prevMessageCountRef.current;
     prevMessageCountRef.current = newCount;
 
-    if (countChanged || isBotThinking) {
-      // New discrete message: smooth animated snap to bottom
+    if (isInitialChatLoad) {
+      // On initial chat load: Scroll to the latest user question (Gemini behavior)
+      hasPerformedInitialScrollRef.current = true;
+      const targetId = latestUserMessageId;
+      const timer = setTimeout(() => {
+        if (targetId && typeof messageLayoutYMap.current[targetId] === 'number') {
+          scrollViewRef.current?.scrollTo({
+            y: Math.max(0, messageLayoutYMap.current[targetId] - 12),
+            animated: false,
+          });
+        } else {
+          scrollViewRef.current?.scrollToEnd({ animated: false });
+        }
+        setShowScrollButton(false);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+
+    // When deleting messages (newCount < prevMessageCountRef.current), do NOT scroll — stay right where the user is
+    if (isMessageAdded || isBotThinking) {
+      // New discrete message sent during active conversation: smooth animated snap to bottom
       const timer = setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
         setShowScrollButton(false);
       }, 120);
       return () => clearTimeout(timer);
     }
-  }, [messages.length, isBotThinking]);
+  }, [messages.length, isBotThinking, latestUserMessageId]);
 
   const onSendMessage = (textToSend?: string) => {
     Keyboard.dismiss();
@@ -285,15 +316,25 @@ export default function NewChatScreen() {
           )}
 
           {messages.map((item) => (
-            <MessageBubble
+            <View
               key={item.id}
-              message={item}
-              isDark={isDark}
-              feedback={messageFeedbackMap[item.id] || null}
-              onLongPress={(msg, pageY, align) => {
-                Keyboard.dismiss();
-                setContextMenu({ message: msg, anchorY: pageY, align });
+              onLayout={(e) => {
+                messageLayoutYMap.current[item.id] = e.nativeEvent.layout.y;
               }}
+            >
+              <MessageBubble
+                message={item}
+                isDark={isDark}
+                isStreaming={
+                  item.sender === 'ai' &&
+                  (item.id === activeStreamingMessageId ||
+                    (isBotThinking && item.text === '...'))
+                }
+                feedback={messageFeedbackMap[item.id] || null}
+                onLongPress={(msg, pageY, align) => {
+                  Keyboard.dismiss();
+                  setContextMenu({ message: msg, anchorY: pageY, align });
+                }}
               onRegenerate={handleRegenerate}
               onSelectVersion={handleSelectVersion}
               onDelete={(msg) => setDeleteTargetMessage(msg)}
@@ -327,7 +368,8 @@ export default function NewChatScreen() {
               }}
               onTypewriterComplete={onTypewriterComplete}
             />
-          ))}
+          </View>
+        ))}
 
           {isBotThinking && !regeneratingMessageId && (
             <View style={{ flexDirection: 'row', justifyContent: 'flex-start', marginBottom: 8 }}>
