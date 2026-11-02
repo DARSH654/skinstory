@@ -57,6 +57,8 @@ export default function NewChatScreen() {
   // Throttle ref: only allow one non-animated scroll follow per 80ms during streaming
   const streamScrollThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const isNearBottomRef = useRef(true);
+
   const scrollToBottom = useCallback((animated: boolean = true) => {
     isProgrammaticScrolling.current = true;
     setShowScrollButton(false);
@@ -68,17 +70,18 @@ export default function NewChatScreen() {
     }, 450);
   }, []);
 
-  // Called every time the content height changes (typewriter expanding)
-  // Uses instant non-animated follow during streaming to avoid spring collision
+  // Called during typewriter streaming when AI output expands content height
+  // Strictly only follows when bot is actively generating AND user is already viewing the bottom
   const followBottom = useCallback(() => {
+    if (!isGenerating || !isNearBottomRef.current) return;
     if (streamScrollThrottle.current) return; // already scheduled
     streamScrollThrottle.current = setTimeout(() => {
       streamScrollThrottle.current = null;
       scrollViewRef.current?.scrollToEnd({ animated: false });
     }, 80); // follow at most ~12fps — smooth but zero spring conflict
-  }, []);
+  }, [isGenerating]);
 
-  const { footerStyle, resetFooter } = useChatKeyboard(() => scrollToBottom(false), !isEditingTitle);
+  const { footerStyle, resetFooter, keyboardHeight } = useChatKeyboard(undefined, !isEditingTitle);
 
   const {
     messages,
@@ -214,7 +217,7 @@ export default function NewChatScreen() {
           contentContainerStyle={[
             styles.messageScrollContent,
             {
-              paddingBottom: 80 + insets.bottom,
+              paddingBottom: 80 + insets.bottom + keyboardHeight,
               justifyContent: messages.length === 0 ? 'center' : 'flex-start',
             },
           ]}
@@ -236,6 +239,7 @@ export default function NewChatScreen() {
             const totalScrollable = contentSize.height - layoutMeasurement.height;
             // If the content fits on screen, never show scroll-to-bottom
             if (totalScrollable <= 20) {
+              isNearBottomRef.current = true;
               if (showScrollButton) setShowScrollButton(false);
               return;
             }
@@ -243,6 +247,7 @@ export default function NewChatScreen() {
             // Distance from bottom. If within 100px of bottom, consider user as at the bottom
             const distanceFromBottom = totalScrollable - contentOffset.y;
             const isAtBottom = distanceFromBottom <= 100;
+            isNearBottomRef.current = isAtBottom;
 
             if (isAtBottom && showScrollButton) {
               setShowScrollButton(false);

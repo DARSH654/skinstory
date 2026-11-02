@@ -1,6 +1,9 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Message } from '../types';
 import { fetchGeminiChatResponse } from '@/services/geminiChat';
+
+const STORAGE_KEY = 'ss_local_chat_state_v1';
 
 export function useChatMessages() {
   // Store all messages created in the conversation tree
@@ -15,6 +18,59 @@ export function useChatMessages() {
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null);
   // Abort controller to cancel ongoing network request immediately
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Track initial load to prevent overwriting stored data with empty initial state
+  const isLoadedRef = useRef(false);
+
+  // 1. Load chat messages from AsyncStorage on mount
+  useEffect(() => {
+    async function loadStoredChat() {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.messagesMap && typeof parsed.messagesMap === 'object') {
+            // Guarantee animateTypewriter is false for all restored historical messages
+            const restoredMap: Record<string, Message> = {};
+            Object.keys(parsed.messagesMap).forEach((id) => {
+              const msg = parsed.messagesMap[id];
+              restoredMap[id] = {
+                ...msg,
+                animateTypewriter: false,
+              };
+            });
+            setMessagesMap(restoredMap);
+            if (parsed.currentLeafId) {
+              setCurrentLeafId(parsed.currentLeafId);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[useChatMessages] Failed to load local chat state:', err);
+      } finally {
+        isLoadedRef.current = true;
+      }
+    }
+    loadStoredChat();
+  }, []);
+
+  // 2. Persist chat messages to AsyncStorage on change (only after initial load)
+  useEffect(() => {
+    if (!isLoadedRef.current) return;
+    try {
+      // If empty, we can clean up storage or save empty state
+      AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          messagesMap,
+          currentLeafId,
+        })
+      ).catch((err) => {
+        console.warn('[useChatMessages] Failed to save local chat state:', err);
+      });
+    } catch (err) {
+      console.warn('[useChatMessages] Error saving chat state:', err);
+    }
+  }, [messagesMap, currentLeafId]);
 
   // isGenerating is TRUE while the bot is either fetching from API OR typing onto screen
   const isGenerating = isBotThinking || activeStreamingMessageId !== null;

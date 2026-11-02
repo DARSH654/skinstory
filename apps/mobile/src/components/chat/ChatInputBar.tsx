@@ -68,12 +68,15 @@ export const ChatInputBar = React.memo(function ChatInputBar({
         placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
         defaultValue={value}
         onChangeText={(text) => {
+          if (!text) {
+            setIsMultiLine(false);
+          }
           onChangeText(text);
         }}
         onContentSizeChange={(e) => {
           const height = e.nativeEvent.contentSize.height;
-          // When rendered content exceeds single line height (~28-30px), activate multiline
-          const multilineActive = height > 30 || value.includes('\n');
+          // Guard: Empty input is NEVER multiline (prevents Android empty layout transient spike)
+          const multilineActive = Boolean(value) && (height > 36 || value.includes('\n'));
           if (multilineActive !== isMultiLine) {
             setIsMultiLine(multilineActive);
           }
