@@ -12,12 +12,15 @@ import {
   GestureResponderEvent,
   PanResponderGestureState,
   TouchableOpacity,
+  TextInput,
+  Alert,
+  Dimensions,
 } from 'react-native';
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
 import Header from '@/components/layout/Header';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -31,11 +34,20 @@ import {
   Maximize2,
   X,
   Sparkles,
+  MessageSquare,
+  Trash2,
+  Clock,
+  Pin,
+  PinOff,
+  Pencil,
+  AlertTriangle,
   ArrowUpRight,
   CalendarRange,
   PieChart,
   Award
 } from 'lucide-react-native';
+import { useChats, ChatMeta } from '@/hooks/useChats';
+import RenameChatModal from '@/components/chat/RenameChatModal';
 import { MOCK_SCANS } from '@/constants/mockScans';
 
 // Reusable Circular Progress Icon Component with Primary + Secondary Gradient Arc
@@ -159,6 +171,32 @@ export default function ProgressScreen() {
   const params = useLocalSearchParams<{ compareScanIds?: string }>();
   const [compareIds, setCompareIds] = useState<string[]>(['1', '2']);
   const [isChatsExpanded, setIsChatsExpanded] = useState<boolean>(true);
+
+  // Chat management state from useChats hook
+  const { chats, togglePinChat, deleteChat, upsertChat, refresh: refreshChats } = useChats();
+
+  // Context dropdown position & target
+  const [selectedChatForMenu, setSelectedChatForMenu] = useState<{
+    chat: ChatMeta;
+    anchorX: number;
+    anchorY: number;
+  } | null>(null);
+
+  // Rename Chat Modal State
+  const [chatToRename, setChatToRename] = useState<ChatMeta | null>(null);
+  const [tempRenameTitle, setTempRenameTitle] = useState('');
+
+  // Delete modal state
+  const [chatToDelete, setChatToDelete] = useState<ChatMeta | null>(null);
+  const deleteInputRef = useRef('');
+  const [canDeleteChat, setCanDeleteChat] = useState(false);
+
+  // Refresh chats whenever user returns to Progress/Insights tab
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshChats();
+    }, [refreshChats])
+  );
 
   // Refs for auto-scroll to compare section
   const mainScrollRef = useRef<ScrollView>(null);
@@ -524,7 +562,11 @@ export default function ProgressScreen() {
             onPress={() => {
               if (isNavigating.current) return;
               isNavigating.current = true;
-              router.push('/new-chat' as any);
+              const freshChatId = `chat-${Date.now()}`;
+              router.push({
+                pathname: '/new-chat',
+                params: { chatId: freshChatId },
+              } as any);
               setTimeout(() => {
                 isNavigating.current = false;
               }, 1000);
@@ -545,23 +587,77 @@ export default function ProgressScreen() {
         </View>
 
         {isChatsExpanded && (
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: isDark ? '#18181b' : '#ffffff',
-                borderColor: isDark ? '#27272a' : '#e5e7eb',
-                paddingVertical: 18,
-                paddingHorizontal: 16,
-                alignItems: 'center',
-                justifyContent: 'center',
-              },
-            ]}
-          >
-            <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '500', textAlign: 'center' }}>
-              No recent chats yet. Tap New Chat to begin!
-            </Text>
-          </View>
+          chats.length === 0 ? (
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: isDark ? '#18181b' : '#ffffff',
+                  borderColor: isDark ? '#27272a' : '#e5e7eb',
+                  paddingVertical: 18,
+                  paddingHorizontal: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                },
+              ]}
+            >
+              <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '500', textAlign: 'center' }}>
+                No recent chats yet. Tap New Chat to begin!
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.chatCardsList}>
+              {chats.map((chat) => (
+                <Pressable
+                  key={chat.id}
+                  onPress={() => {
+                    if (isNavigating.current) return;
+                    isNavigating.current = true;
+                    router.push({
+                      pathname: '/new-chat',
+                      params: { chatId: chat.id, title: chat.title },
+                    } as any);
+                    setTimeout(() => {
+                      isNavigating.current = false;
+                    }, 800);
+                  }}
+                  delayLongPress={350}
+                  onLongPress={(e) => {
+                    const { pageX, pageY } = e.nativeEvent;
+                    setSelectedChatForMenu({
+                      chat,
+                      anchorX: pageX || SCREEN_WIDTH / 2,
+                      anchorY: pageY || 350,
+                    });
+                  }}
+                  style={({ pressed }) => [
+                    styles.card,
+                    styles.chatHistoryCard,
+                    {
+                      backgroundColor: pressed
+                        ? (isDark ? '#222226' : '#f4f4f5')
+                        : (isDark ? '#18181b' : '#ffffff'),
+                      borderColor: isDark ? '#27272a' : '#e5e7eb',
+                    },
+                  ]}
+                >
+                  <View style={styles.chatCardSingleRow}>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.chatCardBigTitle, { color: colors.text }]}
+                    >
+                      {chat.title || 'Untitled Chat'}
+                    </Text>
+                    {Boolean(chat.isPinned) && (
+                      <View style={styles.pinnedIndicator}>
+                        <Pin size={15} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.4} />
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )
         )}
 
         {/* Insight Report Section */}
@@ -617,6 +713,230 @@ export default function ProgressScreen() {
           </Pressable>
         ))}
       </ScrollView>
+
+      {/* ── Chat Actions Long-Press Menu Modal (Positioned Context Menu) ── */}
+      <Modal
+        visible={selectedChatForMenu !== null}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setSelectedChatForMenu(null)}
+      >
+        <View style={styles.chatMenuOverlay}>
+          <TouchableOpacity
+            style={styles.chatMenuBackdrop}
+            onPress={() => setSelectedChatForMenu(null)}
+            activeOpacity={1}
+          />
+          {selectedChatForMenu && (
+            <View
+              style={[
+                styles.chatMenuCard,
+                isDark ? styles.chatMenuCardDark : styles.chatMenuCardLight,
+                {
+                  top: Math.min(
+                    Math.max(selectedChatForMenu.anchorY - 20, insets.top + 40),
+                    Dimensions.get('window').height - insets.bottom - 170
+                  ),
+                  left: Math.min(
+                    Math.max(selectedChatForMenu.anchorX - 50, 16),
+                    Dimensions.get('window').width - 185
+                  ),
+                },
+              ]}
+            >
+              <View style={styles.chatMenuItemsWrapper}>
+                {/* 1. Rename Option */}
+                <TouchableOpacity
+                  style={styles.chatMenuItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const currentChat = selectedChatForMenu.chat;
+                    setSelectedChatForMenu(null);
+                    setTempRenameTitle(currentChat.title || '');
+                    setChatToRename(currentChat);
+                  }}
+                >
+                  <Pencil size={16} color={isDark ? '#fafafa' : '#18181b'} />
+                  <Text style={[styles.chatMenuItemText, { color: isDark ? '#fafafa' : '#18181b' }]}>
+                    Rename
+                  </Text>
+                </TouchableOpacity>
+
+                {/* 2. Pin / Unpin Option */}
+                <TouchableOpacity
+                  style={styles.chatMenuItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const currentChat = selectedChatForMenu.chat;
+                    setSelectedChatForMenu(null);
+                    togglePinChat(currentChat.id);
+                  }}
+                >
+                  {selectedChatForMenu.chat.isPinned ? (
+                    <PinOff size={16} color={isDark ? '#fafafa' : '#18181b'} />
+                  ) : (
+                    <Pin size={16} color={isDark ? '#fafafa' : '#18181b'} />
+                  )}
+                  <Text style={[styles.chatMenuItemText, { color: isDark ? '#fafafa' : '#18181b' }]}>
+                    {selectedChatForMenu.chat.isPinned ? 'Unpin' : 'Pin'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* 3. Delete Option */}
+                <TouchableOpacity
+                  style={styles.chatMenuItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const target = selectedChatForMenu.chat;
+                    setSelectedChatForMenu(null);
+                    deleteInputRef.current = '';
+                    setCanDeleteChat(false);
+                    setChatToDelete(target);
+                  }}
+                >
+                  <Trash2 size={16} color="#ef4444" />
+                  <Text style={[styles.chatMenuItemText, { color: '#ef4444' }]}>
+                    Delete
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+      </Modal>
+
+      {/* ── Rename Chat Modal (Reused identical modal from new-chat) ── */}
+      <RenameChatModal
+        isDark={isDark}
+        visible={chatToRename !== null}
+        currentTitle={chatToRename?.title || ''}
+        tempTitle={tempRenameTitle}
+        onChangeText={(text) => setTempRenameTitle(text.slice(0, 100))}
+        onSave={async () => {
+          if (chatToRename && tempRenameTitle.trim()) {
+            await upsertChat({
+              ...chatToRename,
+              title: tempRenameTitle.trim(),
+              updatedAt: Date.now(),
+            });
+            setChatToRename(null);
+          }
+        }}
+        onCancel={() => setChatToRename(null)}
+      />
+
+      {/* ── Delete Chat Modal (Matching Profile Delete Account UI with Warning & 'delete' input) ── */}
+      <Modal
+        visible={chatToDelete !== null}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => {
+          deleteInputRef.current = '';
+          setCanDeleteChat(false);
+          setChatToDelete(null);
+        }}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => {
+            deleteInputRef.current = '';
+            setCanDeleteChat(false);
+            setChatToDelete(null);
+          }}
+        >
+          <Pressable
+            style={[styles.modalCard, isDark ? styles.modalCardDark : styles.modalCardLight]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View
+              style={[
+                styles.modalIconWrap,
+                isDark ? { backgroundColor: '#3f1f1f' } : { backgroundColor: '#fee2e2' },
+              ]}
+            >
+              <AlertTriangle size={28} color="#ef4444" strokeWidth={2.2} />
+            </View>
+
+            <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight]}>
+              Delete Chat
+            </Text>
+
+            <Text style={[styles.modalDescription, isDark ? styles.modalDescDark : styles.modalDescLight]}>
+              Are you sure you want to delete? You will lose all your chat messages of this chat which you are deleting.
+            </Text>
+
+            <Text style={[styles.deleteInstruction, isDark ? styles.deleteInstructionDark : styles.deleteInstructionLight]}>
+              Type <Text style={{ fontWeight: '700', color: '#ef4444' }}>delete</Text> below to confirm:
+            </Text>
+
+            <TextInput
+              key={`chat-delete-${chatToDelete !== null ? 'open' : 'closed'}`}
+              style={[styles.deleteInput, isDark ? styles.deleteInputDark : styles.deleteInputLight]}
+              placeholder="delete"
+              placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
+              defaultValue={deleteInputRef.current}
+              onChangeText={(val) => {
+                deleteInputRef.current = val;
+                const matches = val.trim().toLowerCase() === 'delete';
+                if (matches !== canDeleteChat) {
+                  setCanDeleteChat(matches);
+                }
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+              multiline={false}
+              scrollEnabled={false}
+              returnKeyType="done"
+              blurOnSubmit={true}
+            />
+
+            <View style={styles.modalBtnRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalActionBtn,
+                  isDark ? styles.cancelBtnDark : styles.cancelBtnLight,
+                  { opacity: pressed ? 0.75 : 1 },
+                ]}
+                onPress={() => {
+                  deleteInputRef.current = '';
+                  setCanDeleteChat(false);
+                  setChatToDelete(null);
+                }}
+              >
+                <Text style={[styles.cancelBtnText, isDark ? styles.textDark : styles.textLight]}>
+                  Cancel
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalActionBtn,
+                  {
+                    backgroundColor: canDeleteChat ? '#ef4444' : (isDark ? '#27272a' : '#e5e7eb'),
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}
+                disabled={!canDeleteChat}
+                onPress={() => {
+                  if (canDeleteChat && chatToDelete) {
+                    deleteChat(chatToDelete.id);
+                    deleteInputRef.current = '';
+                    setCanDeleteChat(false);
+                    setChatToDelete(null);
+                  }
+                }}
+              >
+                <Text style={[styles.confirmBtnText, { color: canDeleteChat ? '#ffffff' : (isDark ? '#71717a' : '#9ca3af') }]}>
+                  Delete
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -670,6 +990,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+  },
+  chatCardsList: {
+    gap: 10,
+    marginTop: 12,
+  },
+  chatHistoryCard: {
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    marginTop: 0,
+    justifyContent: 'center',
+  },
+  chatCardSingleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  chatCardBigTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    flex: 1,
+  },
+  pinnedIndicator: {
+    padding: 2,
   },
   chatSubCard: {
     padding: 10,
@@ -957,5 +1303,203 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '700',
+  },
+
+  /* ── Chat Actions Long-Press Menu Modal Styles (Matching Daily Journal) ── */
+  chatMenuOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+  },
+  chatMenuBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  chatMenuCard: {
+    position: 'absolute',
+    minWidth: 155,
+    maxWidth: 195,
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 0,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  chatMenuCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  chatMenuCardDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
+  },
+  chatMenuItemsWrapper: {
+    paddingVertical: 2,
+  },
+  chatMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  chatMenuItemText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  /* ── Delete Chat Modal Styles (Identical to Profile Delete Account) ── */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  modalCardLight: {
+    backgroundColor: '#FAF8F6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  modalCardDark: {
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: '#2b2b30',
+  },
+  modalIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+    marginBottom: 22,
+  },
+  modalDescLight: {
+    color: '#4b5563',
+  },
+  modalDescDark: {
+    color: '#a1a1aa',
+  },
+  deleteInstruction: {
+    fontSize: 13,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  deleteInstructionLight: {
+    color: '#374151',
+  },
+  deleteInstructionDark: {
+    color: '#e4e4e7',
+  },
+  deleteInput: {
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    fontSize: 14,
+    height: 48,
+    textAlign: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  deleteInputLight: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    color: '#111827',
+  },
+  deleteInputDark: {
+    backgroundColor: '#1c1c20',
+    borderWidth: 1,
+    borderColor: '#2b2b30',
+    color: '#ffffff',
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+    marginTop: 6,
+  },
+  modalActionBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cancelBtnLight: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  cancelBtnDark: {
+    backgroundColor: '#18181b',
+    borderWidth: 1,
+    borderColor: '#27272a',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  confirmBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  textLight: {
+    color: '#111827',
+  },
+  textDark: {
+    color: '#ffffff',
   },
 });

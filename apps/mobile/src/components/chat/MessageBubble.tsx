@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { View, StyleSheet, Animated, Easing, TouchableOpacity, Pressable, GestureResponderEvent, Text as RNText, TextInput } from 'react-native';
-import { Copy, ThumbsUp, ThumbsDown, RotateCw, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Copy, ThumbsUp, ThumbsDown, RotateCw, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Info, AlertCircle } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/AppText';
 import TypingIndicator from './TypingIndicator';
@@ -11,6 +11,8 @@ interface MessageBubbleProps {
   message: Message;
   isDark: boolean;
   isStreaming?: boolean;
+  isLatestAiMessage?: boolean;
+  isLatestInterrupted?: boolean;
   onLongPress: (message: Message, pageY: number, align: 'left' | 'right') => void;
   onRegenerate?: (message: Message) => void;
   onDelete?: (message: Message) => void;
@@ -25,6 +27,8 @@ export default function MessageBubble({
   message,
   isDark,
   isStreaming = false,
+  isLatestAiMessage = true,
+  isLatestInterrupted = true,
   onLongPress,
   onRegenerate,
   onDelete,
@@ -71,28 +75,23 @@ export default function MessageBubble({
 
       if (current >= fullLength) {
         clearInterval(interval);
-        message.animateTypewriter = false;
-        onTypewriterComplete?.(message.id, fullText);
+        setDisplayedLength(fullLength);
+        onTypewriterComplete?.(message.id);
       }
     }, 45);
 
     return () => {
+      // Safe cleanup: ONLY clear the timer. NEVER truncate or corrupt the canonical message text in storage!
       clearInterval(interval);
-      // When interrupted (e.g., user tapped Stop button), permanently cut off at current word
-      if (current > 0 && current < fullLength) {
-        const truncated = fullText.slice(0, current);
-        onTypewriterComplete?.(message.id, truncated);
-      } else {
-        onTypewriterComplete?.(message.id);
-      }
     };
   }, [shouldAnimate, message.text, message.id, onTypewriterComplete]);
 
+  // When shouldAnimate is true, show animated typing progress. When shouldAnimate is false, ALWAYS show 100% full text!
   const displayedText = message.text
-    ? (shouldAnimate || (displayedLength > 0 && displayedLength < (message.text?.length || 0)))
+    ? (shouldAnimate && displayedLength < message.text.length)
       ? message.text.slice(0, displayedLength)
       : message.text
-    : message.text;
+    : (message.text || '');
 
   useEffect(() => {
     // If this bubble is streaming, keep it completely stationary (no translateY overshoot)
@@ -151,81 +150,144 @@ export default function MessageBubble({
       ]}
     >
       <View style={isUser ? styles.userMessageWrapper : styles.aiMessageWrapper}>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={isUser && canUserExpand ? () => setIsUserExpanded((prev) => !prev) : undefined}
-          delayLongPress={500}
-          onLongPress={isUser ? handleLongPress : undefined}
-          style={isUser ? undefined : { width: '100%' }}
-        >
-          <View
-            style={[
-              styles.messageBubble,
-              isUser
-                ? [
-                    styles.bubbleUser,
-                    {
-                      backgroundColor: isDark ? '#18181b' : '#ffffff',
-                      borderColor: isDark ? '#27272a' : '#e4e4e7',
-                    },
-                  ]
-                : styles.bubbleAiPlain,
-            ]}
+        {/* Message content bubble (hidden if AI has no text and is interrupted/errored) */}
+        {(!(!isUser && !message.text && (message.interrupted || message.error))) && (
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={isUser && canUserExpand ? () => setIsUserExpanded((prev) => !prev) : undefined}
+            delayLongPress={500}
+            onLongPress={isUser ? handleLongPress : undefined}
+            style={isUser ? undefined : { width: '100%' }}
           >
-            {!isUser && (!message.text || message.text === '...') ? (
-              <View style={{ paddingVertical: 4 }}>
-                <TypingIndicator isDark={isDark} />
-              </View>
-            ) : (
-              <View style={isUser && canUserExpand ? { position: 'relative' } : undefined}>
-                <Text
-                  onTextLayout={
-                    isUser
-                      ? (e) => {
-                          if (e.nativeEvent.lines.length > 4) {
-                            setCanUserExpand(true);
-                          }
-                        }
-                      : undefined
-                  }
-                  numberOfLines={isUser && canUserExpand && !isUserExpanded ? 4 : undefined}
-                  ellipsizeMode={isUser && canUserExpand && !isUserExpanded ? 'tail' : undefined}
-                  style={[
-                    isUser ? styles.userChatText : styles.aiChatText,
-                    styles.chatTextMessage,
-                    { color: isDark ? '#ffffff' : '#000000' },
-                    isUser && canUserExpand && !isUserExpanded && { paddingRight: 30 },
-                  ]}
-                >
-                  {displayedText}
-                </Text>
-
-                {isUser && canUserExpand && (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setIsUserExpanded((prev) => !prev)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={[
-                      styles.expandChevronBtn,
+            <View
+              style={[
+                styles.messageBubble,
+                isUser
+                  ? [
+                      styles.bubbleUser,
                       {
-                        backgroundColor: isDark ? '#27272a' : '#ffffff',
-                        borderColor: isDark ? '#3f3f46' : '#e4e4e7',
+                        backgroundColor: isDark ? '#18181b' : '#ffffff',
+                        borderColor: isDark ? '#27272a' : '#e4e4e7',
                       },
+                    ]
+                  : styles.bubbleAiPlain,
+              ]}
+            >
+              {!isUser && (!message.text || message.text === '...') ? (
+                !message.interrupted && !message.error ? (
+                  <View style={{ paddingVertical: 4 }}>
+                    <TypingIndicator isDark={isDark} />
+                  </View>
+                ) : null
+              ) : (
+                <View style={isUser && canUserExpand ? { position: 'relative' } : undefined}>
+                  <Text
+                    onTextLayout={
+                      isUser
+                        ? (e) => {
+                            if (e.nativeEvent.lines.length > 4) {
+                              setCanUserExpand(true);
+                            }
+                          }
+                        : undefined
+                    }
+                    numberOfLines={isUser && canUserExpand && !isUserExpanded ? 4 : undefined}
+                    ellipsizeMode={isUser && canUserExpand && !isUserExpanded ? 'tail' : undefined}
+                    style={[
+                      isUser ? styles.userChatText : styles.aiChatText,
+                      styles.chatTextMessage,
+                      { color: isDark ? '#ffffff' : '#000000' },
+                      isUser && canUserExpand && !isUserExpanded && { paddingRight: 30 },
                     ]}
                   >
-                    {isUserExpanded ? (
-                      <ChevronUp size={15} color={isDark ? '#e4e4e7' : '#3f3f46'} strokeWidth={2.4} />
-                    ) : (
-                      <ChevronDown size={15} color={isDark ? '#e4e4e7' : '#3f3f46'} strokeWidth={2.4} />
-                    )}
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
+                    {displayedText}
+                  </Text>
 
-        {!isUser && !isStreaming && (
+                  {isUser && canUserExpand && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => setIsUserExpanded((prev) => !prev)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={[
+                        styles.expandChevronBtn,
+                        {
+                          backgroundColor: isDark ? '#27272a' : '#ffffff',
+                          borderColor: isDark ? '#3f3f46' : '#e4e4e7',
+                        },
+                      ]}
+                    >
+                      {isUserExpanded ? (
+                        <ChevronUp size={15} color={isDark ? '#e4e4e7' : '#3f3f46'} strokeWidth={2.4} />
+                      ) : (
+                        <ChevronDown size={15} color={isDark ? '#e4e4e7' : '#3f3f46'} strokeWidth={2.4} />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Claude-style 'AI response was interrupted' banner with 'Try again' button */}
+        {!isUser && (message.interrupted || message.error) && !isStreaming && (
+          <View
+            style={[
+              styles.interruptedBanner,
+              isDark ? styles.interruptedBannerDark : styles.interruptedBannerLight,
+            ]}
+          >
+            <View style={styles.interruptedLeft}>
+              {message.error ? (
+                <AlertCircle size={16} color={isDark ? '#f87171' : '#dc2626'} strokeWidth={2.2} />
+              ) : (
+                <Info size={16} color={isDark ? '#d4d4d8' : '#52525b'} strokeWidth={2.2} />
+              )}
+              <Text
+                style={[
+                  styles.interruptedText,
+                  { color: isDark ? '#e4e4e7' : '#1f2937' },
+                ]}
+              >
+                {message.error || 'AI response was interrupted.'}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={isLatestInterrupted ? 0.7 : 1}
+              disabled={!isLatestInterrupted}
+              onPress={isLatestInterrupted ? () => onRegenerate?.(message) : undefined}
+              style={[
+                styles.tryAgainBtn,
+                isDark ? styles.tryAgainBtnDark : styles.tryAgainBtnLight,
+                !isLatestInterrupted && (isDark ? styles.tryAgainBtnDisabledDark : styles.tryAgainBtnDisabledLight),
+              ]}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Text
+                style={[
+                  styles.tryAgainBtnText,
+                  {
+                    color: !isLatestInterrupted
+                      ? isDark
+                        ? '#71717a'
+                        : '#9ca3af'
+                      : isDark
+                      ? '#ffffff'
+                      : '#111827',
+                  },
+                ]}
+              >
+                Try again
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Action icons row:
+            - If message has some text (completed OR partially generated before stop): show action icons
+            - If message was stopped with zero text (e.g. 3-dots): completely hidden */}
+        {!isUser && !isStreaming && Boolean(message.text && message.text !== '...') && (
           <View style={styles.actionRow}>
             {/* Version Switcher (e.g. < 2/2 >) - Preserved but hidden from UI
             {message.versions && message.versions.length > 1 && (
@@ -382,19 +444,21 @@ export default function MessageBubble({
               />
             </Pressable>
 
-            {/* Regenerate */}
-            <Pressable
-              onPress={() => onRegenerate?.(message)}
-              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-              style={({ pressed, hovered }: any) => [
-                styles.actionBtn,
-                (pressed || hovered) && {
-                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
-                },
-              ]}
-            >
-              <RotateCw size={18} color={defaultIconColor} strokeWidth={2} />
-            </Pressable>
+            {/* Regenerate (Only on latest completed AI message, never on interrupted) */}
+            {isLatestAiMessage && !message.interrupted && !message.error && (
+              <Pressable
+                onPress={() => onRegenerate?.(message)}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                style={({ pressed, hovered }: any) => [
+                  styles.actionBtn,
+                  (pressed || hovered) && {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+                  },
+                ]}
+              >
+                <RotateCw size={18} color={defaultIconColor} strokeWidth={2} />
+              </Pressable>
+            )}
 
             {/* Delete */}
             <Pressable
@@ -520,5 +584,80 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 3,
     elevation: 3,
+  },
+  interruptedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 8,
+    marginBottom: 6,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  interruptedBannerLight: {
+    backgroundColor: '#f4f4f5',
+    borderColor: '#e4e4e7',
+  },
+  interruptedBannerDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
+  },
+  interruptedLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  interruptedText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    flex: 1,
+  },
+  tryAgainBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  tryAgainBtnLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#d4d4d8',
+  },
+  tryAgainBtnDark: {
+    backgroundColor: '#27272a',
+    borderColor: '#3f3f46',
+  },
+  tryAgainBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  tryAgainBtnDisabledLight: {
+    backgroundColor: '#f4f4f5',
+    borderColor: '#e4e4e7',
+    shadowOpacity: 0,
+    elevation: 0,
+    opacity: 0.7,
+  },
+  tryAgainBtnDisabledDark: {
+    backgroundColor: '#1f1f23',
+    borderColor: '#2e2e33',
+    shadowOpacity: 0,
+    elevation: 0,
+    opacity: 0.6,
   },
 });

@@ -1,11 +1,19 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Message } from '../types';
-import { fetchGeminiChatResponse } from '@/services/geminiChat';
+import { CHAT_MESSAGES_PREFIX } from '@/hooks/useChats';
+import { chatGenerationManager } from '@/services/chatGenerationManager';
 
-const STORAGE_KEY = 'ss_local_chat_state_v1';
+interface UseChatMessagesOptions {
+  chatId: string;
+  chatTitle?: string;
+  // Called whenever the chat gets a new message (so caller can update the index)
+  onChatUpdated?: (lastMessage: string, updatedAt: number) => void;
+}
 
-export function useChatMessages() {
+export function useChatMessages({ chatId, chatTitle = 'Untitled Chat', onChatUpdated }: UseChatMessagesOptions) {
+  const storageKey = `${CHAT_MESSAGES_PREFIX}${chatId}`;
+
   // Store all messages created in the conversation tree
   const [messagesMap, setMessagesMap] = useState<Record<string, Message>>({});
   // Current leaf message id representing the active branch tail
@@ -14,73 +22,158 @@ export function useChatMessages() {
   const [isBotThinking, setIsBotThinking] = useState(false);
   // Track message currently streaming its typewriter effect
   const [activeStreamingMessageId, setActiveStreamingMessageId] = useState<string | null>(null);
+  const activeStreamingMessageIdRef = useRef<string | null>(null);
+  // Track whether the latest generation was handled directly in foreground
+  const handledInForegroundRef = useRef(false);
+  // Prevent duplicate competing AsyncStorage writes when chatGenerationManager already saved the response
+  const skipNextStorageSaveRef = useRef(false);
   // Track which message is currently being regenerated (or null if new message at bottom)
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null);
-  // Abort controller to cancel ongoing network request immediately
-  const abortControllerRef = useRef<AbortController | null>(null);
+  // Track the active user prompt and message id currently awaiting an AI response
+  const activeUserPromptRef = useRef<{ id: string; text: string; parentId: string | null; sentTime: number } | null>(null);
   // Track initial load to prevent overwriting stored data with empty initial state
   const isLoadedRef = useRef(false);
 
-  // 1. Load chat messages from AsyncStorage on mount
-  useEffect(() => {
-    async function loadStoredChat() {
-      try {
-        const stored = await AsyncStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed?.messagesMap && typeof parsed.messagesMap === 'object') {
-            // Guarantee animateTypewriter is false for all restored historical messages
-            const restoredMap: Record<string, Message> = {};
-            Object.keys(parsed.messagesMap).forEach((id) => {
-              const msg = parsed.messagesMap[id];
+  // 1. Load chat messages from AsyncStorage on mount or when storage updates
+  const reloadFromStorage = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.messagesMap && typeof parsed.messagesMap === 'object') {
+          const restoredMap: Record<string, Message> = {};
+          const isActivelyGenerating = chatGenerationManager.isChatGenerating(chatId);
+
+          Object.keys(parsed.messagesMap).forEach((id) => {
+            const msg = parsed.messagesMap[id];
+            // If this message is currently animating its typewriter in the active foreground view, keep it animating!
+            const isCurrentlyStreaming = id === activeStreamingMessageIdRef.current;
+
+            // If an AI message was saved with empty text or '...' and NO active generation is running for it,
+            // it was orphaned/interrupted (e.g. app killed, network drop, away). Cleanly mark as interrupted!
+            if (msg.sender === 'ai' && (!msg.text || msg.text === '...') && !msg.interrupted && !msg.error && !isActivelyGenerating) {
               restoredMap[id] = {
                 ...msg,
+                text: '',
                 animateTypewriter: false,
+                interrupted: true,
               };
-            });
-            setMessagesMap(restoredMap);
-            if (parsed.currentLeafId) {
-              setCurrentLeafId(parsed.currentLeafId);
+            } else {
+              restoredMap[id] = {
+                ...msg,
+                animateTypewriter: isCurrentlyStreaming ? true : false,
+              };
             }
+          });
+          setMessagesMap(restoredMap);
+          if (parsed.currentLeafId) {
+            setCurrentLeafId(parsed.currentLeafId);
           }
         }
-      } catch (err) {
-        // Failed to load stored chat state
-      } finally {
-        isLoadedRef.current = true;
       }
+    } catch {
+      // Failed to load stored chat state
+    } finally {
+      isLoadedRef.current = true;
     }
-    loadStoredChat();
-  }, []);
+  }, [chatId, storageKey]);
+
+  useEffect(() => {
+    // Reset state when chatId changes
+    setMessagesMap({});
+    setCurrentLeafId(null);
+    setInputText('');
+    activeStreamingMessageIdRef.current = null;
+    setActiveStreamingMessageId(null);
+    handledInForegroundRef.current = false;
+    isLoadedRef.current = false;
+
+    // Check if background manager is already generating for this chat
+    const activeGen = chatGenerationManager.getActiveGeneration(chatId);
+    if (activeGen) {
+      setIsBotThinking(true);
+      if (activeGen.isRegenerating && activeGen.targetAiMsgId) {
+        setRegeneratingMessageId(activeGen.targetAiMsgId);
+      } else {
+        setRegeneratingMessageId(null);
+        activeUserPromptRef.current = {
+          id: activeGen.userMsgId,
+          text: activeGen.promptText,
+          parentId: null,
+          sentTime: activeGen.startTime,
+        };
+      }
+    } else {
+      setIsBotThinking(false);
+      setRegeneratingMessageId(null);
+    }
+
+    reloadFromStorage();
+
+    // Subscribe to background manager updates (for completions that finish while away)
+    const unsubscribe = chatGenerationManager.subscribe((updatedChatId) => {
+      if (updatedChatId === chatId) {
+        const gen = chatGenerationManager.getActiveGeneration(chatId);
+        if (!gen) {
+          setIsBotThinking(false);
+          setRegeneratingMessageId(null);
+          // If this completion was already handled directly in the foreground, do NOT reload from storage
+          // to avoid disrupting the active typewriter animation.
+          if (handledInForegroundRef.current) {
+            handledInForegroundRef.current = false;
+            return;
+          }
+          reloadFromStorage();
+        } else {
+          setIsBotThinking(true);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [chatId, storageKey, reloadFromStorage]);
 
   // 2. Persist chat messages to AsyncStorage on change (only after initial load)
   useEffect(() => {
     if (!isLoadedRef.current) return;
+    if (skipNextStorageSaveRef.current) {
+      // chatGenerationManager already saved this message to disk atomically.
+      skipNextStorageSaveRef.current = false;
+      return;
+    }
     try {
-      // If empty, we can clean up storage or save empty state
       AsyncStorage.setItem(
-        STORAGE_KEY,
+        storageKey,
         JSON.stringify({
           messagesMap,
           currentLeafId,
         })
       ).catch(() => {});
-    } catch (err) {
+    } catch {
       // Failed to save chat state
     }
-  }, [messagesMap, currentLeafId]);
+  }, [messagesMap, currentLeafId, storageKey]);
 
   // isGenerating is TRUE while the bot is either fetching from API OR typing onto screen
   const isGenerating = isBotThinking || activeStreamingMessageId !== null;
 
   const stopGeneration = useCallback(() => {
-    // 1. Abort network request if pending
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    // 2. If a message is currently streaming, freeze it at its current state
+    console.log('[DEBUG_STOP_CALLED]', {
+      chatId,
+      activeStreamingMessageId,
+      regeneratingMessageId,
+      isBotThinking,
+      hasActiveUserPrompt: !!activeUserPromptRef.current,
+    });
+
+    // 1. Stop background generation manager for this chat
+    chatGenerationManager.stopGeneration(chatId);
+
+    // 2. If a message is currently streaming, freeze it at its current state with interrupted banner
     if (activeStreamingMessageId) {
+      console.log('[DEBUG_STOP_BRANCH] Branch 2: streaming message freeze', activeStreamingMessageId);
       setMessagesMap((prev) => {
         const currentMsg = prev[activeStreamingMessageId];
         if (currentMsg) {
@@ -89,43 +182,89 @@ export function useChatMessages() {
             [activeStreamingMessageId]: {
               ...currentMsg,
               animateTypewriter: false,
+              interrupted: true,
             },
           };
         }
         return prev;
       });
+    } else if (regeneratingMessageId) {
+      console.log('[DEBUG_STOP_BRANCH] Branch 3: regeneratingMessageId', regeneratingMessageId);
+      // 3. User stopped while retrying/regenerating an AI message: keep message, set text to '', interrupted to true
+      setMessagesMap((prev) => {
+        const currentMsg = prev[regeneratingMessageId];
+        console.log('[DEBUG_STOP_REGEN_PREV_MSG]', { exists: !!currentMsg, text: currentMsg?.text });
+        if (currentMsg) {
+          return {
+            ...prev,
+            [regeneratingMessageId]: {
+              ...currentMsg,
+              text: '',
+              animateTypewriter: false,
+              interrupted: true,
+              error: null,
+            },
+          };
+        }
+        return prev;
+      });
+    } else if (isBotThinking || chatGenerationManager.isChatGenerating(chatId)) {
+      // 4. User stopped while AI was thinking: create AI bubble with interrupted banner & Try again button
+      const aiNow = Date.now();
+      const aiMsgId = `ai-${aiNow}`;
+      const parentId = activeUserPromptRef.current?.id || currentLeafId;
+
+      const interruptedAiMsg: Message = {
+        id: aiMsgId,
+        sender: 'ai',
+        text: '',
+        timestamp: new Date(aiNow).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        createdAt: aiNow,
+        parentId: parentId,
+        childrenIds: [],
+        interrupted: true,
+      };
+
+      setMessagesMap((prev) => {
+        const updated = { ...prev, [aiMsgId]: interruptedAiMsg };
+        if (parentId && updated[parentId]) {
+          updated[parentId] = {
+            ...updated[parentId],
+            childrenIds: [...(updated[parentId].childrenIds || []), aiMsgId],
+          };
+        }
+        return updated;
+      });
+      setCurrentLeafId(aiMsgId);
     }
+
+    activeUserPromptRef.current = null;
+    activeStreamingMessageIdRef.current = null;
     setIsBotThinking(false);
     setActiveStreamingMessageId(null);
     setRegeneratingMessageId(null);
-  }, [activeStreamingMessageId]);
+  }, [chatId, activeStreamingMessageId, isBotThinking, regeneratingMessageId]);
 
-  const onTypewriterComplete = useCallback((messageId: string, finalText?: string) => {
-    if (finalText !== undefined) {
-      setMessagesMap((prev) => {
-        const msg = prev[messageId];
-        if (!msg) return prev;
-        const activeIdx = msg.activeVersionIndex ?? 0;
-        const updatedVersions = [...(msg.versions || [msg.text])];
-        updatedVersions[activeIdx] = finalText;
-        return {
-          ...prev,
-          [messageId]: {
-            ...msg,
-            text: finalText,
-            versions: updatedVersions,
-            animateTypewriter: false,
-          },
-        };
-      });
-    }
+  const onTypewriterComplete = useCallback((messageId: string) => {
+    activeStreamingMessageIdRef.current = null;
     setActiveStreamingMessageId((curr) => (curr === messageId ? null : curr));
+    skipNextStorageSaveRef.current = true;
+    setMessagesMap((prev) => {
+      const msg = prev[messageId];
+      if (!msg) return prev;
+      return {
+        ...prev,
+        [messageId]: {
+          ...msg,
+          animateTypewriter: false,
+        },
+      };
+    });
   }, []);
 
   // Compute active linear messages from root to current leaf
   const messages = useMemo(() => {
     if (!currentLeafId || !messagesMap[currentLeafId]) {
-      // If no valid leaf, but we have messages, fallback to sorted order
       return Object.values(messagesMap).sort((a, b) => a.createdAt - b.createdAt);
     }
     const path: Message[] = [];
@@ -143,7 +282,6 @@ export function useChatMessages() {
   // Compatibility helper if components need direct setMessages (e.g., delete)
   const setMessages = useCallback((updater: React.SetStateAction<Message[]>) => {
     setMessagesMap((prevMap) => {
-      // Calculate current linear list
       let currentList: Message[] = [];
       if (currentLeafId && prevMap[currentLeafId]) {
         let curr: string | null = currentLeafId;
@@ -163,7 +301,6 @@ export function useChatMessages() {
         nextMap[msg.id] = msg;
       });
 
-      // Update current leaf id to last message in nextList
       const newTail = nextList.length > 0 ? nextList[nextList.length - 1].id : null;
       setCurrentLeafId(newTail);
 
@@ -205,71 +342,53 @@ export function useChatMessages() {
     setInputText('');
     setIsBotThinking(true);
     setRegeneratingMessageId(null);
+    activeUserPromptRef.current = { id: userMsgId, text: content, parentId: parent, sentTime: now };
 
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
+    // Notify caller about the user message (updates the chat list index)
+    onChatUpdated?.(content, now);
 
-    // Call real Gemini AI model
-    (async () => {
-      let aiResponseText = '';
-      try {
-        const history = messages.map((m) => ({
-          sender: m.sender,
-          text: m.text,
-        }));
-        aiResponseText = await fetchGeminiChatResponse(history, content, controller.signal);
-      } catch (err: any) {
-        if (err?.name === 'AbortError' || controller.signal.aborted) {
-          return;
-        }
-        aiResponseText =
-          'Based on your skin profile, keeping your skin barrier balanced is key. Maintaining steady hydration and gentle cleansing will help your skin repair effectively.';
-      }
+    const history = messages.map((m) => ({
+      sender: m.sender,
+      text: m.text,
+    }));
 
-      if (controller.signal.aborted) return;
-
-      const aiNow = Date.now();
-      const aiMsgId = `ai-${aiNow}`;
-      const aiMsg: Message = {
-        id: aiMsgId,
-        sender: 'ai',
-        text: aiResponseText,
-        timestamp: new Date(aiNow).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        createdAt: aiNow,
-        parentId: userMsgId,
-        childrenIds: [],
-        versions: [aiResponseText],
-        activeVersionIndex: 0,
-        animateTypewriter: true,
-      };
-
-      setMessagesMap((prev) => {
-        const updated = { ...prev, [aiMsgId]: aiMsg };
-        if (updated[userMsgId]) {
-          updated[userMsgId] = {
-            ...updated[userMsgId],
-            childrenIds: [...(updated[userMsgId].childrenIds || []), aiMsgId],
-          };
-        }
-        return updated;
-      });
-
-      setCurrentLeafId(aiMsgId);
-      setIsBotThinking(false);
-      setActiveStreamingMessageId(aiMsgId);
-      setRegeneratingMessageId(null);
-      abortControllerRef.current = null;
-    })();
+    // Launch background generation via manager (continues even if user navigates back!)
+    chatGenerationManager.startSendMessageGeneration({
+      chatId,
+      userMsgId,
+      content,
+      history,
+      chatTitle,
+      onFinishInForeground: (aiMsg) => {
+        skipNextStorageSaveRef.current = true;
+        handledInForegroundRef.current = true;
+        activeUserPromptRef.current = null;
+        setMessagesMap((prev) => {
+          const updated = { ...prev, [aiMsg.id]: aiMsg };
+          if (updated[userMsgId]) {
+            updated[userMsgId] = {
+              ...updated[userMsgId],
+              childrenIds: [...(updated[userMsgId].childrenIds || []), aiMsg.id],
+            };
+          }
+          return updated;
+        });
+        setCurrentLeafId(aiMsg.id);
+        setIsBotThinking(false);
+        activeStreamingMessageIdRef.current = aiMsg.id;
+        setActiveStreamingMessageId(aiMsg.id);
+        setRegeneratingMessageId(null);
+        onChatUpdated?.(aiMsg.text, aiMsg.createdAt);
+      },
+    });
   };
 
   const regenerateAiResponse = (targetAiMessage: Message, promptText: string) => {
     if (isBotThinking) return;
 
-    // Linear In-Place Retry (Gemini/ChatGPT standard):
-    // Directly rewrites the targeted AI response without creating any branch nodes.
     const targetMsgId = targetAiMessage.id;
 
-    // Set loading placeholder on the existing message directly
+    // Set loading placeholder on the existing message directly & clear interrupted/error states
     setMessagesMap((prev) => {
       const existing = prev[targetMsgId];
       if (!existing) return prev;
@@ -279,6 +398,8 @@ export function useChatMessages() {
           ...existing,
           text: '...',
           animateTypewriter: false,
+          interrupted: false,
+          error: null,
         },
       };
     });
@@ -286,95 +407,38 @@ export function useChatMessages() {
     setIsBotThinking(true);
     setRegeneratingMessageId(targetMsgId);
 
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
+    const history = messages
+      .filter((m) => m.id !== targetMsgId)
+      .map((m) => ({
+        sender: m.sender,
+        text: m.text,
+      }));
 
-    (async () => {
-      let regeneratedVariation = '';
-      try {
-        const history = messages
-          .filter((m) => m.id !== targetMsgId)
-          .map((m) => ({
-            sender: m.sender,
-            text: m.text,
-          }));
-        regeneratedVariation = await fetchGeminiChatResponse(history, promptText, controller.signal);
-      } catch (err: any) {
-        if (err?.name === 'AbortError' || controller.signal.aborted) {
-          return;
-        }
-        regeneratedVariation =
-          'To optimize your current skin results, ensure consistent barrier protection and gentle application. Focus on lightweight formulas and adequate SPF during daylight.';
-      }
-
-      if (controller.signal.aborted) return;
-
-      // Update the existing message in-place with the newly generated response
-      setMessagesMap((prev) => {
-        const target = prev[targetMsgId];
-        if (!target) return prev;
-        return {
-          ...prev,
-          [targetMsgId]: {
-            ...target,
-            text: regeneratedVariation,
-            animateTypewriter: true,
-          },
-        };
-      });
-
-      setIsBotThinking(false);
-      setActiveStreamingMessageId(targetMsgId);
-      setRegeneratingMessageId(null);
-      abortControllerRef.current = null;
-    })();
-
-    /* PRESERVED BRANCHING REGENERATION LOGIC (Kept for reference):
-    const aiNow = Date.now();
-    const newAiMsgId = `ai-${aiNow}`;
-
-    setMessagesMap((prev) => {
-      const originalMsg = prev[targetAiMessage.id] || targetAiMessage;
-      const existingVersions = originalMsg.versions && originalMsg.versions.length > 0
-        ? [...originalMsg.versions]
-        : [originalMsg.text];
-      const newVersions = [...existingVersions, '...'];
-      const newVersionIndex = newVersions.length - 1;
-
-      const placeholderAiMsg: Message = {
-        id: newAiMsgId,
-        sender: 'ai',
-        text: '',
-        timestamp: new Date(aiNow).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        createdAt: aiNow,
-        parentId: originalMsg.parentId,
-        childrenIds: [],
-        versions: newVersions,
-        activeVersionIndex: newVersionIndex,
-      };
-
-      const updated = { ...prev, [newAiMsgId]: placeholderAiMsg };
-      const parentId = originalMsg.parentId;
-      if (parentId && updated[parentId]) {
-        const siblings = updated[parentId].childrenIds || [];
-        updated[parentId] = {
-          ...updated[parentId],
-          childrenIds: siblings.includes(newAiMsgId) ? siblings : [...siblings, newAiMsgId],
-        };
-        updated[parentId].childrenIds?.forEach((sibId) => {
-          if (updated[sibId]) {
-            updated[sibId] = {
-              ...updated[sibId],
-              versions: newVersions,
-            };
-          }
+    // Launch background regenerate via manager
+    chatGenerationManager.startRegenerateGeneration({
+      chatId,
+      targetAiMsgId: targetMsgId,
+      promptText,
+      history,
+      chatTitle,
+      onFinishInForeground: (updatedMsg) => {
+        skipNextStorageSaveRef.current = true;
+        handledInForegroundRef.current = true;
+        setMessagesMap((prev) => {
+          const target = prev[targetMsgId];
+          if (!target) return prev;
+          return {
+            ...prev,
+            [targetMsgId]: updatedMsg,
+          };
         });
-      }
-      return updated;
+        setIsBotThinking(false);
+        activeStreamingMessageIdRef.current = targetMsgId;
+        setActiveStreamingMessageId(targetMsgId);
+        setRegeneratingMessageId(null);
+        onChatUpdated?.(updatedMsg.text, Date.now());
+      },
     });
-
-    setCurrentLeafId(newAiMsgId);
-    */
   };
 
   // Switch versions / branches at a specific message

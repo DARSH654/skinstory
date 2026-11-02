@@ -9,4 +9,6 @@ export interface Message {
   versions?: string[];
   activeVersionIndex?: number;
   animateTypewriter?: boolean;
+  interrupted?: boolean;
+  error?: string | null;
 }

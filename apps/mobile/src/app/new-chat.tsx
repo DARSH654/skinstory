@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Keyboard, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, Keyboard, Image, PanResponder } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Reanimated from 'react-native-reanimated';
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useChats, ChatMeta } from '@/hooks/useChats';
 import ChatInputBar from '@/components/chat/ChatInputBar';
 import { Message } from '@/components/chat/types';
 import ChatNavbar from '@/components/chat/ChatNavbar';
+import ChatDrawer from '@/components/chat/ChatDrawer';
 import MessageBubble from '@/components/chat/MessageBubble';
 import TypingIndicator from '@/components/chat/TypingIndicator';
 import ScrollToBottomButton from '@/components/chat/ScrollToBottomButton';
@@ -27,10 +29,53 @@ export default function NewChatScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const [chatTitle, setChatTitle] = useState('Untitled Chat');
+  // Read chatId and title from route params
+  const params = useLocalSearchParams<{ chatId?: string; title?: string }>();
+  const fallbackChatIdRef = useRef<string>(`chat-${Date.now()}`);
+  const chatId = typeof params.chatId === 'string' && params.chatId.length > 0
+    ? params.chatId
+    : fallbackChatIdRef.current;
+
+  const { upsertChat, chats } = useChats();
+
+  const [chatTitle, setChatTitle] = useState(() => {
+    if (typeof params.title === 'string' && params.title.trim().length > 0) {
+      return params.title.trim();
+    }
+    return 'Untitled Chat';
+  });
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(chatTitle);
   const [greeting, setGreeting] = useState('Hello, there');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // PanResponder to open drawer on swipe right from left edge (x <= 40, dx > 30)
+  const edgeSwipePanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt, gestureState) => {
+        return (
+          gestureState.x0 < 45 &&
+          gestureState.dx > 25 &&
+          Math.abs(gestureState.dy) < 35
+        );
+      },
+      onPanResponderRelease: (_evt, gestureState) => {
+        if (gestureState.dx > 40) {
+          Keyboard.dismiss();
+          setIsDrawerOpen(true);
+        }
+      },
+    })
+  ).current;
+
+  // If chat is found in existing chats list, sync title if needed
+  useEffect(() => {
+    const existing = chats.find((c) => c.id === chatId);
+    if (existing && existing.title && existing.title !== 'Untitled Chat') {
+      setChatTitle(existing.title);
+      setTempTitle(existing.title);
+    }
+  }, [chats, chatId]);
 
   const [contextMenu, setContextMenu] = useState<{
     message: Message;
@@ -58,30 +103,23 @@ export default function NewChatScreen() {
   const streamScrollThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isNearBottomRef = useRef(true);
+  const isUserDraggingRef = useRef(false);
+  const userScrolledUpRef = useRef(false);
+  const justFinishedGeneratingTimeRef = useRef(0);
 
-  const scrollToBottom = useCallback((animated: boolean = true) => {
-    isProgrammaticScrolling.current = true;
-    setShowScrollButton(false);
-    scrollViewRef.current?.scrollToEnd({ animated });
-    if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
-    programmaticScrollTimer.current = setTimeout(() => {
-      isProgrammaticScrolling.current = false;
-      setShowScrollButton(false);
-    }, 450);
-  }, []);
-
-  // Called during typewriter streaming when AI output expands content height
-  // Strictly only follows when bot is actively generating AND user is already viewing the bottom
-  const followBottom = useCallback(() => {
-    if (!isGenerating || !isNearBottomRef.current) return;
-    if (streamScrollThrottle.current) return; // already scheduled
-    streamScrollThrottle.current = setTimeout(() => {
-      streamScrollThrottle.current = null;
-      scrollViewRef.current?.scrollToEnd({ animated: false });
-    }, 80); // follow at most ~12fps — smooth but zero spring conflict
-  }, [isGenerating]);
-
-  const { footerStyle, resetFooter, keyboardHeight } = useChatKeyboard(undefined, !isEditingTitle);
+  // Callback: fired every time a new message is sent/received — keeps the chat list index in sync
+  const handleChatUpdated = useCallback(
+    (lastMessage: string, updatedAt: number) => {
+      upsertChat({
+        id: chatId,
+        title: chatTitle,
+        lastMessage: lastMessage.slice(0, 80),
+        updatedAt,
+        createdAt: parseInt(chatId.replace('chat-', ''), 10) || updatedAt,
+      });
+    },
+    [chatId, chatTitle, upsertChat]
+  );
 
   const {
     messages,
@@ -97,7 +135,63 @@ export default function NewChatScreen() {
     selectVersion,
     stopGeneration,
     onTypewriterComplete,
-  } = useChatMessages();
+  } = useChatMessages({ chatId, chatTitle, onChatUpdated: handleChatUpdated });
+
+  const { footerStyle, resetFooter, keyboardHeight } = useChatKeyboard(undefined, !isEditingTitle);
+
+  // Guarantee the Android soft keyboard is dismissed on screen entry/mount so it never pops up by default
+  useEffect(() => {
+    Keyboard.dismiss();
+  }, [chatId]);
+
+  const scrollToBottom = useCallback((animated: boolean = true) => {
+    userScrolledUpRef.current = false;
+    isNearBottomRef.current = true;
+    isProgrammaticScrolling.current = true;
+    setShowScrollButton(false);
+    scrollViewRef.current?.scrollToEnd({ animated });
+    if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
+    programmaticScrollTimer.current = setTimeout(() => {
+      isProgrammaticScrolling.current = false;
+      setShowScrollButton(false);
+    }, 450);
+  }, []);
+
+  // Called during typewriter streaming AND immediately after completion when action buttons/banners expand content height
+  const followBottom = useCallback(() => {
+    const isRecentlyFinished = Date.now() - justFinishedGeneratingTimeRef.current < 500;
+    if ((!isGenerating && !isRecentlyFinished) || userScrolledUpRef.current || isUserDraggingRef.current || !isNearBottomRef.current) return;
+    if (streamScrollThrottle.current) return;
+    streamScrollThrottle.current = setTimeout(() => {
+      streamScrollThrottle.current = null;
+      if (userScrolledUpRef.current || isUserDraggingRef.current) return;
+      scrollViewRef.current?.scrollToEnd({ animated: isRecentlyFinished });
+    }, 60);
+  }, [isGenerating]);
+
+  const handleTypewriterComplete = useCallback((messageId: string) => {
+    justFinishedGeneratingTimeRef.current = Date.now();
+    onTypewriterComplete(messageId);
+    if (!userScrolledUpRef.current && isNearBottomRef.current) {
+      setTimeout(() => {
+        if (!userScrolledUpRef.current && isNearBottomRef.current) {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }
+      }, 50);
+    }
+  }, [onTypewriterComplete]);
+
+  const handleStopGeneration = useCallback(() => {
+    justFinishedGeneratingTimeRef.current = Date.now();
+    stopGeneration();
+    if (!userScrolledUpRef.current && isNearBottomRef.current) {
+      setTimeout(() => {
+        if (!userScrolledUpRef.current && isNearBottomRef.current) {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }
+      }, 50);
+    }
+  }, [stopGeneration]);
 
   useEffect(() => {
     const loadGreeting = async () => {
@@ -171,6 +265,8 @@ export default function NewChatScreen() {
 
   const onSendMessage = (textToSend?: string) => {
     Keyboard.dismiss();
+    userScrolledUpRef.current = false;
+    isNearBottomRef.current = true;
     AsyncStorage.setItem('ss_chat_greeted_once', '1').catch(() => {});
     handleSendMessage(textToSend);
   };
@@ -222,14 +318,27 @@ export default function NewChatScreen() {
 
   const handleSaveTitle = () => {
     const trimmed = tempTitle.trim();
-    if (trimmed.length > 0) setChatTitle(trimmed.slice(0, 100));
+    if (trimmed.length > 0) {
+      const newTitle = trimmed.slice(0, 100);
+      setChatTitle(newTitle);
+      upsertChat({
+        id: chatId,
+        title: newTitle,
+        lastMessage: messages.length > 0 ? messages[messages.length - 1].text.slice(0, 80) : '',
+        updatedAt: Date.now(),
+        createdAt: parseInt(chatId.replace('chat-', ''), 10) || Date.now(),
+      });
+    }
     setIsEditingTitle(false);
   };
 
   const displayTitle = chatTitle.length > 28 ? `${chatTitle.slice(0, 28)}...` : chatTitle;
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#09090b' : '#fafafa', paddingTop: Math.max(insets.top, 12) }]}>
+    <View
+      style={[styles.container, { backgroundColor: isDark ? '#09090b' : '#fafafa', paddingTop: Math.max(insets.top, 12) }]}
+      {...edgeSwipePanResponder.panHandlers}
+    >
       <ChatNavbar
         isDark={isDark}
         displayTitle={displayTitle}
@@ -253,6 +362,15 @@ export default function NewChatScreen() {
             },
           ]}
           keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={() => {
+            isUserDraggingRef.current = true;
+          }}
+          onScrollEndDrag={() => {
+            isUserDraggingRef.current = false;
+          }}
+          onMomentumScrollEnd={() => {
+            isUserDraggingRef.current = false;
+          }}
           onContentSizeChange={(_w, contentHeight) => {
             if (contentHeight > 0) {
               followBottom();
@@ -271,19 +389,27 @@ export default function NewChatScreen() {
             // If the content fits on screen, never show scroll-to-bottom
             if (totalScrollable <= 20) {
               isNearBottomRef.current = true;
+              userScrolledUpRef.current = false;
               if (showScrollButton) setShowScrollButton(false);
               return;
             }
 
-            // Distance from bottom. If within 100px of bottom, consider user as at the bottom
+            // Distance from bottom. If within 40px of bottom, consider user as at the bottom
             const distanceFromBottom = totalScrollable - contentOffset.y;
-            const isAtBottom = distanceFromBottom <= 100;
+            const isAtBottom = distanceFromBottom <= 40;
             isNearBottomRef.current = isAtBottom;
 
-            if (isAtBottom && showScrollButton) {
-              setShowScrollButton(false);
-            } else if (!isAtBottom && !showScrollButton) {
-              setShowScrollButton(true);
+            if (isAtBottom) {
+              userScrolledUpRef.current = false;
+              if (showScrollButton) setShowScrollButton(false);
+            } else {
+              if (isUserDraggingRef.current && distanceFromBottom > 60) {
+                // User explicitly scrolled up away from bottom: respect their gesture!
+                userScrolledUpRef.current = true;
+              }
+              if (!showScrollButton) {
+                setShowScrollButton(true);
+              }
             }
           }}
           scrollEventThrottle={16}
@@ -315,26 +441,37 @@ export default function NewChatScreen() {
             </View>
           )}
 
-          {messages.map((item) => (
-            <View
-              key={item.id}
-              onLayout={(e) => {
-                messageLayoutYMap.current[item.id] = e.nativeEvent.layout.y;
-              }}
-            >
-              <MessageBubble
-                message={item}
-                isDark={isDark}
-                isStreaming={
-                  item.sender === 'ai' &&
-                  (item.id === activeStreamingMessageId ||
-                    (isBotThinking && item.text === '...'))
-                }
-                feedback={messageFeedbackMap[item.id] || null}
-                onLongPress={(msg, pageY, align) => {
-                  Keyboard.dismiss();
-                  setContextMenu({ message: msg, anchorY: pageY, align });
+          {(() => {
+            // Find ID of the latest completed AI message
+            const latestAiMessage = [...messages].reverse().find((m) => m.sender === 'ai' && !m.interrupted && !m.error);
+            const latestAiMessageId = latestAiMessage?.id;
+
+            // Find ID of the latest interrupted/errored AI message
+            const latestInterruptedMessage = [...messages].reverse().find((m) => m.sender === 'ai' && (m.interrupted || m.error));
+            const latestInterruptedMessageId = latestInterruptedMessage?.id;
+
+            return messages.map((item) => (
+              <View
+                key={item.id}
+                onLayout={(e) => {
+                  messageLayoutYMap.current[item.id] = e.nativeEvent.layout.y;
                 }}
+              >
+                <MessageBubble
+                  message={item}
+                  isDark={isDark}
+                  isStreaming={
+                    item.sender === 'ai' &&
+                    (item.id === activeStreamingMessageId ||
+                      (isBotThinking && item.text === '...'))
+                  }
+                  isLatestAiMessage={item.id === latestAiMessageId}
+                  isLatestInterrupted={item.id === latestInterruptedMessageId}
+                  feedback={messageFeedbackMap[item.id] || null}
+                  onLongPress={(msg, pageY, align) => {
+                    Keyboard.dismiss();
+                    setContextMenu({ message: msg, anchorY: pageY, align });
+                  }}
               onRegenerate={handleRegenerate}
               onSelectVersion={handleSelectVersion}
               onDelete={(msg) => setDeleteTargetMessage(msg)}
@@ -366,10 +503,11 @@ export default function NewChatScreen() {
                   badFeedbackSheetRef.current?.present();
                 }
               }}
-              onTypewriterComplete={onTypewriterComplete}
+              onTypewriterComplete={handleTypewriterComplete}
             />
           </View>
-        ))}
+        ));
+      })()}
 
           {isBotThinking && !regeneratingMessageId && (
             <View style={{ flexDirection: 'row', justifyContent: 'flex-start', marginBottom: 8 }}>
@@ -400,7 +538,7 @@ export default function NewChatScreen() {
             value={inputText}
             onChangeText={setInputText}
             onSend={() => onSendMessage()}
-            onStop={stopGeneration}
+            onStop={handleStopGeneration}
             isBotThinking={isGenerating}
           />
         </Reanimated.View>
@@ -487,6 +625,32 @@ export default function NewChatScreen() {
           }}
         />
       )}
+
+      {/* ── Slide-in Chat Drawer (Gemini style) ── */}
+      <ChatDrawer
+        isOpen={isDrawerOpen}
+        isDark={isDark}
+        chats={chats}
+        currentChatId={chatId}
+        onClose={() => setIsDrawerOpen(false)}
+        onNewChat={() => {
+          setIsDrawerOpen(false);
+          const freshChatId = `chat-${Date.now()}`;
+          router.replace({
+            pathname: '/new-chat',
+            params: { chatId: freshChatId },
+          } as any);
+        }}
+        onSelectChat={(selected) => {
+          setIsDrawerOpen(false);
+          if (selected.id !== chatId) {
+            router.replace({
+              pathname: '/new-chat',
+              params: { chatId: selected.id, title: selected.title },
+            } as any);
+          }
+        }}
+      />
     </View>
   );
 }

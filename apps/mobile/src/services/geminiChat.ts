@@ -66,7 +66,6 @@ export async function fetchGeminiChatResponse(
 
     const data = await response.json();
     const candidate = data?.candidates?.[0];
-    const finishReason = candidate?.finishReason;
     const text = candidate?.content?.parts?.[0]?.text;
 
     if (text && typeof text === 'string') {
@@ -80,18 +79,36 @@ export async function fetchGeminiChatResponse(
   try {
     const result = await callModel(PRIMARY_MODEL);
     if (result) return result;
-  } catch (err) {
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError') {
+      throw err;
+    }
     // Primary model failed, fall through to fallback
+  }
+
+  if (signal?.aborted) {
+    const abortErr = new Error('Aborted');
+    abortErr.name = 'AbortError';
+    throw abortErr;
   }
 
   // Fallback to flash-lite
   try {
     const fallbackResult = await callModel(FALLBACK_MODEL);
     if (fallbackResult) return fallbackResult;
-  } catch (err) {
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError') {
+      throw err;
+    }
     // Fallback model also failed
   }
 
-  // Graceful fallback if network is completely offline
-  return 'Based on your skin profile, maintaining consistent barrier hydration and gentle cleansing is key. Layer a hydrating serum followed by a ceramide-rich moisturizer to support skin recovery.';
+  if (signal?.aborted) {
+    const abortErr = new Error('Aborted');
+    abortErr.name = 'AbortError';
+    throw abortErr;
+  }
+
+  // If all models fail and no response was generated
+  throw new Error('Unable to connect to Skin Story AI. Please check your internet connection.');
 }

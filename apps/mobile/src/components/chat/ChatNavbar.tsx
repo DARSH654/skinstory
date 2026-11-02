@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { ChevronLeft, Pencil, Zap } from 'lucide-react-native';
+import { ChevronLeft, Pencil } from 'lucide-react-native';
 import { Text } from '@/components/AppText';
 
 interface ChatNavbarProps {
@@ -56,32 +56,6 @@ export default function ChatNavbar({
         </Text>
         <Pencil size={16} color={isDark ? '#a1a1aa' : '#71717a'} strokeWidth={2.2} />
       </TouchableOpacity>
-
-      {/* Flex spacer */}
-      <View style={{ flex: 1 }} />
-
-      {/* Credits pill */}
-      <View
-        style={[
-          styles.creditsPill,
-          {
-            backgroundColor: isDark ? '#18181b' : '#ffffff',
-            borderColor: isDark ? '#27272a' : '#e4e4e7',
-          },
-        ]}
-      >
-        <Zap size={14} strokeWidth={2.4} color={isDark ? '#ffffff' : '#111827'} />
-        <Text
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          style={[
-            styles.creditsText,
-            { color: isDark ? '#ffffff' : '#111827' },
-          ]}
-        >
-          12 credits left
-        </Text>
-      </View>
     </View>
   );
 }

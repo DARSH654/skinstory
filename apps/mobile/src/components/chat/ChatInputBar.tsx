@@ -32,6 +32,11 @@ export const ChatInputBar = React.memo(function ChatInputBar({
     }
   }, [value]);
 
+  // Ensure keyboard never auto-opens on mount/screen entry
+  React.useEffect(() => {
+    inputRef.current?.blur();
+  }, []);
+
   const canSend = value.trim().length > 0;
   const [isMultiLine, setIsMultiLine] = React.useState(false);
 
@@ -85,13 +90,21 @@ export const ChatInputBar = React.memo(function ChatInputBar({
         maxLength={1000}
         returnKeyType="default"
         blurOnSubmit={false}
+        autoFocus={false}
       />
 
       {isBotThinking ? (
         <TouchableOpacity
           onPress={() => {
-            onStop?.();
+            console.log('[DEBUG_STOP_1] Stop button onPress FIRED in ChatInputBar! isBotThinking:', isBotThinking);
+            if (onStop) {
+              console.log('[DEBUG_STOP_2] Calling onStop callback from ChatInputBar...');
+              onStop();
+            } else {
+              console.warn('[DEBUG_STOP_WARN] onStop prop is undefined in ChatInputBar!');
+            }
           }}
+          onPressIn={() => console.log('[DEBUG_TOUCH] Stop button onPressIn registered')}
           activeOpacity={0.7}
           style={styles.stopBtn}
         >
