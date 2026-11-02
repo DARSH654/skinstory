@@ -1,6 +1,6 @@
 // Gemini AI service for Skin Story Chat
-const GEMINI_API_KEY =
-  process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+// API key is loaded from apps/mobile/.env (gitignored) via EXPO_PUBLIC_GEMINI_API_KEY
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 
 // Primary fast & cost-efficient model with fallback
 const PRIMARY_MODEL = 'gemini-3.5-flash';
