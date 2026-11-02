@@ -214,7 +214,7 @@ export default function NewChatScreen() {
           contentContainerStyle={[
             styles.messageScrollContent,
             {
-              paddingBottom: insets.bottom + 16,
+              paddingBottom: 80 + insets.bottom,
               justifyContent: messages.length === 0 ? 'center' : 'flex-start',
             },
           ]}
@@ -486,9 +486,10 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   inputFooter: {
-    // In-flow flex child — no position:absolute.
-    // The Reanimated paddingBottom (from useChatKeyboard) grows when keyboard opens,
-    // compressing the ScrollView above it via flex. Messages can never render behind the input bar.
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   scrollButtonWrapper: {
     position: 'absolute',
