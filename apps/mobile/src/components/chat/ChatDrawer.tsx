@@ -48,6 +48,13 @@ export default function ChatDrawer({
   const insets = useSafeAreaInsets();
   const screenWidth = Dimensions.get('window').width;
 
+  console.log('[DRAWER_DEEP_RAW] >>> ChatDrawer RENDER <<<', {
+    isOpen,
+    currentChatId,
+    chatsCount: chats.length,
+    time: Date.now(),
+  });
+
   const [userName, setUserName] = useState('User');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,14 +64,24 @@ export default function ChatDrawer({
   const closePanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gestureState) => {
-        return (
+        const shouldSet =
           gestureState.dx < -8 &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2
-        );
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
+        if (shouldSet) {
+          console.log('[DRAWER_DEEP_RAW] ChatDrawer closePanResponder SHOULD_SET=true', {
+            dx: gestureState.dx,
+            dy: gestureState.dy,
+          });
+        }
+        return shouldSet;
+      },
+      onPanResponderGrant: () => {
+        console.log('[DRAWER_DEEP_RAW] ChatDrawer closePanResponder GRANT');
       },
       onPanResponderMove: (_evt, gestureState) => {
         if (drawerAnim) {
           const progress = Math.min(1, Math.max(0, 1 + gestureState.dx / screenWidth));
+          console.log('[DRAWER_DEEP_RAW] ChatDrawer closePanResponder MOVE: dx=', gestureState.dx, 'progress=', progress.toFixed(3));
           drawerAnim.setValue(progress);
         }
       },
@@ -72,21 +89,32 @@ export default function ChatDrawer({
         const progress = 1 + gestureState.dx / screenWidth;
         const velocity = gestureState.vx;
         const shouldClose = progress < 0.5 || velocity < -0.5;
+        console.log('[DRAWER_DEEP_RAW] ChatDrawer closePanResponder RELEASE:', {
+          dx: gestureState.dx,
+          vx: gestureState.vx,
+          progress: progress.toFixed(3),
+          shouldClose,
+        });
         if (shouldClose) {
+          console.log('[DRAWER_DEEP_RAW] ChatDrawer calling onClose()');
           onClose();
         } else {
           // Snap back to fully open
           if (drawerAnim) {
+            console.log('[DRAWER_DEEP_RAW] ChatDrawer snapping back to 1');
             Animated.timing(drawerAnim, {
               toValue: 1,
               duration: 200,
               easing: Easing.bezier(0.25, 0.1, 0.25, 1),
               useNativeDriver: true,
-            }).start();
+            }).start(({ finished }) => {
+              console.log('[DRAWER_DEEP_RAW] ChatDrawer snap back to 1 FINISHED:', finished);
+            });
           }
         }
       },
       onPanResponderTerminate: () => {
+        console.log('[DRAWER_DEEP_RAW] ChatDrawer closePanResponder TERMINATE');
         if (drawerAnim) {
           Animated.timing(drawerAnim, {
             toValue: 1,
