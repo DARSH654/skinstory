@@ -19,7 +19,7 @@ export default function TemporaryChatInfoModal({
     <Modal
       visible={visible}
       transparent
-      animationType="none"
+      animationType="fade"
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
