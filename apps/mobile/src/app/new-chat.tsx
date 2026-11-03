@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Keyboard, Image, PanResponder } from 'react-native';
+import { View, StyleSheet, ScrollView, Keyboard, Image, PanResponder, Animated, Dimensions, Easing } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Reanimated from 'react-native-reanimated';
 import { Text } from '@/components/AppText';
@@ -48,6 +48,28 @@ export default function NewChatScreen() {
   const [tempTitle, setTempTitle] = useState(chatTitle);
   const [greeting, setGreeting] = useState('Hello, there');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const screenWidth = Dimensions.get('window').width;
+  const drawerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(drawerAnim, {
+      toValue: isDrawerOpen ? 1 : 0,
+      duration: 280,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: true,
+    }).start();
+  }, [isDrawerOpen, drawerAnim]);
+
+  const mainScreenTranslateX = drawerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, screenWidth],
+  });
+
+  const mainScreenBorderRadius = drawerAnim.interpolate({
+    inputRange: [0, 0.05, 1],
+    outputRange: [0, 24, 24],
+  });
 
   // PanResponder to open drawer on swipe right from left edge (x <= 40, dx > 30)
   const edgeSwipePanResponder = useRef(
@@ -335,10 +357,49 @@ export default function NewChatScreen() {
   const displayTitle = chatTitle.length > 28 ? `${chatTitle.slice(0, 28)}...` : chatTitle;
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: isDark ? '#09090b' : '#fafafa', paddingTop: Math.max(insets.top, 12) }]}
-      {...edgeSwipePanResponder.panHandlers}
-    >
+    <View style={[styles.rootContainer, { backgroundColor: isDark ? '#121215' : '#ffffff' }]}>
+
+      {/* Layer 1: Drawer UNDERNEATH — always mounted, zIndex 1 */}
+      <ChatDrawer
+        isOpen={isDrawerOpen}
+        isDark={isDark}
+        chats={chats}
+        currentChatId={chatId}
+        drawerAnim={drawerAnim}
+        onClose={() => setIsDrawerOpen(false)}
+        onNewChat={() => {
+          setIsDrawerOpen(false);
+          const freshChatId = `chat-${Date.now()}`;
+          router.replace({
+            pathname: '/new-chat',
+            params: { chatId: freshChatId },
+          } as any);
+        }}
+        onSelectChat={(selected) => {
+          setIsDrawerOpen(false);
+          if (selected.id !== chatId) {
+            router.replace({
+              pathname: '/new-chat',
+              params: { chatId: selected.id, title: selected.title },
+            } as any);
+          }
+        }}
+      />
+
+      {/* Layer 2: Main chat screen slides RIGHT to reveal drawer underneath */}
+      <Animated.View
+        style={[
+          styles.mainChatScreen,
+          {
+            backgroundColor: isDark ? '#09090b' : '#fafafa',
+            paddingTop: Math.max(insets.top, 12),
+            transform: [{ translateX: mainScreenTranslateX }],
+            borderTopLeftRadius: mainScreenBorderRadius,
+            borderBottomLeftRadius: mainScreenBorderRadius,
+          },
+        ]}
+        {...edgeSwipePanResponder.panHandlers}
+      >
       <ChatNavbar
         isDark={isDark}
         displayTitle={displayTitle}
@@ -543,6 +604,9 @@ export default function NewChatScreen() {
           />
         </Reanimated.View>
       </View>
+      </Animated.View>
+
+      {/* Layer 3: Modals — always on top, outside the animated main screen */}
 
       <RenameChatModal
         isDark={isDark}
@@ -553,6 +617,7 @@ export default function NewChatScreen() {
         onSave={handleSaveTitle}
         onCancel={() => setIsEditingTitle(false)}
       />
+
 
       <DeleteMessageModal
         visible={deleteTargetMessage !== null}
@@ -625,38 +690,29 @@ export default function NewChatScreen() {
           }}
         />
       )}
-
-      {/* ── Slide-in Chat Drawer (Gemini style) ── */}
-      <ChatDrawer
-        isOpen={isDrawerOpen}
-        isDark={isDark}
-        chats={chats}
-        currentChatId={chatId}
-        onClose={() => setIsDrawerOpen(false)}
-        onNewChat={() => {
-          setIsDrawerOpen(false);
-          const freshChatId = `chat-${Date.now()}`;
-          router.replace({
-            pathname: '/new-chat',
-            params: { chatId: freshChatId },
-          } as any);
-        }}
-        onSelectChat={(selected) => {
-          setIsDrawerOpen(false);
-          if (selected.id !== chatId) {
-            router.replace({
-              pathname: '/new-chat',
-              params: { chatId: selected.id, title: selected.title },
-            } as any);
-          }
-        }}
-      />
     </View>
+
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  rootContainer: {
+    flex: 1,
+  },
+  mainChatScreen: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 16,
+    overflow: 'hidden',
+  },
   messageScroll: { flex: 1 },
   messageScrollContent: {
     paddingHorizontal: 16,
