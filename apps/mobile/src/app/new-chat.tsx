@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Keyboard, Image, PanResponder, Animated, Dimensions, Easing, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, Keyboard, Image, PanResponder, Animated, Dimensions, Easing, ActivityIndicator, Pressable } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Reanimated from 'react-native-reanimated';
 import { Text } from '@/components/AppText';
@@ -17,8 +17,12 @@ import ScrollToBottomButton from '@/components/chat/ScrollToBottomButton';
 import RenameChatModal from '@/components/chat/RenameChatModal';
 import MessageContextMenu from '@/components/chat/MessageContextMenu';
 import DeleteMessageModal from '@/components/chat/DeleteMessageModal';
+import { LinearGradient } from 'expo-linear-gradient';
 import BadFeedbackSheet, { BadFeedbackSheetRef } from '@/components/chat/BadFeedbackSheet';
 import RevertFeedbackModal from '@/components/chat/RevertFeedbackModal';
+import TemporaryChatInfoModal from '@/components/chat/TemporaryChatInfoModal';
+import ChatActionMenu from '@/components/chat/ChatActionMenu';
+import DeleteChatConfirmModal from '@/components/chat/DeleteChatConfirmModal';
 import Logo from '@/components/Logo';
 import { useChatKeyboard } from '@/components/chat/hooks/useChatKeyboard';
 import { useChatMessages } from '@/components/chat/hooks/useChatMessages';
@@ -36,7 +40,7 @@ export default function NewChatScreen() {
     ? params.chatId
     : fallbackChatIdRef.current;
 
-  const { upsertChat, chats } = useChats();
+  const { upsertChat, chats, togglePinChat, deleteChat } = useChats();
 
   const [chatTitle, setChatTitle] = useState(() => {
     if (typeof params.title === 'string' && params.title.trim().length > 0) {
@@ -49,6 +53,10 @@ export default function NewChatScreen() {
   const [greeting, setGreeting] = useState('Hello, there');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSwitchingChat, setIsSwitchingChat] = useState(false);
+  const [isTemporaryChat, setIsTemporaryChat] = useState(false);
+  const [showTemporaryInfoModal, setShowTemporaryInfoModal] = useState(false);
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
 
   const screenWidth = Dimensions.get('window').width;
   const drawerAnim = useRef(new Animated.Value(0)).current;
@@ -131,6 +139,20 @@ export default function NewChatScreen() {
     })
   ).current;
 
+  const isTemporaryChatRef = useRef(isTemporaryChat);
+  isTemporaryChatRef.current = isTemporaryChat;
+  const currentChatIdRef = useRef(chatId);
+  currentChatIdRef.current = chatId;
+
+  // Cleanup temporary chat when unmounting / navigating away
+  useEffect(() => {
+    return () => {
+      if (isTemporaryChatRef.current) {
+        AsyncStorage.removeItem(`ss_chat_msgs_${currentChatIdRef.current}`).catch(() => {});
+      }
+    };
+  }, []);
+
   // If chat is found in existing chats list, sync title if needed
   useEffect(() => {
     setIsSwitchingChat(false);
@@ -174,6 +196,9 @@ export default function NewChatScreen() {
   // Callback: fired every time a new message is sent/received — keeps the chat list index in sync
   const handleChatUpdated = useCallback(
     (lastMessage: string, updatedAt: number) => {
+      // Temporary chat: never appears in chat history
+      if (isTemporaryChat) return;
+
       upsertChat({
         id: chatId,
         title: chatTitle,
@@ -182,7 +207,7 @@ export default function NewChatScreen() {
         createdAt: parseInt(chatId.replace('chat-', ''), 10) || updatedAt,
       });
     },
-    [chatId, chatTitle, upsertChat]
+    [chatId, chatTitle, upsertChat, isTemporaryChat]
   );
 
   const {
@@ -423,6 +448,7 @@ export default function NewChatScreen() {
         onClose={() => closeDrawer()}
         onNewChat={() => {
           setIsSwitchingChat(true);
+          setIsTemporaryChat(false);
           setChatTitle('Untitled Chat');
           setTempTitle('Untitled Chat');
           closeDrawer(() => {
@@ -433,6 +459,7 @@ export default function NewChatScreen() {
         onSelectChat={(selected) => {
           if (selected.id !== chatId) {
             setIsSwitchingChat(true);
+            setIsTemporaryChat(false);
             setChatTitle(selected.title || 'Untitled Chat');
             setTempTitle(selected.title || 'Untitled Chat');
           }
@@ -534,30 +561,66 @@ export default function NewChatScreen() {
               <ActivityIndicator size="large" color={isDark ? '#e4e4e7' : '#52525b'} />
             </View>
           ) : messages.length === 0 && !isBotThinking ? (
-            <View style={styles.emptyStateContainer}>
-              <View style={styles.brandRow}>
-                <Logo
-                  size={24}
-                  color={isDark ? '#ffffff' : '#000000'}
-                />
+            isTemporaryChat ? (
+              <View style={styles.emptyStateContainer}>
                 <Text
                   style={[
-                    styles.brandTitle,
+                    styles.temporaryTitle,
+                    { color: isDark ? '#ffffff' : '#111827' },
+                  ]}
+                >
+                  Temporary chat
+                </Text>
+                <View style={styles.temporarySubtitleRow}>
+                  <Text
+                    style={[
+                      styles.temporarySubtitle,
+                      { color: isDark ? '#9ca3af' : '#6b7280' },
+                    ]}
+                  >
+                    This chat won't appear in history.{' '}
+                  </Text>
+                  <Pressable
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                    onPress={() => setShowTemporaryInfoModal(true)}
+                  >
+                    <Text
+                      style={[
+                        styles.temporaryLearnMore,
+                        { color: isDark ? '#d4d4d8' : '#374151' },
+                      ]}
+                    >
+                      Learn more
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.emptyStateContainer}>
+                <View style={styles.brandRow}>
+                  <Logo
+                    size={24}
+                    color={isDark ? '#ffffff' : '#000000'}
+                  />
+                  <Text
+                    style={[
+                      styles.brandTitle,
+                      { color: isDark ? '#ffffff' : '#000000' },
+                    ]}
+                  >
+                    Skin Story AI Assistant
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.emptyStateGreeting,
                     { color: isDark ? '#ffffff' : '#000000' },
                   ]}
                 >
-                  Skin Story AI Assistant
+                  {greeting}
                 </Text>
               </View>
-              <Text
-                style={[
-                  styles.emptyStateGreeting,
-                  { color: isDark ? '#ffffff' : '#000000' },
-                ]}
-              >
-                {greeting}
-              </Text>
-            </View>
+            )
           ) : null}
 
           {!isSwitchingChat && (() => {
@@ -664,32 +727,102 @@ export default function NewChatScreen() {
           />
         </Reanimated.View>
 
-        {/* Floating header — bg covers status bar area so scroll content doesn't bleed through */}
+        {/* Top-down fading gradient: smoothly merges text under floating icons like ChatGPT */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={
+            isDark
+              ? ['#09090b', 'rgba(9, 9, 11, 0.85)', 'rgba(9, 9, 11, 0)']
+              : ['#fafafa', 'rgba(250, 250, 250, 0.88)', 'rgba(250, 250, 250, 0)']
+          }
+          locations={[0, 0.65, 1]}
+          style={[
+            styles.topGradientFade,
+            { height: Math.max(insets.top, 12) + 68 },
+          ]}
+        />
+
+        {/* Floating header — completely transparent background */}
         <View
           pointerEvents="box-none"
           style={[
             styles.floatingNavbarContainer,
             {
               paddingTop: Math.max(insets.top, 12),
-              backgroundColor: isDark ? '#09090b' : '#fafafa',
             },
           ]}
         >
           <ChatNavbar
             isDark={isDark}
             displayTitle={displayTitle}
-            onBack={() => router.back()}
-            onEditTitle={() => {
+            isNewChat={messages.length === 0}
+            isTemporaryChat={isTemporaryChat}
+            onOpenDrawer={openDrawer}
+            onNewChat={() => {
+              setIsSwitchingChat(true);
+              setIsTemporaryChat(false);
+              setChatTitle('Untitled Chat');
+              setTempTitle('Untitled Chat');
+              const freshChatId = `chat-${Date.now()}`;
+              router.setParams({ chatId: freshChatId, title: 'Untitled Chat' });
+            }}
+            onOpenMenu={() => {
               Keyboard.dismiss();
-              setTempTitle(chatTitle);
-              setIsEditingTitle(true);
+              setIsActionMenuOpen(true);
+            }}
+            onTemporaryChat={() => {
+              setIsTemporaryChat((prev) => !prev);
             }}
           />
         </View>
       </View>
       </Animated.View>
 
-      {/* Layer 3: Modals — always on top, outside the animated main screen */}
+      {/* Layer 3: Modals & Overlays — always on top, outside the animated main screen */}
+
+      {/* Chat Action Dropdown Menu (Pin/Unpin, Rename, Delete) */}
+      <ChatActionMenu
+        visible={isActionMenuOpen}
+        isDark={isDark}
+        chatTitle={chatTitle}
+        isPinned={Boolean(chats.find((c) => c.id === chatId)?.isPinned)}
+        topOffset={Math.max(insets.top, 12) + 52}
+        onClose={() => setIsActionMenuOpen(false)}
+        onTogglePin={() => {
+          togglePinChat(chatId);
+        }}
+        onRename={() => {
+          setTempTitle(chatTitle);
+          setIsEditingTitle(true);
+        }}
+        onDelete={() => {
+          setIsDeletingChat(true);
+        }}
+      />
+
+      {/* Delete Chat Confirmation Modal */}
+      <DeleteChatConfirmModal
+        visible={isDeletingChat}
+        isDark={isDark}
+        chatTitle={chatTitle}
+        onCancel={() => setIsDeletingChat(false)}
+        onConfirm={() => {
+          setIsDeletingChat(false);
+          deleteChat(chatId);
+          setIsSwitchingChat(true);
+          setIsTemporaryChat(false);
+          setChatTitle('Untitled Chat');
+          setTempTitle('Untitled Chat');
+          const freshChatId = `chat-${Date.now()}`;
+          router.setParams({ chatId: freshChatId, title: 'Untitled Chat' });
+        }}
+      />
+
+      <TemporaryChatInfoModal
+        visible={showTemporaryInfoModal}
+        isDark={isDark}
+        onClose={() => setShowTemporaryInfoModal(false)}
+      />
 
       <RenameChatModal
         isDark={isDark}
@@ -837,6 +970,29 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
+  temporaryTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 6,
+    letterSpacing: -0.2,
+  },
+  temporarySubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+  },
+  temporarySubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  temporaryLearnMore: {
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
   chatBody: {
     flex: 1,
     flexDirection: 'column',
@@ -863,5 +1019,12 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     backgroundColor: 'transparent',
+  },
+  topGradientFade: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 9,
   },
 });

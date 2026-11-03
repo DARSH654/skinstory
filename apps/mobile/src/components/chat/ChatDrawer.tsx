@@ -52,6 +52,8 @@ export default function ChatDrawer({
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const searchAnim = useRef(new Animated.Value(0)).current; // 0 = collapsed, 1 = expanded
+  const searchInputRef = useRef<TextInput>(null);
 
   // Swipe left to close gesture — tracks finger in real-time (Gemini-level sensitivity)
   const closePanResponder = useRef(
@@ -140,6 +142,30 @@ export default function ChatDrawer({
   const userInitial = userName ? userName.charAt(0).toUpperCase() : 'U';
   const displayUserName = userName.length > 12 ? `${userName.slice(0, 12)}...` : userName;
 
+  const openSearch = () => {
+    setIsSearching(true);
+    Animated.timing(searchAnim, {
+      toValue: 1,
+      duration: 220,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+      useNativeDriver: false,
+    }).start(() => {
+      searchInputRef.current?.focus();
+    });
+  };
+
+  const closeSearch = () => {
+    Animated.timing(searchAnim, {
+      toValue: 0,
+      duration: 180,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+      useNativeDriver: false,
+    }).start(() => {
+      setIsSearching(false);
+      setSearchQuery('');
+    });
+  };
+
   return (
     <Animated.View
       pointerEvents={isOpen ? 'auto' : 'none'}
@@ -183,17 +209,13 @@ export default function ChatDrawer({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Quick Actions (Gemini-style clean nav items) */}
+        {/* Quick Actions */}
         <View style={styles.navSection}>
           <Pressable
-            onPress={() => {
-              onNewChat();
-            }}
+            onPress={onNewChat}
             style={({ pressed }) => [
               styles.newChatPill,
-              {
-                backgroundColor: isDark ? '#222227' : '#f3f4f6',
-              },
+              { backgroundColor: isDark ? '#222227' : '#f3f4f6' },
               pressed && { opacity: 0.8 },
             ]}
           >
@@ -203,31 +225,65 @@ export default function ChatDrawer({
             </Text>
           </Pressable>
 
-          <Pressable
-            onPress={() => setIsSearching((prev) => !prev)}
-            style={({ pressed }) => [
-              styles.navItem,
-              pressed && { backgroundColor: isDark ? '#1e1e23' : '#f4f4f5' },
-            ]}
-          >
-            <Search size={20} color={isDark ? '#d4d4d8' : '#374151'} strokeWidth={2.2} />
-            <Text style={[styles.navItemText, { color: isDark ? '#e4e4e7' : '#374151' }]}>
-              Search chats
-            </Text>
-          </Pressable>
+          {/* Collapsed: plain gray nav row — no background */}
+          {!isSearching && (
+            <Pressable
+              onPress={openSearch}
+              style={({ pressed }) => [
+                styles.navItem,
+                pressed && { backgroundColor: isDark ? '#1e1e23' : '#f4f4f5' },
+              ]}
+            >
+              <Search size={20} color={isDark ? '#71717a' : '#6b7280'} strokeWidth={2.2} />
+              <Text style={[styles.navItemText, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
+                Search chats
+              </Text>
+            </Pressable>
+          )}
 
+          {/* Expanded: animated search bar */}
           {isSearching && (
-            <View style={[styles.searchBox, isDark ? styles.searchBoxDark : styles.searchBoxLight]}>
-              <TextInput
-                style={[styles.searchInput, { color: isDark ? '#ffffff' : '#111827' }]}
-                placeholder="Search chats..."
-                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoFocus
-                returnKeyType="search"
-              />
-            </View>
+            <Animated.View
+              style={[
+                styles.searchBarContainer,
+                {
+                  backgroundColor: isDark ? '#121215' : '#ffffff',
+                  opacity: searchAnim,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.searchInputBox,
+                  {
+                    backgroundColor: isDark ? '#1e1e23' : '#ffffff',
+                    borderColor: isDark ? '#2b2b30' : '#e5e7eb',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: isDark ? 0.3 : 0.08,
+                    shadowRadius: 6,
+                    elevation: 3,
+                  },
+                ]}
+              >
+                <Search size={18} color={isDark ? '#71717a' : '#9ca3af'} strokeWidth={2.2} />
+                <TextInput
+                  ref={searchInputRef}
+                  defaultValue={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Search chats..."
+                  placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
+                  returnKeyType="search"
+                  style={[styles.searchInlineInput, { color: isDark ? '#ffffff' : '#111827' }]}
+                />
+                <Pressable
+                  onPress={closeSearch}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <X size={16} color={isDark ? '#71717a' : '#9ca3af'} strokeWidth={2.4} />
+                </Pressable>
+              </View>
+            </Animated.View>
           )}
         </View>
 
@@ -237,6 +293,8 @@ export default function ChatDrawer({
             Recents
           </Text>
         </View>
+
+
 
         {/* Recents List — Gemini style clean text lines */}
         {filteredChats.length === 0 ? (
@@ -385,8 +443,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   navSection: {
-    gap: 4,
-    marginBottom: 12,
+    gap: 6,
+    marginBottom: 4,
   },
   newChatPill: {
     flexDirection: 'row',
@@ -395,7 +453,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderRadius: 22,
-    marginBottom: 4,
   },
   newChatText: {
     fontSize: 16,
@@ -437,10 +494,32 @@ const styles = StyleSheet.create({
     padding: 0,
     height: 32,
   },
+  // Animated search bar (expanded state)
+  searchBarContainer: {
+    borderRadius: 14,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  searchInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  searchInlineInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    padding: 0,
+    height: 22,
+  },
   recentsHeaderRow: {
     paddingHorizontal: 14,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
   sectionSubtitle: {
     fontSize: 14,
