@@ -68,7 +68,6 @@ export default function ChatActionMenu({
 
   const iconColor = isDark ? '#d4d4d8' : '#374151';
   const textColor = isDark ? '#f4f4f5' : '#111827';
-  const subColor = isDark ? '#9ca3af' : '#6b7280';
 
   return (
     <Modal
@@ -92,17 +91,6 @@ export default function ChatActionMenu({
           onStartShouldSetResponder={() => true}
           onTouchEnd={(e) => e.stopPropagation()}
         >
-          {/* Header row: Chat Title truncated with dot dot dot */}
-          <View style={[styles.titleHeader, { borderBottomColor: isDark ? '#2e2e36' : '#f3f4f6' }]}>
-            <Text
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[styles.headerTitleText, { color: subColor }]}
-            >
-              {chatTitle}
-            </Text>
-          </View>
-
           {/* Option 1: Pin / Unpin */}
           <TouchableOpacity
             style={styles.menuItem}
@@ -112,7 +100,7 @@ export default function ChatActionMenu({
               onTogglePin();
             }}
           >
-            <Pin size={18} color={iconColor} strokeWidth={2.2} />
+            <Pin size={16} color={iconColor} strokeWidth={2.2} />
             <Text style={[styles.menuItemText, { color: textColor }]}>
               {isPinned ? 'Unpin' : 'Pin'}
             </Text>
@@ -127,7 +115,7 @@ export default function ChatActionMenu({
               onRename();
             }}
           >
-            <Pencil size={18} color={iconColor} strokeWidth={2.2} />
+            <Pencil size={16} color={iconColor} strokeWidth={2.2} />
             <Text style={[styles.menuItemText, { color: textColor }]}>
               Rename
             </Text>
@@ -142,7 +130,7 @@ export default function ChatActionMenu({
               onDelete();
             }}
           >
-            <Trash2 size={18} color="#ef4444" strokeWidth={2.2} />
+            <Trash2 size={16} color="#ef4444" strokeWidth={2.2} />
             <Text style={[styles.menuItemText, { color: '#ef4444' }]}>
               Delete
             </Text>
@@ -161,42 +149,30 @@ const styles = StyleSheet.create({
   menuCard: {
     position: 'absolute',
     right: 16,
-    width: 220,
-    borderRadius: 18,
+    minWidth: 155,
+    maxWidth: 195,
+    borderRadius: 20,
     borderWidth: 1,
     paddingVertical: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,
-    shadowRadius: 20,
-    elevation: 16,
+    shadowRadius: 14,
+    elevation: 8,
     zIndex: 9999,
-  },
-  titleHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginBottom: 4,
-  },
-  headerTitleText: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: -0.2,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   deleteItem: {
-    marginTop: 2,
+    marginTop: 0,
   },
   menuItemText: {
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: -0.2,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
