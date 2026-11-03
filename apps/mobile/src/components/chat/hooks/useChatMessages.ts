@@ -33,6 +33,7 @@ export function useChatMessages({ chatId, chatTitle = 'Untitled Chat', onChatUpd
   const activeUserPromptRef = useRef<{ id: string; text: string; parentId: string | null; sentTime: number } | null>(null);
   // Track initial load to prevent overwriting stored data with empty initial state
   const isLoadedRef = useRef(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // 1. Load chat messages from AsyncStorage on mount or when storage updates
   const reloadFromStorage = useCallback(async () => {
@@ -75,6 +76,7 @@ export function useChatMessages({ chatId, chatTitle = 'Untitled Chat', onChatUpd
       // Failed to load stored chat state
     } finally {
       isLoadedRef.current = true;
+      setIsLoaded(true);
     }
   }, [chatId, storageKey]);
 
@@ -87,6 +89,7 @@ export function useChatMessages({ chatId, chatTitle = 'Untitled Chat', onChatUpd
     setActiveStreamingMessageId(null);
     handledInForegroundRef.current = false;
     isLoadedRef.current = false;
+    setIsLoaded(false);
 
     // Check if background manager is already generating for this chat
     const activeGen = chatGenerationManager.getActiveGeneration(chatId);
@@ -505,5 +508,6 @@ export function useChatMessages({ chatId, chatTitle = 'Untitled Chat', onChatUpd
     selectVersion,
     stopGeneration,
     onTypewriterComplete,
+    isLoaded,
   };
 }

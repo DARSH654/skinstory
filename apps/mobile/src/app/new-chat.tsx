@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Keyboard, Image, PanResponder, Animated, Dimensions, Easing } from 'react-native';
+import { View, StyleSheet, ScrollView, Keyboard, Image, PanResponder, Animated, Dimensions, Easing, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Reanimated from 'react-native-reanimated';
 import { Text } from '@/components/AppText';
@@ -95,14 +95,15 @@ export default function NewChatScreen() {
     outputRange: [0, 24, 24],
   });
 
-  // PanResponder to track finger in real-time when swiping right from left edge
+  // PanResponder to track finger in real-time when swiping right from left edge (Gemini-level sensitivity)
   const edgeSwipePanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gestureState) => {
+        // High-sensitivity edge capture: starts within left 75px, slight horizontal movement
         return (
-          gestureState.x0 < 50 &&
-          gestureState.dx > 8 &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2
+          gestureState.x0 < 75 &&
+          gestureState.dx > 4 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy)
         );
       },
       onPanResponderGrant: () => {
@@ -115,7 +116,8 @@ export default function NewChatScreen() {
       onPanResponderRelease: (_evt, gestureState) => {
         const progress = gestureState.dx / screenWidth;
         const velocity = gestureState.vx;
-        const shouldOpen = progress > 0.5 || velocity > 0.5;
+        // Opens on either 50% drag OR a light, quick flick (vx > 0.25) or slight intentional swipe (dx > 70)
+        const shouldOpen = progress > 0.5 || velocity > 0.25 || gestureState.dx > 70;
         if (shouldOpen) {
           openDrawer();
         } else {
@@ -195,6 +197,7 @@ export default function NewChatScreen() {
     selectVersion,
     stopGeneration,
     onTypewriterComplete,
+    isLoaded,
   } = useChatMessages({ chatId, chatTitle, onChatUpdated: handleChatUpdated });
 
   const { footerStyle, resetFooter, keyboardHeight } = useChatKeyboard(undefined, !isEditingTitle);
@@ -516,7 +519,11 @@ export default function NewChatScreen() {
           }}
           scrollEventThrottle={16}
         >
-          {messages.length === 0 && !isBotThinking && (
+          {!isLoaded ? (
+            <View style={styles.loadingCenterContainer}>
+              <ActivityIndicator size="small" color={isDark ? '#a1a1aa' : '#71717a'} />
+            </View>
+          ) : messages.length === 0 && !isBotThinking ? (
             <View style={styles.emptyStateContainer}>
               <View style={styles.brandRow}>
                 <Logo
@@ -541,7 +548,7 @@ export default function NewChatScreen() {
                 {greeting}
               </Text>
             </View>
-          )}
+          ) : null}
 
           {(() => {
             // Find ID of the latest completed AI message
@@ -760,6 +767,12 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     gap: 14,
     flexGrow: 1,
+  },
+  loadingCenterContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
   },
   emptyStateContainer: {
     flex: 1,

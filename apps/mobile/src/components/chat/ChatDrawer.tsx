@@ -53,13 +53,14 @@ export default function ChatDrawer({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
-  // Swipe left to close gesture — tracks finger in real-time
+  // Swipe left to close gesture — tracks finger in real-time (Gemini-level sensitivity)
   const closePanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gestureState) => {
+        // High-sensitivity horizontal swipe detection anywhere on the drawer
         return (
-          gestureState.dx < -8 &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2
+          gestureState.dx < -4 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy)
         );
       },
       onPanResponderMove: (_evt, gestureState) => {
@@ -71,7 +72,8 @@ export default function ChatDrawer({
       onPanResponderRelease: (_evt, gestureState) => {
         const progress = 1 + gestureState.dx / screenWidth;
         const velocity = gestureState.vx;
-        const shouldClose = progress < 0.5 || velocity < -0.5;
+        // Closes on 50% drag OR a light, quick flick left (vx < -0.25) or slight intentional swipe (dx < -60)
+        const shouldClose = progress < 0.5 || velocity < -0.25 || gestureState.dx < -60;
         if (shouldClose) {
           onClose();
         } else {
