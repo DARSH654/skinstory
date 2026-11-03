@@ -9,6 +9,7 @@ import {
   Dimensions,
   Animated,
   PanResponder,
+  Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/AppText';
@@ -52,15 +53,47 @@ export default function ChatDrawer({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
-  // Swipe left to close gesture
+  // Swipe left to close gesture — tracks finger in real-time
   const closePanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gestureState) => {
-        return gestureState.dx < -15 && Math.abs(gestureState.dy) < 30;
+        return (
+          gestureState.dx < -8 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2
+        );
+      },
+      onPanResponderMove: (_evt, gestureState) => {
+        if (drawerAnim) {
+          const progress = Math.min(1, Math.max(0, 1 + gestureState.dx / screenWidth));
+          drawerAnim.setValue(progress);
+        }
       },
       onPanResponderRelease: (_evt, gestureState) => {
-        if (gestureState.dx < -30) {
+        const progress = 1 + gestureState.dx / screenWidth;
+        const velocity = gestureState.vx;
+        const shouldClose = progress < 0.5 || velocity < -0.5;
+        if (shouldClose) {
           onClose();
+        } else {
+          // Snap back to fully open
+          if (drawerAnim) {
+            Animated.timing(drawerAnim, {
+              toValue: 1,
+              duration: 200,
+              easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+              useNativeDriver: true,
+            }).start();
+          }
+        }
+      },
+      onPanResponderTerminate: () => {
+        if (drawerAnim) {
+          Animated.timing(drawerAnim, {
+            toValue: 1,
+            duration: 200,
+            easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+            useNativeDriver: true,
+          }).start();
         }
       },
     })

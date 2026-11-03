@@ -52,14 +52,26 @@ export default function NewChatScreen() {
   const screenWidth = Dimensions.get('window').width;
   const drawerAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
+  const openDrawer = useCallback(() => {
+    setIsDrawerOpen(true);
     Animated.timing(drawerAnim, {
-      toValue: isDrawerOpen ? 1 : 0,
-      duration: 280,
+      toValue: 1,
+      duration: 250,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
       useNativeDriver: true,
     }).start();
-  }, [isDrawerOpen, drawerAnim]);
+  }, [drawerAnim]);
+
+  const closeDrawer = useCallback(() => {
+    Animated.timing(drawerAnim, {
+      toValue: 0,
+      duration: 250,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: true,
+    }).start(() => {
+      setIsDrawerOpen(false);
+    });
+  }, [drawerAnim]);
 
   const mainScreenTranslateX = drawerAnim.interpolate({
     inputRange: [0, 1],
@@ -71,21 +83,35 @@ export default function NewChatScreen() {
     outputRange: [0, 24, 24],
   });
 
-  // PanResponder to open drawer on swipe right from left edge (x <= 40, dx > 30)
+  // PanResponder to track finger in real-time when swiping right from left edge
   const edgeSwipePanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gestureState) => {
         return (
-          gestureState.x0 < 45 &&
-          gestureState.dx > 25 &&
-          Math.abs(gestureState.dy) < 35
+          gestureState.x0 < 50 &&
+          gestureState.dx > 8 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2
         );
       },
+      onPanResponderGrant: () => {
+        Keyboard.dismiss();
+      },
+      onPanResponderMove: (_evt, gestureState) => {
+        const progress = Math.min(1, Math.max(0, gestureState.dx / screenWidth));
+        drawerAnim.setValue(progress);
+      },
       onPanResponderRelease: (_evt, gestureState) => {
-        if (gestureState.dx > 40) {
-          Keyboard.dismiss();
-          setIsDrawerOpen(true);
+        const progress = gestureState.dx / screenWidth;
+        const velocity = gestureState.vx;
+        const shouldOpen = progress > 0.5 || velocity > 0.5;
+        if (shouldOpen) {
+          openDrawer();
+        } else {
+          closeDrawer();
         }
+      },
+      onPanResponderTerminate: () => {
+        closeDrawer();
       },
     })
   ).current;
@@ -366,9 +392,9 @@ export default function NewChatScreen() {
         chats={chats}
         currentChatId={chatId}
         drawerAnim={drawerAnim}
-        onClose={() => setIsDrawerOpen(false)}
+        onClose={closeDrawer}
         onNewChat={() => {
-          setIsDrawerOpen(false);
+          closeDrawer();
           const freshChatId = `chat-${Date.now()}`;
           router.replace({
             pathname: '/new-chat',
@@ -376,7 +402,7 @@ export default function NewChatScreen() {
           } as any);
         }}
         onSelectChat={(selected) => {
-          setIsDrawerOpen(false);
+          closeDrawer();
           if (selected.id !== chatId) {
             router.replace({
               pathname: '/new-chat',
