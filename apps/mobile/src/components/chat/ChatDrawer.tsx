@@ -48,8 +48,6 @@ export default function ChatDrawer({
   const insets = useSafeAreaInsets();
   const screenWidth = Dimensions.get('window').width;
 
-  console.log('[DRAWER_RAW_DEBUG] ChatDrawer render: isOpen=', isOpen, 'screenWidth=', screenWidth);
-
   const [userName, setUserName] = useState('User');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,7 +65,6 @@ export default function ChatDrawer({
       onPanResponderMove: (_evt, gestureState) => {
         if (drawerAnim) {
           const progress = Math.min(1, Math.max(0, 1 + gestureState.dx / screenWidth));
-          console.log('[DRAWER_RAW_DEBUG] ChatDrawer close gesture MOVE: dx=', gestureState.dx, 'progress=', progress.toFixed(3));
           drawerAnim.setValue(progress);
         }
       },
@@ -75,12 +72,6 @@ export default function ChatDrawer({
         const progress = 1 + gestureState.dx / screenWidth;
         const velocity = gestureState.vx;
         const shouldClose = progress < 0.5 || velocity < -0.5;
-        console.log('[DRAWER_RAW_DEBUG] ChatDrawer close gesture RELEASE:', {
-          dx: gestureState.dx,
-          vx: gestureState.vx,
-          progress: progress.toFixed(3),
-          shouldClose,
-        });
         if (shouldClose) {
           onClose();
         } else {
@@ -96,7 +87,6 @@ export default function ChatDrawer({
         }
       },
       onPanResponderTerminate: () => {
-        console.log('[DRAWER_RAW_DEBUG] ChatDrawer close gesture TERMINATE');
         if (drawerAnim) {
           Animated.timing(drawerAnim, {
             toValue: 1,
@@ -109,8 +99,8 @@ export default function ChatDrawer({
     })
   ).current;
 
+  // Load user profile once on mount
   useEffect(() => {
-    console.log('[DRAWER_RAW_DEBUG] ChatDrawer useEffect[isOpen] fired: isOpen=', isOpen);
     async function loadUser() {
       try {
         const stored = await AsyncStorage.getItem('user_profile');
@@ -128,7 +118,7 @@ export default function ChatDrawer({
       }
     }
     loadUser();
-  }, [isOpen]);
+  }, []);
 
   // Subtle parallax effect matching native drawer behavior
   const drawerParallaxX = drawerAnim

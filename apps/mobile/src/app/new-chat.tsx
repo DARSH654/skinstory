@@ -49,50 +49,41 @@ export default function NewChatScreen() {
   const [greeting, setGreeting] = useState('Hello, there');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  console.log('[DRAWER_RAW_DEBUG] NewChatScreen render: isDrawerOpen=', isDrawerOpen);
-
   const screenWidth = Dimensions.get('window').width;
   const drawerAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    const listenerId = drawerAnim.addListener(({ value }) => {
-      console.log('[DRAWER_RAW_DEBUG] drawerAnim value change:', value.toFixed(3));
-    });
-    return () => {
-      drawerAnim.removeListener(listenerId);
-    };
-  }, [drawerAnim]);
-
   const openDrawer = useCallback(() => {
-    console.log('[DRAWER_RAW_DEBUG] openDrawer called. Calling setIsDrawerOpen(true)');
-    setIsDrawerOpen(true);
-    console.log('[DRAWER_RAW_DEBUG] Starting Animated.timing to 1 (duration: 250)');
     Animated.timing(drawerAnim, {
       toValue: 1,
       duration: 250,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
       useNativeDriver: true,
-    }).start((result) => {
-      console.log('[DRAWER_RAW_DEBUG] openDrawer Animated.timing FINISHED:', JSON.stringify(result));
+    }).start(({ finished }) => {
+      if (finished) {
+        setIsDrawerOpen(true);
+      }
     });
   }, [drawerAnim]);
 
   const closeDrawer = useCallback(() => {
-    console.log('[DRAWER_RAW_DEBUG] closeDrawer called. Starting Animated.timing to 0');
+    setIsDrawerOpen(false);
     Animated.timing(drawerAnim, {
       toValue: 0,
       duration: 250,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
       useNativeDriver: true,
-    }).start((result) => {
-      console.log('[DRAWER_RAW_DEBUG] closeDrawer Animated.timing FINISHED:', JSON.stringify(result), 'Calling setIsDrawerOpen(false)');
-      setIsDrawerOpen(false);
-    });
+    }).start();
   }, [drawerAnim]);
 
+  // Give 48px extra clearance so elevation, shadow, and rounded corners never bleed at 100%
   const mainScreenTranslateX = drawerAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, screenWidth],
+    outputRange: [0, screenWidth + 48],
+  });
+
+  const mainScreenOpacity = drawerAnim.interpolate({
+    inputRange: [0, 0.92, 1],
+    outputRange: [1, 1, 0],
   });
 
   const mainScreenBorderRadius = drawerAnim.interpolate({
@@ -104,38 +95,23 @@ export default function NewChatScreen() {
   const edgeSwipePanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gestureState) => {
-        const shouldSet =
+        return (
           gestureState.x0 < 50 &&
           gestureState.dx > 8 &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
-        if (shouldSet) {
-          console.log('[DRAWER_RAW_DEBUG] edgeSwipePanResponder: onMoveShouldSetPanResponder=TRUE', {
-            x0: gestureState.x0,
-            dx: gestureState.dx,
-            dy: gestureState.dy,
-          });
-        }
-        return shouldSet;
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2
+        );
       },
       onPanResponderGrant: () => {
-        console.log('[DRAWER_RAW_DEBUG] edgeSwipePanResponder: onPanResponderGrant');
         Keyboard.dismiss();
       },
       onPanResponderMove: (_evt, gestureState) => {
         const progress = Math.min(1, Math.max(0, gestureState.dx / screenWidth));
-        console.log('[DRAWER_RAW_DEBUG] edgeSwipePanResponder MOVE: dx=', gestureState.dx, 'progress=', progress.toFixed(3));
         drawerAnim.setValue(progress);
       },
       onPanResponderRelease: (_evt, gestureState) => {
         const progress = gestureState.dx / screenWidth;
         const velocity = gestureState.vx;
         const shouldOpen = progress > 0.5 || velocity > 0.5;
-        console.log('[DRAWER_RAW_DEBUG] edgeSwipePanResponder RELEASE:', {
-          dx: gestureState.dx,
-          vx: gestureState.vx,
-          progress: progress.toFixed(3),
-          shouldOpen,
-        });
         if (shouldOpen) {
           openDrawer();
         } else {
@@ -143,7 +119,6 @@ export default function NewChatScreen() {
         }
       },
       onPanResponderTerminate: () => {
-        console.log('[DRAWER_RAW_DEBUG] edgeSwipePanResponder TERMINATE');
         closeDrawer();
       },
     })
@@ -453,6 +428,7 @@ export default function NewChatScreen() {
             backgroundColor: isDark ? '#09090b' : '#fafafa',
             paddingTop: Math.max(insets.top, 12),
             transform: [{ translateX: mainScreenTranslateX }],
+            opacity: mainScreenOpacity,
             borderTopLeftRadius: mainScreenBorderRadius,
             borderBottomLeftRadius: mainScreenBorderRadius,
           },
