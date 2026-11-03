@@ -99,14 +99,25 @@ export default function NewChatScreen() {
   const edgeSwipePanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gestureState) => {
-        // High-sensitivity edge capture: starts within left 75px, slight horizontal movement
-        return (
+        const isSwipeAttempt = Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+        const isRegistered =
           gestureState.x0 < 75 &&
           gestureState.dx > 4 &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy)
-        );
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+
+        if (isSwipeAttempt) {
+          console.log('[SWIPE_DEBUG] Finger moved on edge:', {
+            x0: Math.round(gestureState.x0),
+            dx: Math.round(gestureState.dx),
+            dy: Math.round(gestureState.dy),
+            registered: isRegistered,
+            reason: gestureState.x0 >= 75 ? 'Touch started too far from left edge (>75px)' : gestureState.dx <= 4 ? 'dx too small (<=4px)' : Math.abs(gestureState.dx) <= Math.abs(gestureState.dy) ? 'Vertical gesture dominated' : 'OK'
+          });
+        }
+        return isRegistered;
       },
       onPanResponderGrant: () => {
+        console.log('[SWIPE_DEBUG] edgeSwipePanResponder GRANT - swipe registered successfully');
         Keyboard.dismiss();
       },
       onPanResponderMove: (_evt, gestureState) => {
@@ -118,6 +129,12 @@ export default function NewChatScreen() {
         const velocity = gestureState.vx;
         // Opens on either 50% drag OR a light, quick flick (vx > 0.25) or slight intentional swipe (dx > 70)
         const shouldOpen = progress > 0.5 || velocity > 0.25 || gestureState.dx > 70;
+        console.log('[SWIPE_DEBUG] edgeSwipePanResponder RELEASE:', {
+          dx: Math.round(gestureState.dx),
+          vx: Number(velocity.toFixed(2)),
+          progress: Number(progress.toFixed(2)),
+          action: shouldOpen ? 'OPEN_DRAWER' : 'CLOSE_DRAWER'
+        });
         if (shouldOpen) {
           openDrawer();
         } else {
@@ -125,6 +142,7 @@ export default function NewChatScreen() {
         }
       },
       onPanResponderTerminate: () => {
+        console.log('[SWIPE_DEBUG] edgeSwipePanResponder TERMINATE');
         closeDrawer();
       },
     })
@@ -418,7 +436,14 @@ export default function NewChatScreen() {
           });
         }}
         onSelectChat={(selected) => {
+          console.log('[CHAT_SWITCH_DEBUG] 1. onSelectChat clicked:', {
+            fromChatId: chatId,
+            toChatId: selected.id,
+            toTitle: selected.title,
+            isDrawerOpen,
+          });
           closeDrawer(() => {
+            console.log('[CHAT_SWITCH_DEBUG] 2. closeDrawer animation finished. Triggering router.replace to:', selected.id);
             if (selected.id !== chatId) {
               router.replace({
                 pathname: '/new-chat',
@@ -521,7 +546,10 @@ export default function NewChatScreen() {
         >
           {!isLoaded ? (
             <View style={styles.loadingCenterContainer}>
-              <ActivityIndicator size="small" color={isDark ? '#a1a1aa' : '#71717a'} />
+              {(() => {
+                console.log('[SWIPE_DEBUG] Loader rendering in center: chatId=', chatId, 'isLoaded=', isLoaded);
+                return <ActivityIndicator size="large" color={isDark ? '#e4e4e7' : '#52525b'} />;
+              })()}
             </View>
           ) : messages.length === 0 && !isBotThinking ? (
             <View style={styles.emptyStateContainer}>
@@ -551,6 +579,7 @@ export default function NewChatScreen() {
           ) : null}
 
           {(() => {
+            console.log('[SWIPE_DEBUG] Messages block evaluation: chatId=', chatId, 'messagesCount=', messages.length, 'isLoaded=', isLoaded);
             // Find ID of the latest completed AI message
             const latestAiMessage = [...messages].reverse().find((m) => m.sender === 'ai' && !m.interrupted && !m.error);
             const latestAiMessageId = latestAiMessage?.id;
