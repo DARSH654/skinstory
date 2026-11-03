@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
-import { Pencil } from 'lucide-react-native';
+import { SquarePen, MoreVertical } from 'lucide-react-native';
 import { Text } from '@/components/AppText';
 
 interface ChatNavbarProps {
@@ -131,22 +131,14 @@ export default function ChatNavbar({
           },
         ]}
       >
-        {/* New Chat Button */}
+        {/* New Chat Button — same SquarePen icon as in ChatDrawer */}
         <TouchableOpacity
           onPress={onNewChat}
           activeOpacity={0.7}
           style={styles.pillActionBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
-              stroke={iconColor}
-              strokeWidth={2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
+          <SquarePen size={18} color={iconColor} strokeWidth={2.4} />
         </TouchableOpacity>
 
         {/* Three Dots More Menu Button */}
@@ -156,11 +148,7 @@ export default function ChatNavbar({
           style={styles.pillActionBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Line x1="12" y1="5" x2="12" y2="5.01" stroke={iconColor} strokeWidth={3} strokeLinecap="round" />
-            <Line x1="12" y1="12" x2="12" y2="12.01" stroke={iconColor} strokeWidth={3} strokeLinecap="round" />
-            <Line x1="12" y1="19" x2="12" y2="19.01" stroke={iconColor} strokeWidth={3} strokeLinecap="round" />
-          </Svg>
+          <MoreVertical size={19} color={iconColor} strokeWidth={2.4} />
         </TouchableOpacity>
       </View>
     </View>
