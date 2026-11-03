@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { View, StyleSheet, Animated, Easing, TouchableOpacity, Pressable, GestureResponderEvent, Text as RNText, TextInput } from 'react-native';
-import { Copy, ThumbsUp, ThumbsDown, RotateCw, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Info, AlertCircle } from 'lucide-react-native';
+import { Copy, ThumbsUp, ThumbsDown, RotateCw, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Info, AlertCircle, WifiOff } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/AppText';
 import TypingIndicator from './TypingIndicator';
@@ -238,7 +238,9 @@ export default function MessageBubble({
             ]}
           >
             <View style={styles.interruptedLeft}>
-              {message.error ? (
+              {message.error === 'Network issue found.' || message.error === 'Network issue.' ? (
+                <WifiOff size={16} color={isDark ? '#d4d4d8' : '#52525b'} strokeWidth={2.2} />
+              ) : message.error ? (
                 <AlertCircle size={16} color={isDark ? '#f87171' : '#dc2626'} strokeWidth={2.2} />
               ) : (
                 <Info size={16} color={isDark ? '#d4d4d8' : '#52525b'} strokeWidth={2.2} />

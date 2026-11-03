@@ -99,8 +99,8 @@ class ChatGenerationManager {
           return;
         }
 
-        // Network or API failure: persist error state in storage
-        await this.handleGenerationError(chatId, userMsgId, 'Connection issue. Please check your internet connection.');
+        // Network failure: persist error state in storage
+        await this.handleGenerationError(chatId, userMsgId, 'Network issue found.');
         this.activeGenerations.delete(chatId);
         this.notify(chatId);
         return;
@@ -188,7 +188,7 @@ class ChatGenerationManager {
           return;
         }
 
-        await this.handleRegenerateError(chatId, targetAiMsgId);
+        await this.handleRegenerateError(chatId, targetAiMsgId, 'Network issue found.');
         this.activeGenerations.delete(chatId);
         this.notify(chatId);
         return;
@@ -330,7 +330,7 @@ class ChatGenerationManager {
     }
   }
 
-  private async handleRegenerateError(chatId: string, targetAiMsgId: string) {
+  private async handleRegenerateError(chatId: string, targetAiMsgId: string, errorText?: string) {
     const storageKey = `${CHAT_MESSAGES_PREFIX}${chatId}`;
     try {
       const stored = await AsyncStorage.getItem(storageKey);
@@ -343,7 +343,8 @@ class ChatGenerationManager {
           ...target,
           text: target.versions?.[0] || '',
           animateTypewriter: false,
-          interrupted: true,
+          interrupted: !errorText,
+          error: errorText || null,
         };
         await AsyncStorage.setItem(storageKey, JSON.stringify({ ...parsed, messagesMap }));
       }

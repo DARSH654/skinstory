@@ -21,7 +21,6 @@ export default function ChatNavbar({
       style={[
         styles.navbar,
         {
-          borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
           backgroundColor: isDark ? '#09090b' : '#fafafa',
         },
       ]}
@@ -39,7 +38,7 @@ export default function ChatNavbar({
         ]}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
-        <ChevronLeft size={20} color={isDark ? '#ffffff' : '#000000'} strokeWidth={2.4} />
+        <ChevronLeft size={18} color={isDark ? '#ffffff' : '#000000'} strokeWidth={2.4} />
       </TouchableOpacity>
 
       {/* Title Row: left-aligned, larger title + Pencil icon */}
@@ -54,7 +53,7 @@ export default function ChatNavbar({
         >
           {displayTitle}
         </Text>
-        <Pencil size={16} color={isDark ? '#a1a1aa' : '#71717a'} strokeWidth={2.2} />
+        <Pencil size={14} color={isDark ? '#a1a1aa' : '#71717a'} strokeWidth={2.2} />
       </TouchableOpacity>
     </View>
   );
@@ -66,13 +65,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingVertical: 8,
   },
   backCircleBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -89,7 +87,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   navTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.4,
     flexShrink: 1,

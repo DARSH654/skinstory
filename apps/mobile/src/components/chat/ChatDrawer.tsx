@@ -57,23 +57,11 @@ export default function ChatDrawer({
   const closePanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gestureState) => {
-        const isSwipeAttempt = Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
-        const isRegistered =
+        // High-sensitivity horizontal swipe detection anywhere on the drawer
+        return (
           gestureState.dx < -4 &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
-
-        if (isSwipeAttempt) {
-          console.log('[SWIPE_DEBUG] Finger moved on drawer:', {
-            dx: Math.round(gestureState.dx),
-            dy: Math.round(gestureState.dy),
-            registered: isRegistered,
-            reason: gestureState.dx >= -4 ? 'dx too small (>=-4px)' : Math.abs(gestureState.dx) <= Math.abs(gestureState.dy) ? 'Vertical gesture dominated' : 'OK'
-          });
-        }
-        return isRegistered;
-      },
-      onPanResponderGrant: () => {
-        console.log('[SWIPE_DEBUG] ChatDrawer closePanResponder GRANT - close swipe registered');
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy)
+        );
       },
       onPanResponderMove: (_evt, gestureState) => {
         if (drawerAnim) {
@@ -86,12 +74,6 @@ export default function ChatDrawer({
         const velocity = gestureState.vx;
         // Closes on 50% drag OR a light, quick flick left (vx < -0.25) or slight intentional swipe (dx < -60)
         const shouldClose = progress < 0.5 || velocity < -0.25 || gestureState.dx < -60;
-        console.log('[SWIPE_DEBUG] ChatDrawer closePanResponder RELEASE:', {
-          dx: Math.round(gestureState.dx),
-          vx: Number(velocity.toFixed(2)),
-          progress: Number(progress.toFixed(2)),
-          action: shouldClose ? 'CLOSE_DRAWER' : 'SNAP_BACK_OPEN'
-        });
         if (shouldClose) {
           onClose();
         } else {

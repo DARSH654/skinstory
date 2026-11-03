@@ -48,6 +48,7 @@ export default function NewChatScreen() {
   const [tempTitle, setTempTitle] = useState(chatTitle);
   const [greeting, setGreeting] = useState('Hello, there');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isSwitchingChat, setIsSwitchingChat] = useState(false);
 
   const screenWidth = Dimensions.get('window').width;
   const drawerAnim = useRef(new Animated.Value(0)).current;
@@ -99,25 +100,14 @@ export default function NewChatScreen() {
   const edgeSwipePanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gestureState) => {
-        const isSwipeAttempt = Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
-        const isRegistered =
+        // High-sensitivity edge capture: starts within left 75px, slight horizontal movement
+        return (
           gestureState.x0 < 75 &&
           gestureState.dx > 4 &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
-
-        if (isSwipeAttempt) {
-          console.log('[SWIPE_DEBUG] Finger moved on edge:', {
-            x0: Math.round(gestureState.x0),
-            dx: Math.round(gestureState.dx),
-            dy: Math.round(gestureState.dy),
-            registered: isRegistered,
-            reason: gestureState.x0 >= 75 ? 'Touch started too far from left edge (>75px)' : gestureState.dx <= 4 ? 'dx too small (<=4px)' : Math.abs(gestureState.dx) <= Math.abs(gestureState.dy) ? 'Vertical gesture dominated' : 'OK'
-          });
-        }
-        return isRegistered;
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy)
+        );
       },
       onPanResponderGrant: () => {
-        console.log('[SWIPE_DEBUG] edgeSwipePanResponder GRANT - swipe registered successfully');
         Keyboard.dismiss();
       },
       onPanResponderMove: (_evt, gestureState) => {
@@ -129,12 +119,6 @@ export default function NewChatScreen() {
         const velocity = gestureState.vx;
         // Opens on either 50% drag OR a light, quick flick (vx > 0.25) or slight intentional swipe (dx > 70)
         const shouldOpen = progress > 0.5 || velocity > 0.25 || gestureState.dx > 70;
-        console.log('[SWIPE_DEBUG] edgeSwipePanResponder RELEASE:', {
-          dx: Math.round(gestureState.dx),
-          vx: Number(velocity.toFixed(2)),
-          progress: Number(progress.toFixed(2)),
-          action: shouldOpen ? 'OPEN_DRAWER' : 'CLOSE_DRAWER'
-        });
         if (shouldOpen) {
           openDrawer();
         } else {
@@ -142,7 +126,6 @@ export default function NewChatScreen() {
         }
       },
       onPanResponderTerminate: () => {
-        console.log('[SWIPE_DEBUG] edgeSwipePanResponder TERMINATE');
         closeDrawer();
       },
     })
@@ -150,6 +133,7 @@ export default function NewChatScreen() {
 
   // If chat is found in existing chats list, sync title if needed
   useEffect(() => {
+    setIsSwitchingChat(false);
     const existing = chats.find((c) => c.id === chatId);
     if (existing && existing.title && existing.title !== 'Untitled Chat') {
       setChatTitle(existing.title);
@@ -220,9 +204,12 @@ export default function NewChatScreen() {
 
   const { footerStyle, resetFooter, keyboardHeight } = useChatKeyboard(undefined, !isEditingTitle);
 
-  // Guarantee the Android soft keyboard is dismissed on screen entry/mount so it never pops up by default
+  // Guarantee the Android soft keyboard is dismissed and scroll tracking is reset on chat switch
   useEffect(() => {
     Keyboard.dismiss();
+    hasPerformedInitialScrollRef.current = false;
+    messageLayoutYMap.current = {};
+    prevMessageCountRef.current = 0;
   }, [chatId]);
 
   const scrollToBottom = useCallback((animated: boolean = true) => {
@@ -305,6 +292,14 @@ export default function NewChatScreen() {
   const latestUserMessageId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].sender === 'user') return messages[i].id;
+    }
+    return null;
+  }, [messages]);
+
+  // Identify the latest AI message in history
+  const latestAiMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].sender === 'ai') return messages[i].id;
     }
     return null;
   }, [messages]);
@@ -427,28 +422,23 @@ export default function NewChatScreen() {
         drawerAnim={drawerAnim}
         onClose={() => closeDrawer()}
         onNewChat={() => {
+          setIsSwitchingChat(true);
+          setChatTitle('Untitled Chat');
+          setTempTitle('Untitled Chat');
           closeDrawer(() => {
             const freshChatId = `chat-${Date.now()}`;
-            router.replace({
-              pathname: '/new-chat',
-              params: { chatId: freshChatId },
-            } as any);
+            router.setParams({ chatId: freshChatId, title: 'Untitled Chat' });
           });
         }}
         onSelectChat={(selected) => {
-          console.log('[CHAT_SWITCH_DEBUG] 1. onSelectChat clicked:', {
-            fromChatId: chatId,
-            toChatId: selected.id,
-            toTitle: selected.title,
-            isDrawerOpen,
-          });
+          if (selected.id !== chatId) {
+            setIsSwitchingChat(true);
+            setChatTitle(selected.title || 'Untitled Chat');
+            setTempTitle(selected.title || 'Untitled Chat');
+          }
           closeDrawer(() => {
-            console.log('[CHAT_SWITCH_DEBUG] 2. closeDrawer animation finished. Triggering router.replace to:', selected.id);
             if (selected.id !== chatId) {
-              router.replace({
-                pathname: '/new-chat',
-                params: { chatId: selected.id, title: selected.title },
-              } as any);
+              router.setParams({ chatId: selected.id, title: selected.title || 'Untitled Chat' });
             }
           });
         }}
@@ -460,7 +450,6 @@ export default function NewChatScreen() {
           styles.mainChatScreen,
           {
             backgroundColor: isDark ? '#09090b' : '#fafafa',
-            paddingTop: Math.max(insets.top, 12),
             transform: [{ translateX: mainScreenTranslateX }],
             opacity: mainScreenOpacity,
             borderTopLeftRadius: mainScreenBorderRadius,
@@ -469,17 +458,6 @@ export default function NewChatScreen() {
         ]}
         {...edgeSwipePanResponder.panHandlers}
       >
-      <ChatNavbar
-        isDark={isDark}
-        displayTitle={displayTitle}
-        onBack={() => router.back()}
-        onEditTitle={() => {
-          Keyboard.dismiss();
-          setTempTitle(chatTitle);
-          setIsEditingTitle(true);
-        }}
-      />
-
       <View style={styles.chatBody}>
         <ScrollView
           ref={scrollViewRef}
@@ -487,6 +465,7 @@ export default function NewChatScreen() {
           contentContainerStyle={[
             styles.messageScrollContent,
             {
+              paddingTop: Math.max(insets.top, 12) + 64,
               paddingBottom: 80 + insets.bottom + keyboardHeight,
               justifyContent: messages.length === 0 ? 'center' : 'flex-start',
             },
@@ -529,7 +508,13 @@ export default function NewChatScreen() {
             const isAtBottom = distanceFromBottom <= 40;
             isNearBottomRef.current = isAtBottom;
 
-            if (isAtBottom) {
+            // Check if latest AI message is currently visible in the user's viewport
+            const viewportTop = contentOffset.y;
+            const viewportBottom = contentOffset.y + layoutMeasurement.height;
+            const latestAiY = latestAiMessageId ? messageLayoutYMap.current[latestAiMessageId] : undefined;
+            const isLatestAiVisible = typeof latestAiY === 'number' && latestAiY >= viewportTop - 40 && latestAiY <= viewportBottom;
+
+            if (isAtBottom || isLatestAiVisible) {
               userScrolledUpRef.current = false;
               if (showScrollButton) setShowScrollButton(false);
             } else {
@@ -544,12 +529,9 @@ export default function NewChatScreen() {
           }}
           scrollEventThrottle={16}
         >
-          {!isLoaded ? (
+          {!isLoaded || isSwitchingChat ? (
             <View style={styles.loadingCenterContainer}>
-              {(() => {
-                console.log('[SWIPE_DEBUG] Loader rendering in center: chatId=', chatId, 'isLoaded=', isLoaded);
-                return <ActivityIndicator size="large" color={isDark ? '#e4e4e7' : '#52525b'} />;
-              })()}
+              <ActivityIndicator size="large" color={isDark ? '#e4e4e7' : '#52525b'} />
             </View>
           ) : messages.length === 0 && !isBotThinking ? (
             <View style={styles.emptyStateContainer}>
@@ -578,14 +560,15 @@ export default function NewChatScreen() {
             </View>
           ) : null}
 
-          {(() => {
-            console.log('[SWIPE_DEBUG] Messages block evaluation: chatId=', chatId, 'messagesCount=', messages.length, 'isLoaded=', isLoaded);
+          {!isSwitchingChat && (() => {
             // Find ID of the latest completed AI message
             const latestAiMessage = [...messages].reverse().find((m) => m.sender === 'ai' && !m.interrupted && !m.error);
             const latestAiMessageId = latestAiMessage?.id;
 
-            // Find ID of the latest interrupted/errored AI message
-            const latestInterruptedMessage = [...messages].reverse().find((m) => m.sender === 'ai' && (m.interrupted || m.error));
+            // Find ID of the latest interrupted/errored AI message (only if bot is not thinking/retrying)
+            const latestInterruptedMessage = !isBotThinking
+              ? [...messages].reverse().find((m) => m.sender === 'ai' && (m.interrupted || m.error))
+              : null;
             const latestInterruptedMessageId = latestInterruptedMessage?.id;
 
             return messages.map((item) => (
@@ -680,6 +663,29 @@ export default function NewChatScreen() {
             isBotThinking={isGenerating}
           />
         </Reanimated.View>
+
+        {/* Floating header — bg covers status bar area so scroll content doesn't bleed through */}
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.floatingNavbarContainer,
+            {
+              paddingTop: Math.max(insets.top, 12),
+              backgroundColor: isDark ? '#09090b' : '#fafafa',
+            },
+          ]}
+        >
+          <ChatNavbar
+            isDark={isDark}
+            displayTitle={displayTitle}
+            onBack={() => router.back()}
+            onEditTitle={() => {
+              Keyboard.dismiss();
+              setTempTitle(chatTitle);
+              setIsEditingTitle(true);
+            }}
+          />
+        </View>
       </View>
       </Animated.View>
 
@@ -849,5 +855,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
+  },
+  floatingNavbarContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    backgroundColor: 'transparent',
   },
 });
