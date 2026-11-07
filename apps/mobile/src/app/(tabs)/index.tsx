@@ -1298,7 +1298,7 @@ export default function HomeScreen() {
                 fontWeight: '800',
                 color: isDark ? '#ffffff' : '#1a1a1a',
                 marginBottom: 14,
-              }}>Your Daily Insights</Text>
+              }}>Your Insights</Text>
 
               {/* Insight Card: Tapping triggers 3-sec analyzing demo */}
               <Pressable 
