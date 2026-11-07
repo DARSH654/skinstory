@@ -138,6 +138,16 @@ const createDefaultDrafts = (): Record<QuestionDataType, DataTypeDraft> => ({
     stepSize: 1,
     maxValue: '',
   },
+  image: {
+    title: '',
+    options: [],
+    placeholderText: '',
+    scaleRange: '1-5',
+    stepLabels: ['', '', '', '', ''],
+    unit: '',
+    stepSize: 1,
+    maxValue: '',
+  },
 });
 
 const getTitlePlaceholder = (type: QuestionDataType) => {
@@ -154,6 +164,8 @@ const getTitlePlaceholder = (type: QuestionDataType) => {
       return 'e.g., Rate your stress level';
     case 'numeric':
       return 'e.g., Water intake';
+    case 'image':
+      return 'e.g., Skin progress photo';
     default:
       return 'Enter question title';
   }
@@ -183,7 +195,7 @@ const MemoizedSaveButton = memo(({
   registerFieldMutated,
   checkFormValid,
 }: MemoizedSaveButtonProps) => {
-  const [isDisabled, setIsDisabled] = useState(true);
+  const [isDisabled, setIsDisabled] = useState(() => !checkFormValid());
 
   // Expose a stable callback so inputs can trigger re-validation without touching the parent
   const handleFieldMutated = useCallback(() => {
@@ -194,6 +206,7 @@ const MemoizedSaveButton = memo(({
   // Let the parent register this callback once (via ref) so it can call it on present()
   useEffect(() => {
     registerFieldMutated(handleFieldMutated);
+    handleFieldMutated();
   }, [registerFieldMutated, handleFieldMutated]);
 
   const disabledBg = isDark ? styles.saveButtonDisabledDark : styles.saveButtonDisabledLight;
@@ -858,14 +871,15 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
   useImperativeHandle(ref, () => ({
     present: () => {
       mountStartTimeRef.current = performance.now();
-      fieldMutatedCallbackRef.current?.();
       setIsOpen(true);
       sheetRef.current?.show();
 
-      // Log when the deferral actually fires
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsContentReady(true);
+          // Re-validate after the sheet is visible so the Save button
+          // correctly reflects any draft text already in the inputs.
+          fieldMutatedCallbackRef.current?.();
         });
       });
     },

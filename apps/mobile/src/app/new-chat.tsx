@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Keyboard, Image, PanResponder, Animated, Dimensions, Easing, ActivityIndicator, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, Keyboard, Image, PanResponder, Animated, Dimensions, Easing, ActivityIndicator, Pressable, BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Reanimated from 'react-native-reanimated';
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useSegments } from 'expo-router';
 import { useChats, ChatMeta } from '@/hooks/useChats';
 import ChatInputBar from '@/components/chat/ChatInputBar';
 import { Message } from '@/components/chat/types';
@@ -27,11 +27,17 @@ import Logo from '@/components/Logo';
 import { useChatKeyboard } from '@/components/chat/hooks/useChatKeyboard';
 import { useChatMessages } from '@/components/chat/hooks/useChatMessages';
 
-export default function NewChatScreen() {
+export interface NewChatScreenProps {
+  isInTabs?: boolean;
+}
+
+export default function NewChatScreen({ isInTabs = false }: NewChatScreenProps = {}) {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const segments = useSegments();
+  const isTabScreen = isInTabs || (Array.isArray(segments) && segments[0] === '(tabs)');
 
   // Read chatId and title from route params
   const params = useLocalSearchParams<{ chatId?: string; title?: string }>();
@@ -87,6 +93,20 @@ export default function NewChatScreen() {
       onFinish?.();
     });
   }, [drawerAnim]);
+
+  // Handle Android hardware/gesture back press: close open drawer first
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isDrawerOpen) {
+        closeDrawer();
+        return true;
+      }
+      return false;
+    };
+
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, [isDrawerOpen, closeDrawer]);
 
   // Give 48px extra clearance so elevation, shadow, and rounded corners never bleed at 100%
   const mainScreenTranslateX = drawerAnim.interpolate({
@@ -227,7 +247,7 @@ export default function NewChatScreen() {
     isLoaded,
   } = useChatMessages({ chatId, chatTitle, onChatUpdated: handleChatUpdated });
 
-  const { footerStyle, resetFooter, keyboardHeight } = useChatKeyboard(undefined, !isEditingTitle);
+  const { footerStyle, resetFooter, keyboardHeight } = useChatKeyboard(undefined, !isEditingTitle, isTabScreen);
 
   // Guarantee the Android soft keyboard is dismissed and scroll tracking is reset on chat switch
   useEffect(() => {
@@ -436,7 +456,7 @@ export default function NewChatScreen() {
   const displayTitle = chatTitle.length > 28 ? `${chatTitle.slice(0, 28)}...` : chatTitle;
 
   return (
-    <View style={[styles.rootContainer, { backgroundColor: isDark ? '#121215' : '#ffffff' }]}>
+    <View style={[styles.rootContainer, { backgroundColor: isDark ? '#121212' : '#f5f5f7' }]}>
 
       {/* Layer 1: Drawer UNDERNEATH — always mounted, zIndex 1 */}
       <ChatDrawer
@@ -445,6 +465,7 @@ export default function NewChatScreen() {
         chats={chats}
         currentChatId={chatId}
         drawerAnim={drawerAnim}
+        isInTabs={isTabScreen}
         onClose={() => closeDrawer()}
         onNewChat={() => {
           setIsSwitchingChat(true);
@@ -493,7 +514,7 @@ export default function NewChatScreen() {
             styles.messageScrollContent,
             {
               paddingTop: Math.max(insets.top, 12) + 64,
-              paddingBottom: 80 + insets.bottom + keyboardHeight,
+              paddingBottom: 80 + (isTabScreen ? 0 : insets.bottom) + keyboardHeight,
               justifyContent: messages.length === 0 ? 'center' : 'flex-start',
             },
           ]}

@@ -1,22 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Keyboard, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSharedValue, withTiming, runOnJS, useAnimatedStyle } from 'react-native-reanimated';
+import { useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated';
 
-export function useChatKeyboard(onKeyboardShow?: () => void, enabled: boolean = true) {
+export function useChatKeyboard(onKeyboardShow?: () => void, enabled: boolean = true, isInTabs: boolean = false) {
   const insets = useSafeAreaInsets();
-  const bottomInset = insets.bottom;
-  const footerPad = useSharedValue(bottomInset + 8);
+  const bottomInset = isInTabs ? 0 : insets.bottom;
+  const restingPadding = bottomInset + 8;
+  const footerPad = useSharedValue(restingPadding);
   const enabledShared = useSharedValue(enabled);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     enabledShared.value = enabled;
     if (!enabled) {
-      footerPad.value = withTiming(bottomInset + 8, { duration: 120 });
+      footerPad.value = withTiming(restingPadding, { duration: 120 });
       setKeyboardHeight(0);
     }
-  }, [enabled, bottomInset, enabledShared, footerPad]);
+  }, [enabled, restingPadding, enabledShared, footerPad]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -27,7 +28,7 @@ export function useChatKeyboard(onKeyboardShow?: () => void, enabled: boolean = 
       const kbHeight = e.endCoordinates.height;
       setKeyboardHeight(kbHeight);
       const targetPadding = Platform.OS === 'android'
-        ? kbHeight + bottomInset + 8
+        ? (isInTabs ? kbHeight + 8 : kbHeight + bottomInset + 8)
         : kbHeight + 8;
       footerPad.value = withTiming(targetPadding, { duration: 180 });
       if (onKeyboardShow) {
@@ -37,14 +38,14 @@ export function useChatKeyboard(onKeyboardShow?: () => void, enabled: boolean = 
 
     const hideSub = Keyboard.addListener(hideEvent, () => {
       setKeyboardHeight(0);
-      footerPad.value = withTiming(bottomInset + 8, { duration: 180 });
+      footerPad.value = withTiming(restingPadding, { duration: 180 });
     });
 
     return () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, [bottomInset, enabledShared, footerPad, onKeyboardShow]);
+  }, [bottomInset, restingPadding, isInTabs, enabledShared, footerPad, onKeyboardShow]);
 
   const footerStyle = useAnimatedStyle(() => ({
     paddingBottom: footerPad.value,
@@ -54,7 +55,7 @@ export function useChatKeyboard(onKeyboardShow?: () => void, enabled: boolean = 
   // to guarantee the footer snaps back to its resting position.
   const resetFooter = () => {
     setKeyboardHeight(0);
-    footerPad.value = withTiming(bottomInset + 8, { duration: 180 });
+    footerPad.value = withTiming(restingPadding, { duration: 180 });
   };
 
   return { footerStyle, resetFooter, keyboardHeight };

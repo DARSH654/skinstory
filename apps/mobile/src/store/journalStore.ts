@@ -9,7 +9,7 @@ export interface QuestionDef {
   options: { label: string; value: string }[];
   disabled?: boolean;
   createdAt?: number;
-  dataType?: 'multi_select' | 'boolean' | 'single_choice' | 'text' | 'scale' | 'numeric';
+  dataType?: 'multi_select' | 'boolean' | 'single_choice' | 'text' | 'scale' | 'numeric' | 'image';
   placeholderText?: string;
   scaleRange?: '1-3' | '1-5' | '1-10';
   stepLabels?: string[];
@@ -338,6 +338,11 @@ interface JournalState {
   availableQuestions: QuestionDef[];
   historyRecords: JournalHistoryRecord[];
   pendingReanswerKey: string | null;
+  // Hand-off slot: when a photo is captured from the journal "Image" question,
+  // the camera page drops the locally-saved uri here so the journal sheet can
+  // pick it up on return and advance to the next question.
+  pendingImageCapture: { key: string; uri: string } | null;
+  setPendingImageCapture: (value: { key: string; uri: string } | null) => void;
   setQuestions: (updater: QuestionDef[] | ((prev: QuestionDef[]) => QuestionDef[])) => void;
   setAvailableQuestions: (updater: QuestionDef[] | ((prev: QuestionDef[]) => QuestionDef[])) => void;
   setHistoryRecords: (updater: JournalHistoryRecord[] | ((prev: JournalHistoryRecord[]) => JournalHistoryRecord[])) => void;
@@ -363,6 +368,9 @@ export const useJournalStore = create<JournalState>((set, get) => ({
   availableQuestions: INITIAL_AVAILABLE_QUESTIONS,
   historyRecords: DEMO_HISTORY_RECORDS,
   pendingReanswerKey: null,
+  pendingImageCapture: null,
+
+  setPendingImageCapture: (value) => set({ pendingImageCapture: value }),
 
   setQuestions: (updater) =>
     set((state) => ({

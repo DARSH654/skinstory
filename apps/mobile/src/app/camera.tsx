@@ -11,7 +11,7 @@ import {
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   X,
   Zap,
@@ -32,12 +32,18 @@ import {
 } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useScanStore } from '@/store/scanStore';
+import { useJournalStore } from '@/store/journalStore';
 import { Colors } from '@/constants/theme';
 
 export default function CameraScreen() {
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
   const router = useRouter();
+  const params = useLocalSearchParams<{ from?: string; qKey?: string }>();
+  // Opened from the daily-journal "Image" question: capture only and hand the
+  // photo back to the journal sheet instead of running the skin analysis.
+  const isJournalFlow = params.from === 'journal';
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
@@ -69,7 +75,7 @@ export default function CameraScreen() {
   const handlePickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -143,11 +149,39 @@ export default function CameraScreen() {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!capturedPhotoUri) return;
+
+    // Journal flow: save the photo locally and hand it back to the journal
+    // sheet (no skin analysis, no /scan redirect).
+    if (isJournalFlow) {
+      const qKey = params.qKey || 'journal_image';
+      let localUri = capturedPhotoUri;
+      try {
+        const baseDir = FileSystem.documentDirectory;
+        if (baseDir) {
+          const dir = `${baseDir}journal-images/`;
+          const dirInfo = await FileSystem.getInfoAsync(dir);
+          if (!dirInfo.exists) {
+            await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+          }
+          const ext = (capturedPhotoUri.split('.').pop() || 'jpg').split('?')[0];
+          const dest = `${dir}${qKey}_${Date.now()}.${ext}`;
+          await FileSystem.copyAsync({ from: capturedPhotoUri, to: dest });
+          localUri = dest;
+        }
+      } catch {
+        localUri = capturedPhotoUri;
+      }
+
+      useJournalStore.getState().setPendingImageCapture({ key: qKey, uri: localUri });
+      router.back();
+      return;
+    }
+
     useScanStore.getState().setImage(capturedPhotoUri);
     useScanStore.getState().runAnalysis();
-    router.replace('/scan/1');
+    router.replace('/insight');
   };
 
   const openHowToSheet = () => {
@@ -744,11 +778,14 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderRadius: 100,
     gap: 10,
-    shadowColor: Colors.light.primary,
+    // Uplifted look (matches the daily-journal history day cards)
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    elevation: 10,
   },
   continueButtonText: {
     color: '#ffffff',

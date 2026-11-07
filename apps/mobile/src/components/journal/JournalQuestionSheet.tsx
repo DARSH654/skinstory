@@ -18,12 +18,17 @@ import {
   BackHandler,
   TextInput,
   PanResponder,
+  Alert,
+  Image,
 } from 'react-native';
 import ActionSheet, { ActionSheetRef } from 'react-native-actions-sheet';
 import { Text } from '@/components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Check, X, Minus, Plus } from 'lucide-react-native';
+import { useRouter, useNavigation } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Check, X, Minus, Plus, Camera, Upload, RotateCcw, ArrowRight } from 'lucide-react-native';
 import Animated, {
   SlideInRight,
   SlideOutLeft,
@@ -612,15 +617,20 @@ const NumericStepperQuestion = memo(function NumericStepperQuestion({
   // ── Hold-to-repeat ───────────────────────────────────────────────────────
   const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const countRef = useRef(initialValue);
+  countRef.current = count;
+
   const startHold = useCallback((direction: 1 | -1) => {
     if (holdIntervalRef.current) return;
     holdIntervalRef.current = setInterval(() => {
-      setCount((prev) => {
-        const next = Math.max(0, Math.min(max, Math.round((prev + direction * step) * 100) / 100));
+      const prev = countRef.current;
+      const next = Math.max(0, Math.min(max, Math.round((prev + direction * step) * 100) / 100));
+      if (next !== prev) {
+        countRef.current = next;
+        setCount(next);
         const formatted = unitText ? `${next} ${unitText}` : String(next);
         onSelect(questionKey, formatted);
-        return next;
-      });
+      }
     }, 100);
   }, [max, step, unitText, questionKey, onSelect]);
 
@@ -778,6 +788,132 @@ const NumericStepperQuestion = memo(function NumericStepperQuestion({
   );
 });
 
+// ---------------------------------------------------------------------------
+// ImageCaptureQuestion: "Take Image" / "Upload Image" pills for the image data type
+// ---------------------------------------------------------------------------
+interface ImageCaptureQuestionProps {
+  isDark: boolean;
+  primaryColor: string;
+  onOpenCamera: () => void;
+  onUpload: () => void;
+}
+
+const ImageCaptureQuestion = memo(function ImageCaptureQuestion({
+  isDark,
+  primaryColor,
+  onOpenCamera,
+  onUpload,
+}: ImageCaptureQuestionProps) {
+  return (
+    <View style={styles.imageCaptureContainer}>
+      <Pressable
+        onPress={onOpenCamera}
+        style={({ pressed }) => [
+          styles.imageCapturePill,
+          { backgroundColor: pressed ? '#a98fcc' : primaryColor },
+        ]}
+      >
+        <Camera size={18} color="#ffffff" strokeWidth={2.6} />
+        <Text style={[styles.imageCapturePillText, { color: '#ffffff' }]}>
+          Take Image
+        </Text>
+      </Pressable>
+
+      <Text style={[styles.imageCaptureOrText, { color: isDark ? '#71717a' : '#9ca3af' }]}>
+        or
+      </Text>
+
+      <Pressable
+        onPress={onUpload}
+        style={({ pressed }) => [
+          styles.imageCapturePill,
+          {
+            backgroundColor: pressed
+              ? (isDark ? '#27272a' : '#f0f0f2')
+              : (isDark ? '#18181b' : '#ffffff'),
+            borderWidth: 1,
+            borderColor: isDark ? '#27272a' : '#e5e7eb',
+          },
+        ]}
+      >
+        <Upload size={18} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.6} />
+        <Text style={[styles.imageCapturePillText, { color: isDark ? '#ffffff' : '#111827' }]}>
+          Upload Image
+        </Text>
+      </Pressable>
+    </View>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// ImageResultView: preview the captured / uploaded image with Retake + Continue
+// ---------------------------------------------------------------------------
+interface ImageResultViewProps {
+  uri: string;
+  source: 'camera' | 'upload';
+  isDark: boolean;
+  primaryColor: string;
+  onRetake: () => void;
+  onContinue: () => void;
+}
+
+const ImageResultView = memo(function ImageResultView({
+  uri,
+  source,
+  isDark,
+  primaryColor,
+  onRetake,
+  onContinue,
+}: ImageResultViewProps) {
+  return (
+    <View style={styles.imageResultContainer}>
+      <View style={styles.imageResultSquare}>
+        <View
+          style={[
+            styles.imageResultSquareInner,
+            isDark ? styles.imageResultSquareDark : styles.imageResultSquareLight,
+          ]}
+        >
+          <Image source={{ uri }} style={styles.imageResultImage} resizeMode="cover" />
+          <View style={styles.imageResultBadge}>
+            <Text style={styles.imageResultBadgeText}>
+              {source === 'camera' ? 'Took' : 'Uploaded'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.imageResultActions}>
+        <Pressable
+          onPress={onRetake}
+          style={({ pressed }) => [
+            styles.imageResultBtn,
+            styles.imageResultRetakeBtn,
+            isDark ? styles.imageResultRetakeDark : styles.imageResultRetakeLight,
+            { opacity: pressed ? 0.85 : 1 },
+          ]}
+        >
+          <RotateCcw size={17} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.4} />
+          <Text style={[styles.imageResultBtnText, { color: isDark ? '#ffffff' : '#111827' }]}>
+            Retake Photo
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={onContinue}
+          style={({ pressed }) => [
+            styles.imageResultBtn,
+            { backgroundColor: pressed ? '#a98fcc' : primaryColor },
+          ]}
+        >
+          <Text style={[styles.imageResultBtnText, { color: '#ffffff' }]}>Continue</Text>
+          <ArrowRight size={17} color="#ffffff" strokeWidth={2.6} />
+        </Pressable>
+      </View>
+    </View>
+  );
+});
+
 export interface JournalQuestionSheetProps {
   onCompleted?: () => void;
 }
@@ -787,9 +923,14 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
   const isDark = scheme === 'dark';
   const insets = useSafeAreaInsets();
   const primaryColor = Colors.light.primary;
+  const router = useRouter();
+  const navigation = useNavigation<any>();
+  const isFocused = !navigation?.isFocused || navigation.isFocused();
 
   const questions = useJournalStore((state) => state.questions);
   const setHistoryRecords = useJournalStore((state) => state.setHistoryRecords);
+  const pendingImageCapture = useJournalStore((state) => state.pendingImageCapture);
+  const setPendingImageCapture = useJournalStore((state) => state.setPendingImageCapture);
 
   const sheetRef = useRef<ActionSheetRef>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -802,6 +943,13 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
   const [isViewingCompleted, setIsViewingCompleted] = useState(false);
   const [slideDirection, setSlideDirection] = useState<'forward' | 'backward'>('forward');
   const [reansweringKey, setReansweringKey] = useState<string | null>(null);
+  // Image question: holds the photo (taken or uploaded) awaiting confirmation
+  const [capturedImage, setCapturedImage] = useState<{
+    key: string;
+    uri: string;
+    source: 'camera' | 'upload';
+  } | null>(null);
+  const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const draggableScrollConfig = useMemo(() => ({
     modalOpen: isOpen,
@@ -835,10 +983,35 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, currentQ?.key]);
 
+  // The captured-image preview belongs to a single question only
+  useEffect(() => {
+    setCapturedImage(null);
+    if (autoAdvanceRef.current) {
+      clearTimeout(autoAdvanceRef.current);
+      autoAdvanceRef.current = null;
+    }
+  }, [currentIndex]);
+
+  // Clear any pending auto-advance timer on unmount
+  useEffect(
+    () => () => {
+      if (autoAdvanceRef.current) {
+        clearTimeout(autoAdvanceRef.current);
+        autoAdvanceRef.current = null;
+      }
+    },
+    []
+  );
+
   useImperativeHandle(ref, () => ({
     present: (record: JournalHistoryRecord, reanswerKey?: string) => {
       setActiveRecordId(record.id);
       setIsOpen(true);
+      setCapturedImage(null);
+      if (autoAdvanceRef.current) {
+        clearTimeout(autoAdvanceRef.current);
+        autoAdvanceRef.current = null;
+      }
       const recordAnswers = { ...(record.answers || {}) };
       setEditingAnswers(recordAnswers);
       setSlideDirection('forward');
@@ -917,6 +1090,128 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
       }
     }, 220);
   }, [editingAnswers, reansweringKey, activeRecordId, isLastQuestion, questions.length, setHistoryRecords]);
+
+  // Image type: open the Scan tab's camera page to capture a photo.
+  // The origin ("journal") + question key are forwarded so the camera knows to
+  // hand the captured image back here instead of running the skin analysis.
+  const handleTakeImage = useCallback(() => {
+    const qKey = currentQ?.key;
+    if (!qKey) return;
+    sheetRef.current?.hide();
+    setTimeout(() => {
+      router.push({ pathname: '/camera', params: { from: 'journal', qKey } });
+    }, 150);
+  }, [router, currentQ?.key]);
+
+  // Image type: pick an image from the system picker (images only, up to 1MB), save locally as the answer
+  const handleUploadImage = useCallback(async () => {
+    const qKey = currentQ?.key;
+    if (!qKey) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: false,
+        quality: 1,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      const asset = result.assets[0];
+      const MAX_BYTES = 1024 * 1024; // 1 MB
+
+      if (asset.fileSize && asset.fileSize > MAX_BYTES) {
+        Alert.alert('Image too large', 'Please choose an image up to 1 MB.');
+        return;
+      }
+
+      // Persist the image locally so the answer survives cache cleanup
+      let localUri = asset.uri;
+      try {
+        const baseDir = FileSystem.documentDirectory;
+        if (baseDir) {
+          const dir = `${baseDir}journal-images/`;
+          const dirInfo = await FileSystem.getInfoAsync(dir);
+          if (!dirInfo.exists) {
+            await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+          }
+          const ext = (asset.uri.split('.').pop() || 'jpg').split('?')[0];
+          const dest = `${dir}${qKey}_${Date.now()}.${ext}`;
+          await FileSystem.copyAsync({ from: asset.uri, to: dest });
+          localUri = dest;
+        }
+      } catch {
+        localUri = asset.uri;
+      }
+
+      // Show the uploaded image with Retake / Continue (advance on Continue)
+      setEditingAnswers((prev) => ({ ...prev, [qKey]: localUri }));
+      setCapturedImage({ key: qKey, uri: localUri, source: 'upload' });
+    } catch {
+      // Silently ignore picker failures
+    }
+  }, [currentQ?.key]);
+
+  // Continue: confirm the captured/uploaded image and move to the next question
+  const handleContinueImage = useCallback(() => {
+    const qKey = currentQ?.key;
+    if (!qKey) return;
+    const uriToSave = (capturedImage && capturedImage.key === qKey)
+      ? capturedImage.uri
+      : editingAnswers[qKey];
+    if (!uriToSave) return;
+
+    if (autoAdvanceRef.current) {
+      clearTimeout(autoAdvanceRef.current);
+      autoAdvanceRef.current = null;
+    }
+    selectAnswer(qKey, uriToSave);
+  }, [capturedImage, currentQ?.key, editingAnswers, selectAnswer]);
+
+  // Retake: discard the image and bring back the Take / Upload options
+  const handleRetakeImage = useCallback(() => {
+    if (autoAdvanceRef.current) {
+      clearTimeout(autoAdvanceRef.current);
+      autoAdvanceRef.current = null;
+    }
+    const qKey = currentQ?.key;
+    setCapturedImage(null);
+    if (qKey) {
+      setEditingAnswers((prev) => {
+        const next = { ...prev };
+        delete next[qKey];
+        return next;
+      });
+      if (activeRecordId) {
+        setHistoryRecords((prev) =>
+          prev.map((item) => {
+            if (item.id === activeRecordId) {
+              const updated = { ...(item.answers || {}) };
+              delete updated[qKey];
+              return { ...item, answers: updated };
+            }
+            return item;
+          })
+        );
+      }
+    }
+  }, [currentQ?.key, activeRecordId, setHistoryRecords]);
+
+  // Pick up a photo captured on the camera page: re-open this sheet, show the
+  // photo in the square preview box and record the answer.
+  useEffect(() => {
+    if (!pendingImageCapture || !isFocused) return;
+    const { key, uri } = pendingImageCapture;
+    setPendingImageCapture(null);
+
+    // Persist answer immediately so it stays across slides and previous navigation
+    setEditingAnswers((prev) => ({ ...prev, [key]: uri }));
+    setCapturedImage({ key, uri, source: 'camera' });
+
+    sheetRef.current?.show();
+    setIsOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingImageCapture, isFocused]);
 
   // Multi-select toggle without auto-advancing
   const toggleMultiSelectOption = useCallback((qKey: string, val: string) => {
@@ -1123,6 +1418,11 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
 
   const handleSheetClose = useCallback(() => {
     setIsOpen(false);
+    setCapturedImage(null);
+    if (autoAdvanceRef.current) {
+      clearTimeout(autoAdvanceRef.current);
+      autoAdvanceRef.current = null;
+    }
   }, []);
 
   const isMultiSelect = currentQ?.dataType === 'multi_select';
@@ -1365,7 +1665,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
                     isDark={isDark}
                     primaryColor={primaryColor}
                     onSelect={(qKey, val) => {
-                      setEditingAnswers((prev) => ({ ...prev, [qKey]: val }));
+                      setEditingAnswers((prev) => (prev[qKey] === val ? prev : { ...prev, [qKey]: val }));
                     }}
                     onContinue={handleContinueScale}
                   />
@@ -1380,10 +1680,28 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
                     isDark={isDark}
                     primaryColor={primaryColor}
                     onSelect={(qKey, val) => {
-                      setEditingAnswers((prev) => ({ ...prev, [qKey]: val }));
+                      setEditingAnswers((prev) => (prev[qKey] === val ? prev : { ...prev, [qKey]: val }));
                     }}
                     onContinue={handleContinueNumeric}
                   />
+                ) : currentQ.dataType === 'image' ? (
+                  ((capturedImage && capturedImage.key === currentQ.key) || (currentAnswer && typeof currentAnswer === 'string' && currentAnswer.trim().length > 0)) ? (
+                    <ImageResultView
+                      uri={(capturedImage && capturedImage.key === currentQ.key) ? capturedImage.uri : currentAnswer!}
+                      source={(capturedImage && capturedImage.key === currentQ.key) ? capturedImage.source : 'camera'}
+                      isDark={isDark}
+                      primaryColor={primaryColor}
+                      onRetake={handleRetakeImage}
+                      onContinue={handleContinueImage}
+                    />
+                  ) : (
+                    <ImageCaptureQuestion
+                      isDark={isDark}
+                      primaryColor={primaryColor}
+                      onOpenCamera={handleTakeImage}
+                      onUpload={handleUploadImage}
+                    />
+                  )
                 ) : (
                   <View style={styles.pillOptionsList}>
                     {currentQ.options.map((opt, index) => (
@@ -1852,5 +2170,121 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  /* Image Capture Styles */
+  imageCaptureContainer: {
+    width: '100%',
+    paddingTop: 4,
+    gap: 10,
+  },
+  imageCapturePill: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 100,
+    // Uplifted card look (matches the daily-journal history day cards)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  imageCapturePillText: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  imageCaptureOrText: {
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  /* Image Result Preview (after take / upload) */
+  imageResultContainer: {
+    width: '100%',
+    gap: 14,
+  },
+  imageResultSquare: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 22,
+    // Uplifted card look (matches the daily-journal history day cards)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  imageResultSquareInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  imageResultSquareLight: {
+    backgroundColor: '#f5f5f7',
+    borderColor: '#e5e7eb',
+  },
+  imageResultSquareDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
+  },
+  imageResultImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageResultBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 100,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  imageResultBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  imageResultActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  imageResultBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 14,
+    borderRadius: 100,
+    // Uplifted card look (matches the daily-journal history day cards)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  imageResultRetakeBtn: {
+    borderWidth: 1,
+  },
+  imageResultRetakeLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  imageResultRetakeDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
+  },
+  imageResultBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.1,
   },
 });

@@ -8,6 +8,7 @@ import {
   FlatList,
   TextInput,
   Image,
+  Modal,
 } from 'react-native';
 import { scale, verticalScale, moderateScale } from 'react-native-size-matters';
 import { Text } from '@/components/AppText';
@@ -83,6 +84,65 @@ const getMetricColor = (score: number) => {
   return '#ef4444'; // Red
 };
 
+interface ForecastItemData {
+  prefix: string;
+  highlight: string;
+  suffix?: string;
+  meta: string;
+  logDays: number;
+}
+
+const SAMPLE_FORECASTS: ForecastItemData[] = [
+  {
+    prefix: 'Peak glow and clarity expected in',
+    highlight: '1 day',
+    meta: 'Next skin renewal in 7 days',
+    logDays: 7,
+  },
+  {
+    prefix: 'Potential hormonal breakout window',
+    highlight: 'Tomorrow morning',
+    meta: 'Sebum activity elevated by 18%',
+    logDays: 14,
+  },
+  {
+    prefix: 'Barrier recovery complete in',
+    highlight: '48 hours',
+    meta: 'Ceramide synthesis on track',
+    logDays: 5,
+  },
+  {
+    prefix: 'Optimal time for active exfoliation',
+    highlight: 'Tonight',
+    suffix: 'after 9 PM',
+    meta: 'Cell turnover cycle peak',
+    logDays: 10,
+  },
+  {
+    prefix: 'Visible acne reduction targeted by',
+    highlight: '3 weeks',
+    meta: 'Blemish healing phase at 62%',
+    logDays: 21,
+  },
+  {
+    prefix: 'Deep hydration stabilization in',
+    highlight: '5 days',
+    meta: 'Transepidermal water loss decreasing',
+    logDays: 8,
+  },
+  {
+    prefix: 'Collagen rebuilding milestone in',
+    highlight: '1 month',
+    meta: 'Cellular elasticity trending upward',
+    logDays: 30,
+  },
+];
+
+const getForecastForDay = (globalIndex: number): ForecastItemData => {
+  const index = Math.abs(globalIndex) % SAMPLE_FORECASTS.length;
+  return SAMPLE_FORECASTS[index];
+};
+
 function AnimatedScoreItem({
   dayIndex,
   scoreVal,
@@ -92,6 +152,7 @@ function AnimatedScoreItem({
   itemWidth,
   shouldAnimate,
   animationKey,
+  onInfoPress,
 }: {
   dayIndex: number;
   scoreVal: number;
@@ -101,7 +162,9 @@ function AnimatedScoreItem({
   itemWidth: number;
   shouldAnimate: boolean;
   animationKey: number;
+  onInfoPress: (logDays: number, origin: { x: number; y: number }) => void;
 }) {
+  const iconRef = useRef<View>(null);
   const radius = 90;
   const circumference = 2 * Math.PI * radius;
 
@@ -141,22 +204,70 @@ function AnimatedScoreItem({
     opacity: opacity.value,
   }));
 
-  return (
-    <View style={{ width: itemWidth, height: 240, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }} pointerEvents="none">
-      <Text style={[styles.forecastSubTitle, { color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.65)' }]}>
-        Peak glow and clarity expected in
-      </Text>
-      
-      <Text style={[styles.forecastBigNumber, { color: isDark ? '#ffffff' : '#111827' }]}>
-        1 day
-      </Text>
+  const forecast = getForecastForDay(dayIndex);
 
-      <View style={styles.forecastMetaRow}>
-        <Text style={[styles.forecastMetaText, { color: isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.7)' }]}>
-          Next skin renewal in 7 days
+  return (
+    <View style={{ width: itemWidth, height: 240, alignItems: 'center', justifyContent: 'center' }} pointerEvents="box-none">
+      <View
+        style={{
+          width: '100%',
+          height: 240,
+          borderWidth: 2,
+          borderColor: '#ef4444',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: 16,
+        }}
+      >
+        <Text style={[styles.forecastSubTitle, { color: isDark ? '#9ca3af' : '#4b5563' }]}>
+          {forecast.prefix}
         </Text>
-        <View style={[styles.forecastInfoCircle, { borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)' }]}>
-          <Text style={[styles.forecastInfoText, { color: isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.7)' }]}>i</Text>
+        
+        <View style={{ width: '100%', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, marginVertical: 4 }}>
+          <Text 
+            style={[
+              styles.forecastBigNumber, 
+              { 
+                color: isDark ? '#ffffff' : '#000000',
+                fontSize: forecast.highlight.length > 12 ? 32 : (forecast.highlight.length > 7 ? 40 : 50),
+              }
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit={false}
+          >
+            {forecast.highlight}
+          </Text>
+        </View>
+
+        {forecast.suffix ? (
+          <Text style={[styles.forecastSubTitle, { color: isDark ? '#9ca3af' : '#4b5563', marginTop: -2, marginBottom: 8 }]}>
+            {forecast.suffix}
+          </Text>
+        ) : null}
+
+        <View style={styles.forecastMetaRow}>
+          <Text style={[styles.forecastMetaText, { color: isDark ? '#9ca3af' : '#4b5563' }]}>
+            {forecast.meta}
+          </Text>
+          <View ref={iconRef} collapsable={false}>
+            <Pressable 
+              onPress={() => {
+                iconRef.current?.measureInWindow((x, y, width, height) => {
+                  onInfoPress(forecast.logDays, {
+                    x: x + width / 2,
+                    y: y + height / 2,
+                  });
+                });
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={({ pressed }) => [
+                styles.forecastInfoCircle, 
+                { borderColor: isDark ? '#9ca3af' : '#4b5563', opacity: pressed ? 0.6 : 1 }
+              ]}
+            >
+              <Text style={[styles.forecastInfoText, { color: isDark ? '#9ca3af' : '#4b5563' }]}>i</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </View>
@@ -457,6 +568,57 @@ export default function HomeScreen() {
     },
   });
   const [userProfile, setUserProfile] = useState<{ name: string; avatarUri: string | null } | null>(null);
+  const [forecastModalVisible, setForecastModalVisible] = useState(false);
+  const [forecastModalDays, setForecastModalDays] = useState(7);
+  const [modalOrigin, setModalOrigin] = useState({ x: 0, y: 0 });
+  const modalProgress = useSharedValue(0);
+
+  const openForecastModal = useCallback((days: number, origin: { x: number; y: number }) => {
+    setModalOrigin(origin);
+    setForecastModalDays(days);
+    setForecastModalVisible(true);
+    modalProgress.value = 0;
+    modalProgress.value = withTiming(1, {
+      duration: 340,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
+    });
+  }, []);
+
+  const closeForecastModal = useCallback(() => {
+    modalProgress.value = withTiming(0, {
+      duration: 220,
+      easing: Easing.out(Easing.quad),
+    });
+    setTimeout(() => {
+      setForecastModalVisible(false);
+    }, 220);
+  }, []);
+
+  const { height: SCREEN_HEIGHT } = useWindowDimensions();
+  const animatedModalPillStyle = useAnimatedStyle(() => {
+    const targetX = SCREEN_WIDTH / 2;
+    const targetY = SCREEN_HEIGHT / 2;
+    const originX = modalOrigin.x || targetX;
+    const originY = modalOrigin.y || targetY;
+
+    const translateX = interpolate(modalProgress.value, [0, 1], [originX - targetX, 0]);
+    const translateY = interpolate(modalProgress.value, [0, 1], [originY - targetY, 0]);
+    const scale = interpolate(modalProgress.value, [0, 1], [0.12, 1]);
+    const opacity = interpolate(modalProgress.value, [0, 0.25, 1], [0, 1, 1]);
+
+    return {
+      opacity,
+      transform: [
+        { translateX },
+        { translateY },
+        { scale },
+      ],
+    };
+  });
+
+  const animatedBackdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(modalProgress.value, [0, 1], [0, 1]),
+  }));
 
   // Journal Store: live daily tracking entries
   const historyRecords = useJournalStore((state) => state.historyRecords);
@@ -1065,7 +1227,7 @@ export default function HomeScreen() {
             </View>
 
             {/* Center Area: Animated Analyzing Data Disc AND Slideable Score Block with smooth transition */}
-            <View style={{ height: 240, width: SCREEN_WIDTH - 40, alignSelf: 'center', marginBottom: 20, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            <View style={{ height: 240, width: SCREEN_WIDTH - 40, alignSelf: 'center', marginBottom: 0, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
               {/* Score / Forecast Slideable block across all days */}
               <Animated.View 
                 style={[{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }, scoreBlockAnimStyle]}
@@ -1107,6 +1269,7 @@ export default function HomeScreen() {
                         itemWidth={SCREEN_WIDTH - 40}
                         shouldAnimate={globalIndex === selectedGlobalDayIdx}
                         animationKey={selectedGlobalDayIdx}
+                        onInfoPress={openForecastModal}
                       />
                     );
                   }}
@@ -1441,6 +1604,38 @@ export default function HomeScreen() {
 
       {/* Live Journal Question Sheet for Interactive Daily Tracking */}
       <JournalQuestionSheet ref={journalSheetRef} />
+
+      {/* Forecast Basis Info Modal */}
+      <Modal
+        visible={forecastModalVisible}
+        transparent
+        animationType="none"
+        onRequestClose={closeForecastModal}
+      >
+        <Pressable 
+          style={StyleSheet.absoluteFill} 
+          onPress={closeForecastModal}
+        >
+          <Animated.View style={[styles.forecastModalBackdrop, animatedBackdropStyle]}>
+            <Animated.View style={animatedModalPillStyle}>
+              <Pressable 
+                style={[
+                  styles.forecastModalPill,
+                  isDark ? styles.forecastModalPillDark : styles.forecastModalPillLight,
+                ]} 
+                onPress={(e) => e.stopPropagation()}
+              >
+                <Text style={[
+                  styles.forecastModalText,
+                  { color: isDark ? '#ffffff' : '#111827' }
+                ]}>
+                  Based on logs from the past {forecastModalDays} days
+                </Text>
+              </Pressable>
+            </Animated.View>
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1497,12 +1692,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   forecastBigNumber: {
-    fontSize: 54,
+    fontSize: 50,
     fontWeight: '900',
     textAlign: 'center',
-    letterSpacing: -1.2,
-    lineHeight: 60,
-    marginBottom: 14,
+    letterSpacing: -0.3,
+    includeFontPadding: false,
+    paddingHorizontal: 12,
   },
   forecastMetaRow: {
     flexDirection: 'row',
@@ -2086,5 +2281,41 @@ const styles = StyleSheet.create({
   upliftedViewAllText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  forecastModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  forecastModalPill: {
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 0,
+    maxWidth: '90%',
+  },
+  forecastModalPillLight: {
+    backgroundColor: '#FAF8F6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  forecastModalPillDark: {
+    backgroundColor: '#18181b',
+    borderWidth: 1,
+    borderColor: '#27272a',
+  },
+  forecastModalText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: -0.2,
   },
 });

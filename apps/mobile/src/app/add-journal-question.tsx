@@ -20,6 +20,7 @@ import {
   ListFilter, 
   CheckSquare, 
   FileText, 
+  Image,
   Check,
   ArrowRight,
   X
@@ -42,7 +43,8 @@ export type QuestionDataType =
   | 'single_choice'
   | 'text'
   | 'scale'
-  | 'numeric';
+  | 'numeric'
+  | 'image';
 
 export interface DataTypeOption {
   type: QuestionDataType;
@@ -197,6 +199,30 @@ export const DATA_TYPES: DataTypeOption[] = [
       'Active pimple or blemish count',
       'Daily caffeine consumption',
       'UV index during peak hours',
+    ],
+  },
+  {
+    type: 'image',
+    title: 'Image',
+    subtitle: 'Capture & log photos of your skin condition',
+    icon: Image,
+    badge: 'Photo',
+    compactUseCases: [
+      'Progress selfies',
+      'Acne close-ups',
+      'Redness & rash',
+      'Before / after',
+      'Skin texture',
+      'Patch test photo',
+    ],
+    fullUseCases: [
+      'Daily progress selfies to track changes over time',
+      'Close-up photos of active breakouts',
+      'Redness, rash, or irritation documentation',
+      'Before and after treatment comparisons',
+      'Skin texture and pore visibility',
+      'Patch test reaction photos',
+      'Sunscreen white cast or product residue',
     ],
   },
 ];

@@ -4,7 +4,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  TextInput,
   Image,
   Dimensions,
   Animated,
@@ -22,7 +21,13 @@ import {
   Settings,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ChatMeta } from '@/hooks/useChats';
+import { useChats, ChatMeta } from '@/hooks/useChats';
+import Logo from '@/components/Logo';
+import ChatActionMenu from '@/components/chat/ChatActionMenu';
+import RenameChatModal from '@/components/chat/RenameChatModal';
+import DeleteChatConfirmModal from '@/components/chat/DeleteChatConfirmModal';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 
 interface ChatDrawerProps {
   isOpen: boolean;
@@ -30,9 +35,11 @@ interface ChatDrawerProps {
   chats: ChatMeta[];
   currentChatId?: string;
   drawerAnim?: Animated.Value;
+  isInTabs?: boolean;
   onClose: () => void;
   onNewChat: () => void;
   onSelectChat: (chat: ChatMeta) => void;
+  onProfilePress?: () => void;
 }
 
 export default function ChatDrawer({
@@ -41,19 +48,30 @@ export default function ChatDrawer({
   chats,
   currentChatId,
   drawerAnim,
+  isInTabs = false,
   onClose,
   onNewChat,
   onSelectChat,
+  onProfilePress,
 }: ChatDrawerProps) {
   const insets = useSafeAreaInsets();
   const screenWidth = Dimensions.get('window').width;
+  const router = useRouter();
 
   const [userName, setUserName] = useState('User');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const searchAnim = useRef(new Animated.Value(0)).current; // 0 = collapsed, 1 = expanded
-  const searchInputRef = useRef<TextInput>(null);
+
+  const { togglePinChat, deleteChat, upsertChat } = useChats();
+
+  // Long-press chat action menu + rename/delete flows
+  const [actionMenu, setActionMenu] = useState<{
+    visible: boolean;
+    chat: ChatMeta | null;
+    topOffset: number;
+  }>({ visible: false, chat: null, topOffset: 0 });
+  const [renameTarget, setRenameTarget] = useState<ChatMeta | null>(null);
+  const [tempRenameTitle, setTempRenameTitle] = useState('');
+  const [chatToDelete, setChatToDelete] = useState<ChatMeta | null>(null);
 
   // Swipe left to close gesture — tracks finger in real-time (Gemini-level sensitivity)
   const closePanResponder = useRef(
@@ -132,39 +150,7 @@ export default function ChatDrawer({
       })
     : 0;
 
-  // Filtered recents
-  const filteredChats = searchQuery.trim().length > 0
-    ? chats.filter((c) =>
-        c.title.toLowerCase().includes(searchQuery.trim().toLowerCase())
-      )
-    : chats;
-
   const userInitial = userName ? userName.charAt(0).toUpperCase() : 'U';
-  const displayUserName = userName.length > 12 ? `${userName.slice(0, 12)}...` : userName;
-
-  const openSearch = () => {
-    setIsSearching(true);
-    Animated.timing(searchAnim, {
-      toValue: 1,
-      duration: 220,
-      easing: Easing.bezier(0.4, 0, 0.2, 1),
-      useNativeDriver: false,
-    }).start(() => {
-      searchInputRef.current?.focus();
-    });
-  };
-
-  const closeSearch = () => {
-    Animated.timing(searchAnim, {
-      toValue: 0,
-      duration: 180,
-      easing: Easing.bezier(0.4, 0, 0.2, 1),
-      useNativeDriver: false,
-    }).start(() => {
-      setIsSearching(false);
-      setSearchQuery('');
-    });
-  };
 
   return (
     <Animated.View
@@ -172,24 +158,27 @@ export default function ChatDrawer({
       style={[
         styles.drawerContainer,
         {
-          backgroundColor: isDark ? '#121215' : '#ffffff',
+          backgroundColor: isDark ? '#121212' : '#f5f5f7',
           paddingTop: Math.max(insets.top, 14),
-          paddingBottom: Math.max(insets.bottom, 12),
+          paddingBottom: isInTabs ? 8 : Math.max(insets.bottom, 12),
           transform: [{ translateX: drawerParallaxX }],
         },
       ]}
       {...closePanResponder.panHandlers}
     >
-      {/* Top Header Row: Skin Story Title on left + Close (X) button on right (Matching Gemini) */}
+      {/* Top Header Row: Logo + Skin Story on left + Close (X) on right */}
       <View style={styles.topHeader}>
-        <Text
-          style={[
-            styles.brandTitle,
-            { color: isDark ? '#ffffff' : '#111827' },
-          ]}
-        >
-          Skin Story
-        </Text>
+        <View style={styles.brandRow}>
+          <Logo size={28} color={isDark ? '#ffffff' : '#111827'} />
+          <Text
+            style={[
+              styles.brandTitle,
+              { color: isDark ? '#ffffff' : '#111827' },
+            ]}
+          >
+            Skin Story
+          </Text>
+        </View>
 
         <Pressable
           hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
@@ -203,108 +192,67 @@ export default function ChatDrawer({
         </Pressable>
       </View>
 
+      {/* Quick Actions */}
+      <View style={styles.navSection}>
+        <Pressable
+          onPress={onNewChat}
+          style={({ pressed, hovered }) => [
+            styles.newChatPill,
+            (pressed || hovered) && {
+              backgroundColor: isDark ? '#27272c' : '#f0f0f2',
+            },
+          ]}
+        >
+          <SquarePen size={20} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.2} />
+          <Text style={[styles.newChatText, { color: isDark ? '#ffffff' : '#111827' }]}>
+            New chat
+          </Text>
+        </Pressable>
+
+
+        {/* Search — opens the Search Chats page */}
+        <Pressable
+          onPress={() => {
+            router.push('/search-chats');
+          }}
+          style={({ pressed, hovered }) => [
+            styles.newChatPill,
+            (pressed || hovered) && {
+              backgroundColor: isDark ? '#27272c' : '#f0f0f2',
+            },
+          ]}
+        >
+          <Search size={20} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.2} />
+          <Text style={[styles.newChatText, { color: isDark ? '#ffffff' : '#111827' }]}>
+            Search chats
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Recents Section Subtitle */}
+      <View style={styles.recentsHeaderRow}>
+        <Text style={[styles.sectionSubtitle, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
+          Recents
+        </Text>
+      </View>
+
+
+
       <ScrollView
         style={styles.scrollArea}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Quick Actions */}
-        <View style={styles.navSection}>
-          <Pressable
-            onPress={onNewChat}
-            style={({ pressed }) => [
-              styles.newChatPill,
-              { backgroundColor: isDark ? '#222227' : '#f3f4f6' },
-              pressed && { opacity: 0.8 },
-            ]}
-          >
-            <SquarePen size={20} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.2} />
-            <Text style={[styles.newChatText, { color: isDark ? '#ffffff' : '#111827' }]}>
-              New chat
-            </Text>
-          </Pressable>
-
-          {/* Collapsed: plain gray nav row — no background */}
-          {!isSearching && (
-            <Pressable
-              onPress={openSearch}
-              style={({ pressed }) => [
-                styles.navItem,
-                pressed && { backgroundColor: isDark ? '#1e1e23' : '#f4f4f5' },
-              ]}
-            >
-              <Search size={20} color={isDark ? '#71717a' : '#6b7280'} strokeWidth={2.2} />
-              <Text style={[styles.navItemText, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
-                Search chats
-              </Text>
-            </Pressable>
-          )}
-
-          {/* Expanded: animated search bar */}
-          {isSearching && (
-            <Animated.View
-              style={[
-                styles.searchBarContainer,
-                {
-                  backgroundColor: isDark ? '#121215' : '#ffffff',
-                  opacity: searchAnim,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.searchInputBox,
-                  {
-                    backgroundColor: isDark ? '#1e1e23' : '#ffffff',
-                    borderColor: isDark ? '#2b2b30' : '#e5e7eb',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: isDark ? 0.3 : 0.08,
-                    shadowRadius: 6,
-                    elevation: 3,
-                  },
-                ]}
-              >
-                <Search size={18} color={isDark ? '#71717a' : '#9ca3af'} strokeWidth={2.2} />
-                <TextInput
-                  ref={searchInputRef}
-                  defaultValue={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder="Search chats..."
-                  placeholderTextColor={isDark ? '#52525b' : '#9ca3af'}
-                  returnKeyType="search"
-                  style={[styles.searchInlineInput, { color: isDark ? '#ffffff' : '#111827' }]}
-                />
-                <Pressable
-                  onPress={closeSearch}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <X size={16} color={isDark ? '#71717a' : '#9ca3af'} strokeWidth={2.4} />
-                </Pressable>
-              </View>
-            </Animated.View>
-          )}
-        </View>
-
-        {/* Recents Section Subtitle */}
-        <View style={styles.recentsHeaderRow}>
-          <Text style={[styles.sectionSubtitle, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
-            Recents
-          </Text>
-        </View>
-
-
-
         {/* Recents List — Gemini style clean text lines */}
-        {filteredChats.length === 0 ? (
+        {chats.length === 0 ? (
           <View style={styles.emptyChatsBox}>
             <Text style={[styles.emptyChatsText, { color: isDark ? '#71717a' : '#9ca3af' }]}>
               No chats yet
             </Text>
           </View>
         ) : (
-          filteredChats.map((chat) => {
+          chats.map((chat) => {
             const isSelected = chat.id === currentChatId;
             return (
               <Pressable
@@ -312,13 +260,14 @@ export default function ChatDrawer({
                 onPress={() => {
                   onSelectChat(chat);
                 }}
-                style={({ pressed }) => [
+                onLongPress={(e) => {
+                  setActionMenu({ visible: true, chat, topOffset: e.nativeEvent.pageY });
+                }}
+                delayLongPress={300}
+                style={({ pressed, hovered }) => [
                   styles.chatLineItem,
-                  isSelected && {
+                  (isSelected || pressed || hovered) && {
                     backgroundColor: isDark ? '#27272c' : '#f0f0f2',
-                  },
-                  pressed && {
-                    backgroundColor: isDark ? '#1f1f24' : '#f4f4f5',
                   },
                 ]}
               >
@@ -345,16 +294,76 @@ export default function ChatDrawer({
         )}
       </ScrollView>
 
-      {/* Bottom Profile Bar (Sticky at bottom: Avatar, Name, Credits Pill, Settings Icon) */}
-      <View
-        style={[
-          styles.bottomProfileBar,
-          {
-            borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-          },
+      {/* Long-press chat action menu + rename/delete flows */}
+      {actionMenu.chat && (() => {
+        const chat = actionMenu.chat!;
+        return (
+          <ChatActionMenu
+            visible={actionMenu.visible}
+            isDark={isDark}
+            chatTitle={chat.title || 'Untitled Chat'}
+            isPinned={Boolean(chat.isPinned)}
+            topOffset={actionMenu.topOffset}
+            onClose={() => setActionMenu({ visible: false, chat: null, topOffset: 0 })}
+            onTogglePin={() => {
+              togglePinChat(chat.id);
+            }}
+            onRename={() => {
+              setRenameTarget(chat);
+              setTempRenameTitle(chat.title || 'Untitled Chat');
+            }}
+            onDelete={() => {
+              setChatToDelete(chat);
+            }}
+          />
+        );
+      })()}
+
+      <RenameChatModal
+        isDark={isDark}
+        visible={renameTarget !== null}
+        currentTitle={renameTarget?.title || 'Untitled Chat'}
+        tempTitle={tempRenameTitle}
+        onChangeText={(text) => setTempRenameTitle(text.slice(0, 100))}
+        onSave={async () => {
+          if (renameTarget && tempRenameTitle.trim()) {
+            await upsertChat({
+              ...renameTarget,
+              title: tempRenameTitle.trim(),
+              updatedAt: Date.now(),
+            });
+            setRenameTarget(null);
+          }
+        }}
+        onCancel={() => setRenameTarget(null)}
+      />
+
+      <DeleteChatConfirmModal
+        visible={chatToDelete !== null}
+        isDark={isDark}
+        chatTitle={chatToDelete?.title || 'Untitled Chat'}
+        onCancel={() => setChatToDelete(null)}
+        onConfirm={() => {
+          if (chatToDelete) deleteChat(chatToDelete.id);
+          setChatToDelete(null);
+        }}
+      />
+
+      {/* Bottom fade — chats dissolve into the bar */}
+      <LinearGradient
+        colors={[
+          isDark ? 'rgba(18,18,18,0)' : 'rgba(245,245,247,0)',
+          isDark ? 'rgba(18,18,18,0.75)' : 'rgba(245,245,247,0.75)',
+          isDark ? '#121212' : '#f5f5f7',
         ]}
-      >
-        {/* User Profile Avatar & Name */}
+        locations={[0, 0.55, 1]}
+        style={styles.bottomFade}
+        pointerEvents="none"
+      />
+
+      {/* Bottom Profile Bar (Avatar, Name, Credits Pill) */}
+      <View style={[styles.bottomProfileBar, { backgroundColor: isDark ? '#121212' : '#f5f5f7' }]}>
+        {/* Left: Avatar + Name — only the name is tappable */}
         <View style={styles.userLeftRow}>
           {avatarUri ? (
             <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
@@ -365,40 +374,48 @@ export default function ChatDrawer({
               </Text>
             </View>
           )}
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.userNameText,
-              { color: isDark ? '#ffffff' : '#111827' },
+          <Pressable
+            onPress={() => { if (onProfilePress) { onProfilePress(); } else { router.push('/(tabs)/profile'); } }}
+            style={({ pressed, hovered }) => [
+              {
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+              },
+              pressed || hovered ? { opacity: 0.65 } : null,
             ]}
           >
-            {displayUserName}
-          </Text>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.userNameText,
+                { color: isDark ? '#ffffff' : '#111827' },
+              ]}
+            >
+              {userName}
+            </Text>
+          </Pressable>
         </View>
 
-        {/* Right side: 12 Credits Left Pill + Settings Icon (Matching Gemini) */}
-        <View style={styles.bottomRightRow}>
-          <View
-            style={[
-              styles.creditsPill,
-              {
-                backgroundColor: isDark ? '#27272a' : '#f4f4f5',
-                borderColor: isDark ? '#3f3f46' : '#e5e7eb',
-              },
-            ]}
-          >
-            <Zap size={13} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.4} />
-            <Text style={[styles.creditsPillText, { color: isDark ? '#ffffff' : '#111827' }]}>
-              12 credits left
-            </Text>
-          </View>
-
-          <Pressable
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={({ pressed }) => [styles.settingsBtn, pressed && { opacity: 0.6 }]}
-          >
-            <Settings size={20} color={isDark ? '#a1a1aa' : '#6b7280'} strokeWidth={2} />
-          </Pressable>
+        {/* Elevated credits pill */}
+        <View
+          style={[
+            styles.creditsPill,
+            {
+              backgroundColor: isDark ? '#1e1e23' : '#ffffff',
+              borderColor: isDark ? '#3f3f46' : 'rgba(0,0,0,0.08)',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: isDark ? 0.4 : 0.12,
+              shadowRadius: 8,
+              elevation: 5,
+            },
+          ]}
+        >
+          <Zap size={13} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.4} />
+          <Text style={[styles.creditsPillText, { color: isDark ? '#ffffff' : '#111827' }]}>
+            12 credits left
+          </Text>
         </View>
       </View>
     </Animated.View>
@@ -425,6 +442,11 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 16,
   },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   brandTitle: {
     fontSize: 22,
     fontWeight: '800',
@@ -443,7 +465,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   navSection: {
-    gap: 6,
+    gap: 2,
     marginBottom: 4,
   },
   newChatPill: {
@@ -451,12 +473,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderRadius: 22,
+    paddingVertical: 10,
+    borderRadius: 50,
   },
   newChatText: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15.5,
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
   navItem: {
@@ -472,67 +494,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.2,
   },
-  searchBox: {
-    marginHorizontal: 10,
-    marginTop: 4,
-    marginBottom: 6,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-  },
-  searchBoxLight: {
-    backgroundColor: '#f4f4f5',
-    borderColor: '#e5e7eb',
-  },
-  searchBoxDark: {
-    backgroundColor: '#1f1f23',
-    borderColor: '#2b2b30',
-  },
-  searchInput: {
-    fontSize: 14,
-    padding: 0,
-    height: 32,
-  },
-  // Animated search bar (expanded state)
-  searchBarContainer: {
-    borderRadius: 14,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-  },
-  searchInputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  searchInlineInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
-    padding: 0,
-    height: 22,
-  },
   recentsHeaderRow: {
     paddingHorizontal: 14,
     paddingTop: 8,
     paddingBottom: 6,
   },
   sectionSubtitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: -0.2,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
   },
   chatLineItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 50,
     gap: 8,
   },
   chatLineText: {
@@ -550,8 +529,17 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '600',
   },
+  bottomFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 120,
+    zIndex: 2,
+  },
   bottomProfileBar: {
-    borderTopWidth: 1,
+    borderTopWidth: 0,
+    zIndex: 3,
     paddingHorizontal: 18,
     paddingTop: 12,
     paddingBottom: 6,
@@ -587,7 +575,6 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '800',
     letterSpacing: -0.2,
-    flex: 1,
   },
   bottomRightRow: {
     flexDirection: 'row',
@@ -607,10 +594,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: -0.1,
-  },
-  settingsBtn: {
-    padding: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
