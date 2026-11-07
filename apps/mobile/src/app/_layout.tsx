@@ -1,6 +1,6 @@
 import '@/lib/globalNavigationGuard';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold } from '@expo-google-fonts/outfit';
 import { Stack } from 'expo-router';
@@ -86,7 +86,7 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <BottomSheetModalProvider>
           <ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
-            <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+            <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right', navigationBarColor: colorScheme === 'dark' ? '#000000' : '#F5F5F7' }}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="camera" />
               <Stack.Screen name="insight" />
