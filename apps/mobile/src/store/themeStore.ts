@@ -17,6 +17,8 @@ export const useThemeStore = create<ThemeState>((set) => ({
       colorScheme: resolvedScheme ?? 'light',
       selectedOption: scheme,
     });
+
+    Appearance.setColorScheme(scheme === 'system' ? 'unspecified' : scheme);
   },
 }));
 
