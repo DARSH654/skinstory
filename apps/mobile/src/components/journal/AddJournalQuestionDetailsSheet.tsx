@@ -872,7 +872,8 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
     present: () => {
       mountStartTimeRef.current = performance.now();
       setIsOpen(true);
-      sheetRef.current?.show();
+      requestAnimationFrame(() => {
+        sheetRef.current?.show();
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -881,6 +882,7 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
           // correctly reflects any draft text already in the inputs.
           fieldMutatedCallbackRef.current?.();
         });
+      });
       });
     },
     dismiss: () => {
@@ -1006,7 +1008,7 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
   return (
     <>
       <ActionSheet
-        ref={sheetRef}
+      ref={sheetRef}
         isModal={true}
         gestureEnabled={true}
         defaultOverlayOpacity={0.5}

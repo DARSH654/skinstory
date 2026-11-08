@@ -1049,8 +1049,11 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
           setCurrentIndex(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
         }
       }
-
-      sheetRef.current?.show();
+      // Defer sheetRef.show() to next frame so all React state updates (isOpen, answers, currentIndex)
+      // complete their render and layout pass before the ActionSheet starts measuring and animating
+      requestAnimationFrame(() => {
+        sheetRef.current?.show();
+      });
     },
     dismiss: () => {
       sheetRef.current?.hide();
@@ -1222,8 +1225,10 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     setEditingAnswers((prev) => ({ ...prev, [key]: uri }));
     setCapturedImage({ key, uri, source: 'camera' });
 
-    sheetRef.current?.show();
     setIsOpen(true);
+    requestAnimationFrame(() => {
+      sheetRef.current?.show();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingImageCapture, isFocused]);
 
@@ -1496,6 +1501,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     <ActionSheet
       ref={sheetRef}
       isModal={true}
+      onClose={handleSheetClose}
       gestureEnabled={true}
       defaultOverlayOpacity={0.5}
       overlayColor="#000000"
@@ -1507,7 +1513,6 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
         styles.actionSheetIndicator,
         isDark ? styles.indicatorDark : styles.indicatorLight,
       ]}
-      onClose={handleSheetClose}
       animated={true}
     >
       <ScrollView
