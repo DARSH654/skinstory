@@ -188,6 +188,16 @@ export default function NewChatScreen({ isInTabs = false }: NewChatScreenProps =
     anchorY: number;
     align: 'left' | 'right';
   } | null>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const backSub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setContextMenu(null);
+      return true;
+    });
+    return () => backSub.remove();
+  }, [contextMenu]);
+
   const [deleteTargetMessage, setDeleteTargetMessage] = useState<Message | null>(null);
   const [feedbackTargetMessage, setFeedbackTargetMessage] = useState<Message | null>(null);
   const [revertTargetMessage, setRevertTargetMessage] = useState<Message | null>(null);

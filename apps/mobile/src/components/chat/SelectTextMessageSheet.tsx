@@ -1,5 +1,5 @@
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
+import { BackHandler, StyleSheet, View } from 'react-native';
 import {
   BottomSheetModal,
   BottomSheetView,
@@ -24,6 +24,16 @@ export const SelectTextMessageSheet = forwardRef<SelectTextMessageSheetRef, Sele
   ({ snapPoints = ['45%'], isDark, onClose, children }, ref) => {
     const insets = useSafeAreaInsets();
     const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+    useEffect(() => {
+      if (!isSheetOpen) return;
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        bottomSheetModalRef.current?.dismiss();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [isSheetOpen]);
 
     useImperativeHandle(ref, () => ({
       present: () => {
@@ -46,6 +56,7 @@ export const SelectTextMessageSheet = forwardRef<SelectTextMessageSheetRef, Sele
     return (
       <BottomSheetModal
         ref={bottomSheetModalRef}
+        onChange={(index) => setIsSheetOpen(index >= 0)}
         index={0}
         snapPoints={snapPoints}
         enableDynamicSizing={snapPoints ? false : true}

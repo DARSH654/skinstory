@@ -1,9 +1,10 @@
-import React, { useState, useRef, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useImperativeHandle, forwardRef, useMemo, useEffect } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   Keyboard,
+  BackHandler,
 } from 'react-native';
 import {
   BottomSheetModal,
@@ -73,6 +74,7 @@ const BadFeedbackSheet = forwardRef<BadFeedbackSheetRef, BadFeedbackSheetProps>(
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const commentRef = useRef('');
   const [hasComment, setHasComment] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   // Randomised pills: 3 feature + 2 data + 2 technical + 2 other = 9 total, shuffled
   const pills = useMemo(() => {
@@ -107,6 +109,16 @@ const BadFeedbackSheet = forwardRef<BadFeedbackSheetRef, BadFeedbackSheetProps>(
 
   const hasContent = hasComment || selectedTags.length > 0;
 
+  useEffect(() => {
+    if (!isSheetOpen) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      Keyboard.dismiss();
+      bottomSheetModalRef.current?.dismiss();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [isSheetOpen]);
+
   const handleSubmit = () => {
     if (!hasContent) return;
     wasSubmitted.current = true;
@@ -133,6 +145,7 @@ const BadFeedbackSheet = forwardRef<BadFeedbackSheetRef, BadFeedbackSheetProps>(
   return (
     <BottomSheetModal
       ref={bottomSheetModalRef}
+      onChange={(index) => setIsSheetOpen(index >= 0)}
       enableDynamicSizing
       enablePanDownToClose
       keyboardBehavior="interactive"

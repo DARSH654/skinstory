@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
   Animated,
   Image,
+  BackHandler,
 } from 'react-native';
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -57,6 +58,7 @@ export default function CameraScreen() {
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
   const [isCaptured, setIsCaptured] = useState(false);
+  const [isHowToSheetOpen, setIsHowToSheetOpen] = useState(false);
 
   // Capture outward zoom / expand animation & continue button entrance
   const captureAnim = useRef(new Animated.Value(0)).current;
@@ -67,6 +69,15 @@ export default function CameraScreen() {
       requestPermission();
     }
   }, [permission]);
+
+  useEffect(() => {
+    if (!isHowToSheetOpen) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      howToSheetRef.current?.dismiss();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [isHowToSheetOpen]);
 
   const toggleFlash = () => {
     setIsFlashOn((prev) => !prev);
@@ -517,6 +528,7 @@ export default function CameraScreen() {
       {/* How-To Bottom Sheet Modal (Routine-Style Slide) */}
       <BottomSheetModal
         ref={howToSheetRef}
+        onChange={(index) => setIsHowToSheetOpen(index >= 0)}
         enableDynamicSizing
         enablePanDownToClose
         bottomInset={insets.bottom}

@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   StyleSheet, View, Pressable,
-  ActivityIndicator, Animated, Image, Alert, useWindowDimensions
+  ActivityIndicator, Animated, Image, Alert, useWindowDimensions, BackHandler
 } from 'react-native';
 import { Text } from '@/components/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,7 +35,7 @@ export default function OnboardingPage14() {
     }).start();
   };
 
-  const hideGooglePlaySheet = () => {
+  const hideGooglePlaySheet = useCallback(() => {
     Animated.timing(slideAnim, {
       toValue: SCREEN_HEIGHT,
       duration: 250,
@@ -44,7 +44,16 @@ export default function OnboardingPage14() {
       setIsPurchasing(false);
       setPaymentStep(0);
     });
-  };
+  }, [SCREEN_HEIGHT, slideAnim]);
+
+  useEffect(() => {
+    if (!isPurchasing) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      hideGooglePlaySheet();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [hideGooglePlaySheet, isPurchasing]);
 
   const handlePurchaseComplete = () => {
     setPaymentStep(2);
