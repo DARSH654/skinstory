@@ -1030,6 +1030,21 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
       setEditingAnswers(recordAnswers);
       setSlideDirection('forward');
 
+      // Helper to check if an answer is validly answered (for q_skin_map, requires at least 1 zone)
+      const isQuestionAnswered = (qKey: string, ansMap: Record<string, string>) => {
+        const val = ansMap[qKey];
+        if (!val || !val.trim()) return false;
+        if (qKey === 'q_skin_map') {
+          try {
+            const parsed = JSON.parse(val);
+            return Array.isArray(parsed.zones) && parsed.zones.length > 0;
+          } catch {
+            return false;
+          }
+        }
+        return true;
+      };
+
       if (reanswerKey) {
         setReansweringKey(reanswerKey);
         setIsViewingCompleted(false);
@@ -1037,7 +1052,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
         setCurrentIndex(targetIdx >= 0 ? targetIdx : 0);
       } else {
         setReansweringKey(null);
-        const answeredCount = questions.filter((q) => Boolean(recordAnswers[q.key])).length;
+        const answeredCount = questions.filter((q) => isQuestionAnswered(q.key, recordAnswers)).length;
         const isCompleted = answeredCount >= questions.length && questions.length > 0;
 
         if (isCompleted) {
@@ -1045,7 +1060,8 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
           setCurrentIndex(0);
         } else {
           setIsViewingCompleted(false);
-          const firstUnansweredIndex = questions.findIndex((q) => !recordAnswers[q.key]);
+          // Find first unanswered question in the questionnaire
+          const firstUnansweredIndex = questions.findIndex((q) => !isQuestionAnswered(q.key, recordAnswers));
           setCurrentIndex(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
         }
       }
@@ -1514,6 +1530,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
         isDark ? styles.indicatorDark : styles.indicatorLight,
       ]}
       animated={true}
+      keyboardHandlerEnabled={false}
     >
       <ScrollView
         ref={scrollRef}

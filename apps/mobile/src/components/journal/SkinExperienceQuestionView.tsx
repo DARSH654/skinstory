@@ -9,7 +9,7 @@ import {
   PanResponder,
 } from 'react-native';
 import { Text } from '@/components/AppText';
-import { Plus, X, SlidersHorizontal, Check } from 'lucide-react-native';
+import { Plus, X, SlidersHorizontal, Check, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Colors } from '@/constants/theme';
 
 export interface ZoneConfig {
@@ -311,7 +311,13 @@ export default function SkinExperienceQuestionView({
   const zoneDraftRef = useRef('');
   const [canAddZone, setCanAddZone] = useState(false);
 
+  const zoneDraftCacheRef = useRef<Record<string, { conditions: string[]; severity: number }>>({});
   const [conditionModalVisible, setConditionModalVisible] = useState(false);
+  const [scaleModalVisible, setScaleModalVisible] = useState(false);
+  const [editingScaleLevel, setEditingScaleLevel] = useState<number>(6);
+  const scaleDraftRef = useRef('');
+  const [canAddScale, setCanAddScale] = useState(false);
+  const [customScaleLabels, setCustomScaleLabels] = useState<Record<number, string>>({});
   const conditionDraftRef = useRef('');
   const [canAddCondition, setCanAddCondition] = useState(false);
 
@@ -330,8 +336,15 @@ export default function SkinExperienceQuestionView({
     onSelect(payload);
   }, [onSelect]);
 
-  // Remove / Deselect a zone completely
+  // Remove / Deselect a zone completely (saving draft to cache first)
   const handleRemoveZone = useCallback((zoneId: string) => {
+    const existing = selectedZones.find((z) => z.id === zoneId);
+    if (existing) {
+      zoneDraftCacheRef.current[zoneId] = {
+        conditions: existing.conditions,
+        severity: existing.severity,
+      };
+    }
     const updated = selectedZones.filter((z) => z.id !== zoneId);
     setSelectedZones(updated);
     if (currentlySelectedZoneId === zoneId) {
@@ -340,29 +353,34 @@ export default function SkinExperienceQuestionView({
     emitState(updated, maxSeverityScale);
   }, [selectedZones, currentlySelectedZoneId, maxSeverityScale, emitState]);
 
-  // Zone click handler (Implements 3 Visual States + Seamless Unselection)
+  // Zone click handler:
+  // - 1-tap on unselected -> selects & focuses it (restoring any cached draft)
+  // - 1-tap on another selected zone -> immediately switches active focus to it (view/edit in 1 tap)
+  // - 1-tap on currently active zone -> deselects it safely (caches draft so data is never lost)
   const handleZonePress = (zone: { id: string; name: string; isCustom?: boolean }) => {
-    const existingIndex = selectedZones.findIndex((z) => z.id === zone.id);
-
     if (currentlySelectedZoneId === zone.id) {
-      // 1. If currently selected (active focus with white border), clicking drops active focus to Selected state
-      setCurrentlySelectedZoneId(null);
-    } else if (existingIndex !== -1) {
-      // 2. If already in Selected state (without white border), clicking it UNSELECTS it completely back to neutral
+      // Tapping the active zone again deselects it safely
       handleRemoveZone(zone.id);
     } else {
-      // 3. Was not selected -> Add to selected zones and activate focus
-      const newZone: ZoneConfig = {
-        id: zone.id,
-        name: zone.name,
-        conditions: [],
-        severity: 3, // Default middle severity
-        isCustom: zone.isCustom,
-      };
-      const updated = [...selectedZones, newZone];
-      setSelectedZones(updated);
-      setCurrentlySelectedZoneId(zone.id);
-      emitState(updated, maxSeverityScale);
+      const existing = selectedZones.find((z) => z.id === zone.id);
+      if (existing) {
+        // Already selected -> switch focus directly to it so user can view/edit in 1 tap
+        setCurrentlySelectedZoneId(zone.id);
+      } else {
+        // Unselected -> restore cached draft if available, or initialize
+        const cached = zoneDraftCacheRef.current[zone.id];
+        const newZone: ZoneConfig = {
+          id: zone.id,
+          name: zone.name,
+          conditions: cached ? cached.conditions : [],
+          severity: cached ? cached.severity : 3,
+          isCustom: zone.isCustom,
+        };
+        const updated = [...selectedZones, newZone];
+        setSelectedZones(updated);
+        setCurrentlySelectedZoneId(zone.id);
+        emitState(updated, maxSeverityScale);
+      }
     }
   };
 
@@ -440,6 +458,29 @@ export default function SkinExperienceQuestionView({
     setConditionModalVisible(false);
   };
 
+  // Save/Update Scale Level (1 to maxSeverityScale + 1)
+  const handleSaveScaleLevel = () => {
+    const clean = scaleDraftRef.current.trim();
+    if (!clean) return;
+
+    const newCustoms = {
+      ...customScaleLabels,
+      [editingScaleLevel]: clean,
+    };
+    setCustomScaleLabels(newCustoms);
+
+    let newMax = maxSeverityScale;
+    if (editingScaleLevel > maxSeverityScale) {
+      newMax = editingScaleLevel;
+      setMaxSeverityScale(newMax);
+    }
+    emitState(selectedZones, newMax);
+
+    scaleDraftRef.current = '';
+    setCanAddScale(false);
+    setScaleModalVisible(false);
+  };
+
   // Active zone object
   const activeZoneConfig = useMemo(() => {
     return selectedZones.find((z) => z.id === currentlySelectedZoneId);
@@ -453,19 +494,19 @@ export default function SkinExperienceQuestionView({
     return [...defaults, ...customs];
   }, [currentlySelectedZoneId, customConditionsByZone]);
 
-  // Severity levels array based on max scale
+  // Severity levels array based on max scale and user-defined custom levels (1 to max)
   const severityLevels = useMemo(() => {
-    const list = [...DEFAULT_SEVERITY_LEVELS];
-    if (maxSeverityScale >= 6) {
-      list.push({ level: 6, label: 'Extreme flare-up' });
-    }
-    if (maxSeverityScale >= 7) {
-      list.push({ level: 7, label: 'Unbearable emergency' });
+    const list: { level: number; label: string }[] = [];
+    for (let lvl = 1; lvl <= maxSeverityScale; lvl++) {
+      const defaultEntry = DEFAULT_SEVERITY_LEVELS.find((d) => d.level === lvl);
+      const label = customScaleLabels[lvl] || defaultEntry?.label || (lvl === 6 ? 'Extreme flare-up' : `Level ${lvl} Severity`);
+      list.push({ level: lvl, label });
     }
     return list;
-  }, [maxSeverityScale]);
+  }, [maxSeverityScale, customScaleLabels]);
 
-  const canContinue = true; // Always allow continue (even if clear skin)
+  // Mandatory: Continue is enabled ONLY if at least one zone is selected
+  const canContinue = selectedZones.length > 0;
 
   return (
     <View style={styles.container}>
@@ -598,15 +639,45 @@ export default function SkinExperienceQuestionView({
                 style={{ marginRight: 5 }}
               />
               <Text style={[styles.pillText, { color: isDark ? '#ffffff' : '#111827' }]}>
-                Add Condition
+                Condition
               </Text>
             </Pressable>
           </View>
 
           {/* Sub-Section B: Severity — Standard Journal Draggable Slider */}
-          <Text style={[styles.severityLabelHeading, { color: isDark ? '#d4d4d8' : '#4b5563' }]}>
-            Severity:
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={[styles.severityLabelHeading, { color: isDark ? '#ffffff' : '#111827', marginBottom: 0 }]}>
+              Severity:
+            </Text>
+            <Pressable
+              onPress={() => {
+                const nextLvl = maxSeverityScale + 1;
+                setEditingScaleLevel(nextLvl);
+                scaleDraftRef.current = '';
+                setCanAddScale(false);
+                setScaleModalVisible(true);
+              }}
+              style={({ pressed }) => [
+                styles.pill,
+                {
+                  backgroundColor: isDark ? '#1c1c20' : '#ffffff',
+                  borderWidth: 0,
+                  opacity: pressed ? 0.8 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                },
+              ]}
+            >
+              <Plus
+                size={14}
+                strokeWidth={3}
+                color={isDark ? '#ffffff' : '#111827'}
+                style={{ marginRight: 5 }}
+              />
+              <Text style={[styles.pillText, { color: isDark ? '#ffffff' : '#111827' }]}>
+                Custom
+              </Text>
+            </Pressable>
+          </View>
 
           <SeveritySlider
             severity={activeZoneConfig.severity}
@@ -647,11 +718,13 @@ export default function SkinExperienceQuestionView({
           style={({ pressed }) => [
             styles.continueBtn,
             {
-              backgroundColor: pressed ? '#a98fcc' : primaryColor,
+              backgroundColor: !canContinue
+                ? (isDark ? '#27272a' : '#e5e7eb')
+                : (pressed ? '#a98fcc' : primaryColor),
             },
           ]}
         >
-          <Text style={styles.continueBtnText}>
+          <Text style={[styles.continueBtnText, !canContinue && { color: isDark ? '#71717a' : '#9ca3af' }]}>
             Continue
           </Text>
         </Pressable>
@@ -696,7 +769,9 @@ export default function SkinExperienceQuestionView({
                     setCanAddZone(hasContent);
                   }
                 }}
-                maxLength={60}
+                maxLength={40}
+                multiline={false}
+                numberOfLines={1}
                 placeholder="e.g. Between lips & nose, Neck..."
                 placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
                 autoFocus
@@ -800,7 +875,9 @@ export default function SkinExperienceQuestionView({
                     setCanAddCondition(hasContent);
                   }
                 }}
-                maxLength={60}
+                maxLength={40}
+                multiline={false}
+                numberOfLines={1}
                 placeholder="e.g. Deep cystic bump, Whiteheads..."
                 placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
                 autoFocus
@@ -847,6 +924,156 @@ export default function SkinExperienceQuestionView({
                   ]}
                 >
                   Add Condition
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* 6. MODAL: EDIT / ADD SCALE LEVEL WITH CIRCULAR CHEVRONS */}
+      <Modal
+        visible={scaleModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          scaleDraftRef.current = '';
+          setCanAddScale(false);
+          setScaleModalVisible(false);
+        }}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => {
+            scaleDraftRef.current = '';
+            setCanAddScale(false);
+            setScaleModalVisible(false);
+          }}
+        >
+          <Pressable
+            style={[
+              styles.modalCard,
+              isDark ? styles.modalCardDark : styles.modalCardLight,
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* Header with circular left/right chevrons */}
+            <View style={styles.scaleNavHeaderRow}>
+              <Pressable
+                disabled={editingScaleLevel <= 1}
+                onPress={() => {
+                  const prevLvl = editingScaleLevel - 1;
+                  setEditingScaleLevel(prevLvl);
+                  const existingVal = customScaleLabels[prevLvl] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === prevLvl)?.label || '';
+                  scaleDraftRef.current = existingVal;
+                  setCanAddScale(existingVal.trim().length > 0);
+                }}
+                style={({ pressed }) => [
+                  styles.chevronCircleBtn,
+                  {
+                    backgroundColor: isDark ? '#1c1c20' : '#ffffff',
+                    opacity: editingScaleLevel <= 1 ? 0.35 : (pressed ? 0.7 : 1),
+                  },
+                ]}
+              >
+                <ChevronLeft size={16} strokeWidth={2.5} color={isDark ? '#ffffff' : '#111827'} />
+              </Pressable>
+
+              <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight, { marginBottom: 0 }]}>
+                Scale Number {editingScaleLevel}
+              </Text>
+
+              <Pressable
+                disabled={editingScaleLevel >= maxSeverityScale + 1}
+                onPress={() => {
+                  const nextLvl = editingScaleLevel + 1;
+                  setEditingScaleLevel(nextLvl);
+                  const existingVal = customScaleLabels[nextLvl] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === nextLvl)?.label || '';
+                  scaleDraftRef.current = existingVal;
+                  setCanAddScale(existingVal.trim().length > 0);
+                }}
+                style={({ pressed }) => [
+                  styles.chevronCircleBtn,
+                  {
+                    backgroundColor: isDark ? '#1c1c20' : '#ffffff',
+                    opacity: editingScaleLevel >= maxSeverityScale + 1 ? 0.35 : (pressed ? 0.7 : 1),
+                  },
+                ]}
+              >
+                <ChevronRight size={16} strokeWidth={2.5} color={isDark ? '#ffffff' : '#111827'} />
+              </Pressable>
+            </View>
+
+            <View
+              style={[
+                styles.inputCard,
+                isDark ? styles.inputCardDark : styles.inputCardLight,
+                { marginTop: 14 },
+              ]}
+            >
+              <TextInput
+                key={`scale-input-${editingScaleLevel}-${scaleModalVisible ? 'open' : 'closed'}`}
+                style={[
+                  styles.modalInput,
+                  isDark ? styles.inputTextDark : styles.inputTextLight,
+                ]}
+                defaultValue={customScaleLabels[editingScaleLevel] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === editingScaleLevel)?.label || ''}
+                multiline={false}
+                numberOfLines={1}
+                onChangeText={(text) => {
+                  scaleDraftRef.current = text;
+                  const hasContent = text.trim().length > 0;
+                  if (hasContent !== canAddScale) {
+                    setCanAddScale(hasContent);
+                  }
+                }}
+                maxLength={40}
+                placeholder="Enter scale input..."
+                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => {
+                  scaleDraftRef.current = '';
+                  setCanAddScale(false);
+                  setScaleModalVisible(false);
+                }}
+                style={[
+                  styles.modalActionBtn,
+                  isDark ? styles.cancelBtnDark : styles.cancelBtnLight,
+                ]}
+              >
+                <Text style={[styles.btnText, { color: isDark ? '#ffffff' : '#111827' }]}>
+                  Cancel
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleSaveScaleLevel}
+                disabled={!canAddScale}
+                style={[
+                  styles.modalActionBtn,
+                  {
+                    backgroundColor: !canAddScale
+                      ? isDark ? '#27272a' : '#e5e7eb'
+                      : primaryColor,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.btnText,
+                    {
+                      color: !canAddScale
+                        ? isDark ? '#71717a' : '#9ca3af'
+                        : '#ffffff',
+                    },
+                  ]}
+                >
+                  {editingScaleLevel > maxSeverityScale ? 'Add Scale' : 'Save Scale'}
                 </Text>
               </Pressable>
             </View>
@@ -907,8 +1134,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_700Bold',
   },
   severityLabelHeading: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Outfit_700Bold',
     marginBottom: 8,
   },
   scaleUpliftedCard: {
@@ -1023,6 +1251,25 @@ const styles = StyleSheet.create({
   },
   inputTextDark: {
     color: '#ffffff',
+  },
+  scaleNavHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 4,
+  },
+  chevronCircleBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   modalActions: {
     flexDirection: 'row',

@@ -218,6 +218,7 @@ export const DEMO_HISTORY_RECORDS: JournalHistoryRecord[] = [
     isoDate: '2026-10-18',
     image: MOCK_SCANS[0]?.image,
     answers: {
+      q_skin_map: '{"zones":[{"id":"temples","name":"Temples","conditions":["Subsurface texture"],"severity":3},{"id":"chin","name":"Chin","conditions":["Hormonal breakouts","Deep painful cysts"],"severity":3}],"maxSeverityScale":5,"summary":"Temples: Subsurface texture (Severity: 3/5); Chin: Hormonal breakouts, Deep painful cysts (Severity: 3/5)"}',
       q_routine: 'Morning & Evening',
       q_water: 'Around 2L',
     },
