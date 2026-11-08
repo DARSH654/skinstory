@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
+  Animated,
   StyleSheet,
   Pressable,
   TextInput,
@@ -11,6 +12,9 @@ import {
 import { Text } from '@/components/AppText';
 import { Plus, X, SlidersHorizontal, Check, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Colors } from '@/constants/theme';
+import SkinItemActionMenu from '@/components/journal/SkinItemActionMenu';
+import SkinItemEditModal from '@/components/journal/SkinItemEditModal';
+import SkinItemDeleteModal from '@/components/journal/SkinItemDeleteModal';
 
 export interface ZoneConfig {
   id: string;
@@ -28,7 +32,7 @@ export interface SkinExperienceQuestionViewProps {
   onContinue: () => void;
 }
 
-const DEFAULT_ZONES: { id: string; name: string }[] = [
+const DEFAULT_ZONES: { id: string; name: string; isCustom?: boolean }[] = [
   { id: 'forehead', name: 'Forehead' },
   { id: 'temples', name: 'Temples' },
   { id: 'nose', name: 'Nose' },
@@ -300,8 +304,8 @@ export default function SkinExperienceQuestionView({
   const [currentlySelectedZoneId, setCurrentlySelectedZoneId] = useState<string | null>(
     parsedInitial.zones.length > 0 ? parsedInitial.zones[0].id : null
   );
-  const [customZones, setCustomZones] = useState<{ id: string; name: string }[]>(
-    parsedInitial.zones.filter((z) => z.isCustom).map((z) => ({ id: z.id, name: z.name }))
+  const [customZones, setCustomZones] = useState<{ id: string; name: string; isCustom?: boolean }[]>(
+    parsedInitial.zones.filter((z) => z.isCustom).map((z) => ({ id: z.id, name: z.name, isCustom: true }))
   );
   const [customConditionsByZone, setCustomConditionsByZone] = useState<Record<string, string[]>>({});
   const [maxSeverityScale, setMaxSeverityScale] = useState<number>(parsedInitial.maxSeverityScale || 5);
@@ -320,6 +324,68 @@ export default function SkinExperienceQuestionView({
   const [customScaleLabels, setCustomScaleLabels] = useState<Record<number, string>>({});
   const conditionDraftRef = useRef('');
   const [canAddCondition, setCanAddCondition] = useState(false);
+
+  // Dropdown Action Menu State (Anchored at exact touch coordinates)
+  const [actionMenu, setActionMenu] = useState<{
+    visible: boolean;
+    type: 'zone' | 'condition';
+    id: string;
+    name: string;
+    parentZoneId?: string;
+    anchorX: number;
+    anchorY: number;
+  }>({
+    visible: false,
+    type: 'zone',
+    id: '',
+    name: '',
+    anchorX: 0,
+    anchorY: 0,
+  });
+
+  // Edit Modal State
+  const [editModal, setEditModal] = useState<{
+    visible: boolean;
+    type: 'zone' | 'condition';
+    id: string;
+    name: string;
+    parentZoneId?: string;
+  }>({
+    visible: false,
+    type: 'zone',
+    id: '',
+    name: '',
+  });
+
+  // Delete Confirmation Modal State
+  const [deleteModal, setDeleteModal] = useState<{
+    visible: boolean;
+    type: 'zone' | 'condition';
+    id: string;
+    name: string;
+    parentZoneId?: string;
+  }>({
+    visible: false,
+    type: 'zone',
+    id: '',
+    name: '',
+  });
+
+  // Validation: Check if every selected zone has at least one condition added
+  const [showIncompleteError, setShowIncompleteError] = useState(false);
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  const triggerShake = () => {
+    shakeAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 8, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -8, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 4, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  };
 
   // Combined zones list
   const allZones = useMemo(() => {
@@ -458,6 +524,117 @@ export default function SkinExperienceQuestionView({
     setConditionModalVisible(false);
   };
 
+  // Long-press trigger on custom pill with exact touch coordinates
+  const handlePillLongPress = (
+    type: 'zone' | 'condition',
+    id: string,
+    name: string,
+    e: any,
+    parentZoneId?: string
+  ) => {
+    const { pageX, pageY } = e.nativeEvent;
+    setActionMenu({
+      visible: true,
+      type,
+      id,
+      name,
+      parentZoneId,
+      anchorX: pageX || 100,
+      anchorY: pageY || 200,
+    });
+  };
+
+  // Open Edit Modal from Action Menu
+  const handleOpenEdit = () => {
+    setEditModal({
+      visible: true,
+      type: actionMenu.type,
+      id: actionMenu.id,
+      name: actionMenu.name,
+      parentZoneId: actionMenu.parentZoneId,
+    });
+  };
+
+  // Open Delete Modal from Action Menu
+  const handleOpenDelete = () => {
+    setDeleteModal({
+      visible: true,
+      type: actionMenu.type,
+      id: actionMenu.id,
+      name: actionMenu.name,
+      parentZoneId: actionMenu.parentZoneId,
+    });
+  };
+
+  // Save Edit Changes (Invoked from SkinItemEditModal)
+  const handleSaveEdit = (newName: string) => {
+    if (editModal.type === 'zone') {
+      const updatedCustom = customZones.map((z) =>
+        z.id === editModal.id ? { ...z, name: newName } : z
+      );
+      setCustomZones(updatedCustom);
+
+      const updatedSelected = selectedZones.map((z) =>
+        z.id === editModal.id ? { ...z, name: newName } : z
+      );
+      setSelectedZones(updatedSelected);
+      emitState(updatedSelected, maxSeverityScale);
+    } else if (editModal.type === 'condition' && editModal.parentZoneId) {
+      const pZone = editModal.parentZoneId;
+      const oldName = editModal.name;
+
+      setCustomConditionsByZone((prev) => ({
+        ...prev,
+        [pZone]: (prev[pZone] || []).map((c) => (c === oldName ? newName : c)),
+      }));
+
+      const updatedSelected = selectedZones.map((z) => {
+        if (z.id !== pZone) return z;
+        return {
+          ...z,
+          conditions: z.conditions.map((c) => (c === oldName ? newName : c)),
+        };
+      });
+      setSelectedZones(updatedSelected);
+      emitState(updatedSelected, maxSeverityScale);
+    }
+
+    setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+  };
+
+  // Confirm Delete Item (Invoked from SkinItemDeleteModal)
+  const handleConfirmDelete = () => {
+    if (deleteModal.type === 'zone') {
+      setCustomZones((prev) => prev.filter((z) => z.id !== deleteModal.id));
+      const updatedSelected = selectedZones.filter((z) => z.id !== deleteModal.id);
+      setSelectedZones(updatedSelected);
+      if (currentlySelectedZoneId === deleteModal.id) {
+        setCurrentlySelectedZoneId(null);
+      }
+      emitState(updatedSelected, maxSeverityScale);
+    } else if (deleteModal.type === 'condition' && deleteModal.parentZoneId) {
+      const pZone = deleteModal.parentZoneId;
+      const condName = deleteModal.name;
+
+      setCustomConditionsByZone((prev) => ({
+        ...prev,
+        [pZone]: (prev[pZone] || []).filter((c) => c !== condName),
+      }));
+
+      const updatedSelected = selectedZones.map((z) => {
+        if (z.id !== pZone) return z;
+        return {
+          ...z,
+          conditions: z.conditions.filter((c) => c !== condName),
+        };
+      });
+      setSelectedZones(updatedSelected);
+      emitState(updatedSelected, maxSeverityScale);
+    }
+
+    setDeleteModal({ visible: false, type: 'zone', id: '', name: '' });
+  };
+
   // Save/Update Scale Level (1 to maxSeverityScale + 1)
   const handleSaveScaleLevel = () => {
     const clean = scaleDraftRef.current.trim();
@@ -506,10 +683,57 @@ export default function SkinExperienceQuestionView({
   }, [maxSeverityScale, customScaleLabels]);
 
   // Mandatory: Continue is enabled ONLY if at least one zone is selected
-  const canContinue = selectedZones.length > 0;
+  const hasSelectedZones = selectedZones.length > 0;
+
+  const areAllSelectedZonesComplete = useMemo(() => {
+    if (selectedZones.length === 0) return false;
+    return selectedZones.every((z) => z.conditions && z.conditions.length > 0);
+  }, [selectedZones]);
+
+  useEffect(() => {
+    if (areAllSelectedZonesComplete && showIncompleteError) {
+      setShowIncompleteError(false);
+    }
+  }, [areAllSelectedZonesComplete, showIncompleteError]);
+
+  const handleContinuePress = () => {
+    if (!hasSelectedZones) return;
+
+    const incompleteZone = selectedZones.find(
+      (z) => !z.conditions || z.conditions.length === 0
+    );
+
+    if (incompleteZone) {
+      setShowIncompleteError(true);
+      triggerShake();
+      if (currentlySelectedZoneId !== incompleteZone.id) {
+        setCurrentlySelectedZoneId(incompleteZone.id);
+      }
+      return;
+    }
+
+    setShowIncompleteError(false);
+    onContinue();
+  };
 
   return (
     <View style={styles.container}>
+      {/* Error Banner: Placed above the zone pills */}
+      {showIncompleteError && (
+        <Animated.View
+          style={[
+            styles.errorBannerWrap,
+            { transform: [{ translateX: shakeAnim }] },
+          ]}
+        >
+          <View style={styles.errorBannerPill}>
+            <Text style={styles.errorBannerText} numberOfLines={2}>
+              Add at least one detail to continue
+            </Text>
+          </View>
+        </Animated.View>
+      )}
+
       {/* 1. ZONE SELECTION PILLS */}
       <View style={styles.pillsWrap}>
         {allZones.map((zone) => {
@@ -541,6 +765,12 @@ export default function SkinExperienceQuestionView({
             <Pressable
               key={zone.id}
               onPress={() => handleZonePress(zone)}
+              onLongPress={(e) => {
+                if (zone.isCustom) {
+                  handlePillLongPress('zone', zone.id, zone.name, e);
+                }
+              }}
+              delayLongPress={280}
               style={({ pressed }) => [
                 styles.pill,
                 {
@@ -598,10 +828,17 @@ export default function SkinExperienceQuestionView({
           <View style={styles.pillsWrap}>
             {activeZoneConditions.map((cond) => {
               const isChecked = activeZoneConfig.conditions.includes(cond);
+              const isCustomCond = (customConditionsByZone[currentlySelectedZoneId] || []).includes(cond);
               return (
                 <Pressable
                   key={cond}
                   onPress={() => toggleCondition(cond)}
+                  onLongPress={(e) => {
+                    if (isCustomCond) {
+                      handlePillLongPress('condition', cond, cond, e, currentlySelectedZoneId);
+                    }
+                  }}
+                  delayLongPress={280}
                   style={({ pressed }) => [
                     styles.pill,
                     {
@@ -651,10 +888,16 @@ export default function SkinExperienceQuestionView({
             </Text>
             <Pressable
               onPress={() => {
-                const nextLvl = maxSeverityScale + 1;
-                setEditingScaleLevel(nextLvl);
-                scaleDraftRef.current = '';
-                setCanAddScale(false);
+                // If the user's slider is on the maximum scale level, open to the next level (to add new scale)
+                // Otherwise open directly to the currently selected slider level
+                const targetLvl = activeZoneConfig.severity >= maxSeverityScale
+                  ? maxSeverityScale + 1
+                  : activeZoneConfig.severity;
+
+                setEditingScaleLevel(targetLvl);
+                const existingVal = customScaleLabels[targetLvl] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === targetLvl)?.label || '';
+                scaleDraftRef.current = existingVal;
+                setCanAddScale(false); // Clean initial state -> Save disabled until text is altered!
                 setScaleModalVisible(true);
               }}
               style={({ pressed }) => [
@@ -713,18 +956,18 @@ export default function SkinExperienceQuestionView({
       {/* 3. CONTINUE BUTTON */}
       <View style={styles.continueBtnWrapper}>
         <Pressable
-          onPress={onContinue}
-          disabled={!canContinue}
+          onPress={handleContinuePress}
+          disabled={!hasSelectedZones}
           style={({ pressed }) => [
             styles.continueBtn,
             {
-              backgroundColor: !canContinue
+              backgroundColor: !hasSelectedZones
                 ? (isDark ? '#27272a' : '#e5e7eb')
                 : (pressed ? '#a98fcc' : primaryColor),
             },
           ]}
         >
-          <Text style={[styles.continueBtnText, !canContinue && { color: isDark ? '#71717a' : '#9ca3af' }]}>
+          <Text style={[styles.continueBtnText, !hasSelectedZones && { color: isDark ? '#71717a' : '#9ca3af' }]}>
             Continue
           </Text>
         </Pressable>
@@ -966,17 +1209,19 @@ export default function SkinExperienceQuestionView({
                   setEditingScaleLevel(prevLvl);
                   const existingVal = customScaleLabels[prevLvl] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === prevLvl)?.label || '';
                   scaleDraftRef.current = existingVal;
-                  setCanAddScale(existingVal.trim().length > 0);
+                  setCanAddScale(false); // Default texts are unchanged -> Save button disabled!
                 }}
                 style={({ pressed }) => [
                   styles.chevronCircleBtn,
                   {
-                    backgroundColor: isDark ? '#1c1c20' : '#ffffff',
+                    backgroundColor: isDark ? '#27272a' : '#ffffff',
+                    borderColor: isDark ? '#3f3f46' : '#d1d5db',
+                    borderWidth: 1.5,
                     opacity: editingScaleLevel <= 1 ? 0.35 : (pressed ? 0.7 : 1),
                   },
                 ]}
               >
-                <ChevronLeft size={16} strokeWidth={2.5} color={isDark ? '#ffffff' : '#111827'} />
+                <ChevronLeft size={16} strokeWidth={2.2} color={isDark ? '#ffffff' : '#1f2937'} />
               </Pressable>
 
               <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight, { marginBottom: 0 }]}>
@@ -990,17 +1235,19 @@ export default function SkinExperienceQuestionView({
                   setEditingScaleLevel(nextLvl);
                   const existingVal = customScaleLabels[nextLvl] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === nextLvl)?.label || '';
                   scaleDraftRef.current = existingVal;
-                  setCanAddScale(existingVal.trim().length > 0);
+                  setCanAddScale(false); // Default texts are unchanged -> Save button disabled!
                 }}
                 style={({ pressed }) => [
                   styles.chevronCircleBtn,
                   {
-                    backgroundColor: isDark ? '#1c1c20' : '#ffffff',
+                    backgroundColor: isDark ? '#27272a' : '#ffffff',
+                    borderColor: isDark ? '#3f3f46' : '#d1d5db',
+                    borderWidth: 1.5,
                     opacity: editingScaleLevel >= maxSeverityScale + 1 ? 0.35 : (pressed ? 0.7 : 1),
                   },
                 ]}
               >
-                <ChevronRight size={16} strokeWidth={2.5} color={isDark ? '#ffffff' : '#111827'} />
+                <ChevronRight size={16} strokeWidth={2.2} color={isDark ? '#ffffff' : '#1f2937'} />
               </Pressable>
             </View>
 
@@ -1022,9 +1269,11 @@ export default function SkinExperienceQuestionView({
                 numberOfLines={1}
                 onChangeText={(text) => {
                   scaleDraftRef.current = text;
-                  const hasContent = text.trim().length > 0;
-                  if (hasContent !== canAddScale) {
-                    setCanAddScale(hasContent);
+                  const curVal = (customScaleLabels[editingScaleLevel] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === editingScaleLevel)?.label || '').trim();
+                  const clean = text.trim();
+                  const isChangedAndValid = clean.length > 0 && clean !== curVal;
+                  if (isChangedAndValid !== canAddScale) {
+                    setCanAddScale(isChangedAndValid);
                   }
                 }}
                 maxLength={40}
@@ -1080,6 +1329,38 @@ export default function SkinExperienceQuestionView({
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Action Menu (Edit / Delete) positioned at exact touch coordinates */}
+      <SkinItemActionMenu
+        visible={actionMenu.visible}
+        isDark={isDark}
+        anchorX={actionMenu.anchorX}
+        anchorY={actionMenu.anchorY}
+        onClose={() => setActionMenu((prev) => ({ ...prev, visible: false }))}
+        onEdit={handleOpenEdit}
+        onDelete={handleOpenDelete}
+      />
+
+      {/* Edit Item Modal */}
+      <SkinItemEditModal
+        visible={editModal.visible}
+        isDark={isDark}
+        primaryColor={primaryColor}
+        itemType={editModal.type}
+        initialValue={editModal.name}
+        onCancel={() => setEditModal((prev) => ({ ...prev, visible: false }))}
+        onSave={handleSaveEdit}
+      />
+
+      {/* Delete Item Modal */}
+      <SkinItemDeleteModal
+        visible={deleteModal.visible}
+        isDark={isDark}
+        itemType={deleteModal.type}
+        itemName={deleteModal.name}
+        onCancel={() => setDeleteModal((prev) => ({ ...prev, visible: false }))}
+        onConfirm={handleConfirmDelete}
+      />
     </View>
   );
 }
@@ -1097,6 +1378,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     fontFamily: 'Outfit_700Bold',
+  },
+  errorBannerWrap: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  errorBannerPill: {
+    backgroundColor: '#e03131',
+    borderRadius: 100,
+    paddingHorizontal: 20,
+    paddingVertical: 9,
+    shadowColor: '#e03131',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 3,
+    alignSelf: 'center',
+  },
+  errorBannerText: {
+    color: '#ffffff',
+    fontSize: 13.5,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 19,
+    flexShrink: 0,
   },
   pillsWrap: {
     flexDirection: 'row',
@@ -1260,16 +1567,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   chevronCircleBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   modalActions: {
     flexDirection: 'row',

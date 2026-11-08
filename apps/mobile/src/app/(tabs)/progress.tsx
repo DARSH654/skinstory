@@ -812,12 +812,12 @@ export default function ProgressScreen() {
         visible={chatToRename !== null}
         currentTitle={chatToRename?.title || ''}
         tempTitle={tempRenameTitle}
-        onChangeText={(text) => setTempRenameTitle(text.slice(0, 100))}
-        onSave={async () => {
-          if (chatToRename && tempRenameTitle.trim()) {
+        onSave={async (newTitle?: string) => {
+          const finalTitle = (newTitle || tempRenameTitle).trim();
+          if (chatToRename && finalTitle) {
             await upsertChat({
               ...chatToRename,
-              title: tempRenameTitle.trim(),
+              title: finalTitle,
               updatedAt: Date.now(),
             });
             setChatToRename(null);

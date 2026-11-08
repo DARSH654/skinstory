@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, StyleSheet, Modal, TextInput, Pressable } from 'react-native';
 import { Text } from '@/components/AppText';
 import { Colors } from '@/constants/theme';
@@ -8,8 +8,8 @@ interface RenameChatModalProps {
   visible: boolean;
   currentTitle: string;
   tempTitle: string;
-  onChangeText: (text: string) => void;
-  onSave: () => void;
+  onChangeText?: (text: string) => void;
+  onSave: (newTitle?: string) => void;
   onCancel: () => void;
 }
 
@@ -18,12 +18,29 @@ export default function RenameChatModal({
   visible,
   currentTitle,
   tempTitle,
-  onChangeText,
   onSave,
   onCancel,
 }: RenameChatModalProps) {
-  const clean = tempTitle.trim();
-  const saveDisabled = clean.length === 0 || clean === currentTitle;
+  // Store live draft in a ref (AGENTS.md mandatory Android rule)
+  const inputRef = useRef(tempTitle || currentTitle);
+  // Only trigger re-render when validation state changes
+  const [canSave, setCanSave] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      inputRef.current = tempTitle || currentTitle;
+      const initialClean = (tempTitle || currentTitle).trim();
+      setCanSave(initialClean.length > 0 && initialClean !== currentTitle.trim());
+    } else {
+      setCanSave(false);
+    }
+  }, [visible, tempTitle, currentTitle]);
+
+  const handleSavePress = () => {
+    const finalized = inputRef.current.trim();
+    if (!finalized || finalized === currentTitle.trim()) return;
+    onSave(finalized);
+  };
 
   return (
     <Modal
@@ -56,8 +73,16 @@ export default function RenameChatModal({
                 styles.modalInput,
                 isDark ? styles.inputTextDark : styles.inputTextLight,
               ]}
-              defaultValue={tempTitle}
-              onChangeText={onChangeText}
+              defaultValue={inputRef.current}
+              onChangeText={(text) => {
+                inputRef.current = text;
+                const clean = text.trim();
+                const isValid = clean.length > 0 && clean !== currentTitle.trim();
+                // ONLY trigger state update when the boolean changes!
+                if (isValid !== canSave) {
+                  setCanSave(isValid);
+                }
+              }}
               maxLength={100}
               placeholder="Enter your chat title..."
               placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
@@ -68,9 +93,10 @@ export default function RenameChatModal({
           <View style={styles.modalActions}>
             <Pressable
               onPress={onCancel}
-              style={[
+              style={({ pressed }) => [
                 styles.modalActionBtn,
                 isDark ? styles.cancelBtnDark : styles.cancelBtnLight,
+                { opacity: pressed ? 0.75 : 1 },
               ]}
             >
               <Text
@@ -84,16 +110,17 @@ export default function RenameChatModal({
             </Pressable>
 
             <Pressable
-              onPress={saveDisabled ? undefined : onSave}
-              disabled={saveDisabled}
-              style={[
+              onPress={canSave ? handleSavePress : undefined}
+              disabled={!canSave}
+              style={({ pressed }) => [
                 styles.modalActionBtn,
                 {
-                  backgroundColor: saveDisabled
+                  backgroundColor: !canSave
                     ? isDark
                       ? '#27272a'
                       : '#e5e7eb'
                     : Colors.light.primary,
+                  opacity: canSave && pressed ? 0.85 : 1,
                 },
               ]}
             >
@@ -101,7 +128,7 @@ export default function RenameChatModal({
                 style={[
                   styles.btnText,
                   {
-                    color: saveDisabled
+                    color: !canSave
                       ? isDark
                         ? '#71717a'
                         : '#9ca3af'

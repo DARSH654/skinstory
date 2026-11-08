@@ -1488,7 +1488,16 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     }
   }, [reansweringKey, activeRecordId, editingAnswers, isLastQuestion, questions.length, setHistoryRecords, onCompleted]);
 
+  // Ref to debounce rapid Next/Prev clicks and prevent mid-animation overlapping views
+  const isNavigatingRef = useRef(false);
+
   const handlePrevious = useCallback(() => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 180);
+
     setSlideDirection('backward');
     setCurrentIndex((prev) => Math.max(prev - 1, 0));
   }, []);
@@ -1631,13 +1640,8 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
                 key={`q-slide-${currentIndex}`}
                 entering={
                   slideDirection === 'forward'
-                    ? SlideInRight.duration(240)
-                    : SlideInLeft.duration(240)
-                }
-                exiting={
-                  slideDirection === 'forward'
-                    ? SlideOutLeft.duration(180)
-                    : SlideOutRight.duration(180)
+                    ? SlideInRight.duration(160)
+                    : SlideInLeft.duration(160)
                 }
               >
                 <Text style={[styles.pureQuestionText, { color: isDark ? '#ffffff' : '#111827' }]}>
