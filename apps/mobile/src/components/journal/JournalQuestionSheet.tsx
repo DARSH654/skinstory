@@ -44,6 +44,7 @@ import Animated, {
 import { Colors } from '@/constants/theme';
 import { useJournalStore, JournalHistoryRecord, QuestionDef } from '@/store/journalStore';
 import { DraggableScrollDownCircle, useDraggableScroll } from '@/components/ui/draggable-scroll-down-circle';
+import SkinExperienceQuestionView from './SkinExperienceQuestionView';
 
 export interface JournalQuestionSheetRef {
   present: (record: JournalHistoryRecord, reanswerKey?: string) => void;
@@ -928,6 +929,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
   const isFocused = !navigation?.isFocused || navigation.isFocused();
 
   const questions = useJournalStore((state) => state.questions);
+  const historyRecords = useJournalStore((state) => state.historyRecords);
   const setHistoryRecords = useJournalStore((state) => state.setHistoryRecords);
   const pendingImageCapture = useJournalStore((state) => state.pendingImageCapture);
   const setPendingImageCapture = useJournalStore((state) => state.setPendingImageCapture);
@@ -1013,6 +1015,18 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
         autoAdvanceRef.current = null;
       }
       const recordAnswers = { ...(record.answers || {}) };
+
+      // Smart persistence for Question 1 (q_skin_map):
+      // If current record has no q_skin_map, carry forward from past records so the user isn't forced to re-enter daily
+      if (!recordAnswers['q_skin_map']) {
+        const pastRecordWithSkinMap = historyRecords.find(
+          (hr) => hr.id !== record.id && hr.answers && hr.answers['q_skin_map']
+        );
+        if (pastRecordWithSkinMap) {
+          recordAnswers['q_skin_map'] = pastRecordWithSkinMap.answers['q_skin_map'];
+        }
+      }
+
       setEditingAnswers(recordAnswers);
       setSlideDirection('forward');
 
@@ -1411,6 +1425,48 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     }
   }, [currentQ, reansweringKey, activeRecordId, editingAnswers, isLastQuestion, questions.length, setHistoryRecords]);
 
+  // Skin Experience (Question 1) Continue
+  const handleContinueSkinMap = useCallback(() => {
+    const qKey = 'q_skin_map';
+    const currentVal = editingAnswers[qKey] || JSON.stringify({ zones: [], maxSeverityScale: 5, summary: 'Clear / No issues reported' });
+    const updatedAnswers = { ...editingAnswers, [qKey]: currentVal };
+    if (!editingAnswers[qKey]) {
+      setEditingAnswers(updatedAnswers);
+    }
+
+    if (reansweringKey && qKey === reansweringKey) {
+      if (activeRecordId) {
+        setHistoryRecords((prev) =>
+          prev.map((item) =>
+            item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
+          )
+        );
+      }
+      setReansweringKey(null);
+      sheetRef.current?.hide();
+      setCurrentIndex(0);
+      setActiveRecordId(null);
+      return;
+    }
+
+    if (isLastQuestion) {
+      if (activeRecordId) {
+        setHistoryRecords((prev) =>
+          prev.map((item) =>
+            item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
+          )
+        );
+      }
+      sheetRef.current?.hide();
+      setCurrentIndex(0);
+      setActiveRecordId(null);
+      onCompleted?.();
+    } else {
+      setSlideDirection('forward');
+      setCurrentIndex((prev) => Math.min(prev + 1, questions.length - 1));
+    }
+  }, [reansweringKey, activeRecordId, editingAnswers, isLastQuestion, questions.length, setHistoryRecords, onCompleted]);
+
   const handlePrevious = useCallback(() => {
     setSlideDirection('backward');
     setCurrentIndex((prev) => Math.max(prev - 1, 0));
@@ -1566,7 +1622,17 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
                   {currentQ.subtitle}
                 </Text>
 
-                {currentQ.dataType === 'boolean' || (currentQ.options && currentQ.options.length === 2 && currentQ.options.some((o) => o.value.toLowerCase() === 'yes') && currentQ.options.some((o) => o.value.toLowerCase() === 'no')) ? (
+                {currentQ.key === 'q_skin_map' ? (
+                  <SkinExperienceQuestionView
+                    isDark={isDark}
+                    primaryColor={primaryColor}
+                    currentAnswer={currentAnswer || undefined}
+                    onSelect={(val) => {
+                      setEditingAnswers((prev) => ({ ...prev, [currentQ.key]: val }));
+                    }}
+                    onContinue={handleContinueSkinMap}
+                  />
+                ) : currentQ.dataType === 'boolean' || (currentQ.options && currentQ.options.length === 2 && currentQ.options.some((o) => o.value.toLowerCase() === 'yes') && currentQ.options.some((o) => o.value.toLowerCase() === 'no')) ? (
                   <BooleanPillGroup
                     questionKey={currentQ.key}
                     currentAnswer={currentAnswer}

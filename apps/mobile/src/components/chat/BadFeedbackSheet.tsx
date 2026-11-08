@@ -175,7 +175,7 @@ const BadFeedbackSheet = forwardRef<BadFeedbackSheetRef, BadFeedbackSheetProps>(
                       ? Colors.light.primary
                       : (isDark ? '#18181b' : '#ffffff'),
                     borderColor: isSelected
-                      ? (isDark ? '#ffffff' : '#000000')
+                      ? '#ffffff'
                       : (isDark ? '#27272a' : '#e4e4e7'),
                   },
                 ]}

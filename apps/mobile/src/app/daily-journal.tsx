@@ -43,7 +43,8 @@ import {
   Clock,
   ArrowUpRight,
   Loader2,
-  SearchX
+  SearchX,
+  Lock
 } from 'lucide-react-native';
 import { JournalQuestionSheet, JournalQuestionSheetRef } from '@/components/journal/JournalQuestionSheet';
 import { JournalTimelineFilterModal } from '@/components/journal/JournalTimelineFilterModal';
@@ -418,7 +419,7 @@ export default function DailyJournalScreen() {
   };
 
   const handleRowLongPress = (q: QuestionDef, from: 'active' | 'available', e: any) => {
-    if (isReordering) return;
+    if (isReordering || q.key === 'q_skin_map') return;
     const { pageX, pageY } = e.nativeEvent;
     setContextMenu({
       question: q,
@@ -441,6 +442,8 @@ export default function DailyJournalScreen() {
   };
 
   const moveQuestionIndex = useCallback((fromIndex: number, toIndex: number) => {
+    // Keep Question 1 (q_skin_map) anchored at index 0
+    if (fromIndex === 0 || toIndex === 0) return;
     setReorderDraftQuestions((prev) => {
       if (fromIndex < 0 || fromIndex >= prev.length || toIndex < 0 || toIndex >= prev.length) {
         return prev;
@@ -1044,12 +1047,13 @@ export default function DailyJournalScreen() {
                       ]}
                     >
                       <View
-                        onStartShouldSetResponder={() => true}
-                        onMoveShouldSetResponder={() => true}
-                        onStartShouldSetResponderCapture={() => true}
-                        onMoveShouldSetResponderCapture={() => true}
+                        onStartShouldSetResponder={() => q.key !== 'q_skin_map'}
+                        onMoveShouldSetResponder={() => q.key !== 'q_skin_map'}
+                        onStartShouldSetResponderCapture={() => q.key !== 'q_skin_map'}
+                        onMoveShouldSetResponderCapture={() => q.key !== 'q_skin_map'}
                         onResponderTerminationRequest={() => false}
                         onResponderGrant={(evt) => {
+                          if (q.key === 'q_skin_map') return;
                           const startY = evt.nativeEvent.pageY;
                           dragStartPageYRef.current = startY;
                           lastSwapPageYRef.current = startY;
@@ -1136,7 +1140,10 @@ export default function DailyJournalScreen() {
                       exiting={questionRowExiting}
                     >
                       <Pressable
-                        onPress={() => handleRemoveQuestion(q)}
+                        onPress={() => {
+                          if (q.key === 'q_skin_map') return;
+                          handleRemoveQuestion(q);
+                        }}
                         onLongPress={(e) => handleRowLongPress(q, 'active', e)}
                         delayLongPress={350}
                         unstable_pressDelay={0}
@@ -1146,19 +1153,25 @@ export default function DailyJournalScreen() {
                             styles.categoryItemDivider,
                             { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6' },
                           ],
-                          { opacity: pressed ? 0.75 : 1 },
+                          { opacity: q.key === 'q_skin_map' ? 1 : (pressed ? 0.75 : 1) },
                         ]}
                       >
-                        {/* Minus Action Button with Primary Color */}
+                        {/* Lock for compulsory skin map, Minus for removable questions */}
                         <View
                           style={[
                             styles.actionIconCircle,
                             {
-                              backgroundColor: primaryColor,
+                              backgroundColor: q.key === 'q_skin_map'
+                                ? (isDark ? '#27272a' : '#e4e4e7')
+                                : primaryColor,
                             },
                           ]}
                         >
-                          <Minus size={14} color="#ffffff" strokeWidth={3} />
+                          {q.key === 'q_skin_map' ? (
+                            <Lock size={12} color={isDark ? '#a1a1aa' : '#52525b'} strokeWidth={2.4} />
+                          ) : (
+                            <Minus size={14} color="#ffffff" strokeWidth={3} />
+                          )}
                         </View>
 
                         {/* Question / Category Label */}

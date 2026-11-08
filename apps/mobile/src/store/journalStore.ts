@@ -20,6 +20,15 @@ export interface QuestionDef {
 
 export const INITIAL_QUESTIONS: QuestionDef[] = [
   {
+    key: 'q_skin_map',
+    prefix: 'Skin ',
+    highlight: 'Experience',
+    subtitle: 'Where and what are you experiencing on your skin today?',
+    dataType: 'single_choice',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
+    options: [],
+  },
+  {
     key: 'q_routine',
     prefix: 'Routine ',
     highlight: 'Compliance',
@@ -436,8 +445,8 @@ export const useJournalStore = create<JournalState>((set, get) => ({
 
   deleteQuestion: (key, from) =>
     set((state) => {
-      // Default system questions can never be permanently deleted
-      if (key.startsWith('q_')) return state;
+      // Default system questions and locked skin map can never be permanently deleted
+      if (key === 'q_skin_map' || key.startsWith('q_')) return state;
       return {
         questions: from === 'active' ? state.questions.filter((q) => q.key !== key) : state.questions,
         availableQuestions:
@@ -449,6 +458,8 @@ export const useJournalStore = create<JournalState>((set, get) => ({
 
   disableOrEnableQuestion: (qTarget, from) =>
     set((state) => {
+      // Locked skin map question cannot be disabled
+      if (qTarget.key === 'q_skin_map') return state;
       if (qTarget.disabled) {
         return {
           availableQuestions: state.availableQuestions.map((item) =>
@@ -477,13 +488,16 @@ export const useJournalStore = create<JournalState>((set, get) => ({
     }),
 
   moveToAvailable: (qToRemove) =>
-    set((state) => ({
-      questions: state.questions.filter((q) => q.key !== qToRemove.key),
-      availableQuestions: [
-        qToRemove,
-        ...state.availableQuestions.filter((q) => q.key !== qToRemove.key),
-      ],
-    })),
+    set((state) => {
+      if (qToRemove.key === 'q_skin_map') return state;
+      return {
+        questions: state.questions.filter((q) => q.key !== qToRemove.key),
+        availableQuestions: [
+          qToRemove,
+          ...state.availableQuestions.filter((q) => q.key !== qToRemove.key),
+        ],
+      };
+    }),
 
   moveToActive: (qToAdd) =>
     set((state) => ({
