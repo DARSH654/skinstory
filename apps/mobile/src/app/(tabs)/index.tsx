@@ -607,13 +607,12 @@ export default function HomeScreen() {
   const isAnalyzingActive = useSharedValue(false);
   const analyzingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const triggerAnalyzing = useCallback(() => {
-    // Prevent re-triggering mid-animation
+  const runForecastWithAnalyzing = useCallback(async () => {
     if (isAnalyzingActive.value) return;
 
+    console.log('[HOME_UI] 🌟 Starting "Analyzing your data" animation & triggering forecast recalculation...');
     if (analyzingTimerRef.current) clearTimeout(analyzingTimerRef.current);
-    
-    // Start transition into Analyzing state
+
     setIsAnalyzing(true);
     isAnalyzingActive.value = true;
     analyzingTransition.value = withTiming(1, {
@@ -621,25 +620,42 @@ export default function HomeScreen() {
       easing: Easing.out(Easing.cubic),
     });
 
-    // Stay in analyzing state for 3.2 seconds, then smoothly transition back
-    analyzingTimerRef.current = setTimeout(() => {
-      // Transition back to normal hero curves
-      analyzingTransition.value = withTiming(0, {
-        duration: 700,
-        easing: Easing.inOut(Easing.cubic),
-      }, (finished) => {
-        if (finished) {
-          isAnalyzingActive.value = false;
-        }
-      });
-      // Defer unmounting after transition completes
-      setTimeout(() => {
-        setIsAnalyzing(false);
+    const animStart = Date.now();
+    const MINIMUM_ANIMATION_MS = 3200; // Hold for minimum 3.2s, or longer if AI takes longer
+
+    const minDelayPromise = new Promise((resolve) => setTimeout(resolve, MINIMUM_ANIMATION_MS));
+    const calcPromise = useForecastStore
+      .getState()
+      .recalculateToday(questions, historyRecords, undefined, { forceAiRefresh: true });
+
+    try {
+      await Promise.all([calcPromise, minDelayPromise]);
+    } catch (err) {
+      console.warn('[HOME_UI] Error in calculation during animation:', err);
+    }
+
+    const elapsed = Date.now() - animStart;
+    console.log(`[HOME_UI] ⏱️ Animation & AI completed in ${elapsed}ms. Revealing new forecast card.`);
+
+    // Transition back to normal hero curves
+    analyzingTransition.value = withTiming(0, {
+      duration: 700,
+      easing: Easing.inOut(Easing.cubic),
+    }, (finished) => {
+      if (finished) {
         isAnalyzingActive.value = false;
-        analyzingTimerRef.current = null;
-      }, 720);
-    }, 3200);
-  }, []);
+      }
+    });
+
+    // Defer unmounting after transition completes
+    setTimeout(() => {
+      setIsAnalyzing(false);
+      isAnalyzingActive.value = false;
+      analyzingTimerRef.current = null;
+    }, 720);
+  }, [questions, historyRecords]);
+
+  const triggerAnalyzing = runForecastWithAnalyzing;
 
   // Subtle living wave animations for the 3 background curves
   const waveBreath1 = useSharedValue(0);
@@ -1511,7 +1527,17 @@ export default function HomeScreen() {
       </Animated.ScrollView>
 
       {/* Live Journal Question Sheet for Interactive Daily Tracking */}
-      <JournalQuestionSheet ref={journalSheetRef} />
+      <JournalQuestionSheet 
+        ref={journalSheetRef}
+        onClosed={(didChange) => {
+          if (didChange) {
+            console.log('[HOME_UI] 🔔 Sheet closed with changes -> triggering forecast recalculation with analyzing animation');
+            runForecastWithAnalyzing();
+          } else {
+            console.log('[HOME_UI] ℹ️ Sheet closed without changes -> no forecast recalculation');
+          }
+        }}
+      />
 
       {/* Forecast Basis Info Modal */}
       <Modal

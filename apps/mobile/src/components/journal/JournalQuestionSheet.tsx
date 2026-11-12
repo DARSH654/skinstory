@@ -43,6 +43,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Colors } from '@/constants/theme';
 import { useJournalStore, JournalHistoryRecord, QuestionDef } from '@/store/journalStore';
+import { useForecastStore } from '@/store/forecastStore';
 import { DraggableScrollDownCircle, useDraggableScroll } from '@/components/ui/draggable-scroll-down-circle';
 import SkinExperienceQuestionView from './SkinExperienceQuestionView';
 
@@ -917,9 +918,10 @@ const ImageResultView = memo(function ImageResultView({
 
 export interface JournalQuestionSheetProps {
   onCompleted?: () => void;
+  onClosed?: (didChange: boolean) => void;
 }
 
-export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQuestionSheetProps>(({ onCompleted }, ref) => {
+export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQuestionSheetProps>(({ onCompleted, onClosed }, ref) => {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const insets = useSafeAreaInsets();
@@ -939,6 +941,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
   // Per AGENTS.md: store live text in a ref, never set state on every keystroke
   const textInputRef = useRef<string>('');
   const skinMapDraftRef = useRef<string | null>(null);
+  const initialAnswersRef = useRef<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1009,6 +1012,9 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
   useImperativeHandle(ref, () => ({
     present: (record: JournalHistoryRecord, reanswerKey?: string) => {
       setActiveRecordId(record.id);
+      initialAnswersRef.current = JSON.stringify(record.answers || {});
+      useForecastStore.getState().setJournalSheetActive(true);
+      console.log(`[JOURNAL_SHEET] 📖 Sheet opened for ${record.dateStr || record.id} (Forecast quiet mode active)`);
       setIsOpen(true);
       setCapturedImage(null);
       if (autoAdvanceRef.current) {
@@ -1476,7 +1482,16 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
       clearTimeout(autoAdvanceRef.current);
       autoAdvanceRef.current = null;
     }
-  }, []);
+
+    useForecastStore.getState().setJournalSheetActive(false);
+
+    // Check if answers actually changed during this session
+    const currentRec = useJournalStore.getState().historyRecords.find((r) => r.id === activeRecordId);
+    const currentAnswersStr = JSON.stringify(currentRec?.answers || {});
+    const didChange = initialAnswersRef.current !== null && initialAnswersRef.current !== currentAnswersStr;
+    console.log(`[JOURNAL_SHEET] 📕 Sheet closed. Answers changed: ${didChange}`);
+    onClosed?.(didChange);
+  }, [activeRecordId, onClosed]);
 
   const isMultiSelect = currentQ?.dataType === 'multi_select';
   const selectedMultiValues: string[] = useMemo(() => {

@@ -399,13 +399,22 @@ function extractJsonFromString(text: string): any {
  */
 async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Promise<any> {
   const apiKey = getGeminiApiKey();
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.log('[STAGE 4 - AI] ⚠️ No EXPO_PUBLIC_GEMINI_API_KEY detected in env. Falling back to local deterministic synthesis.');
+    return null;
+  }
 
   const { signal: timeoutSignal, cleanup } = createTimeoutSignal(signal, 8000);
 
   const callModel = async (model: string): Promise<string | null> => {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
+    const maskedKey = apiKey.length > 8 ? `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}` : '***';
+    const requestUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${maskedKey}`;
+    const actualUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    console.log(`[STAGE 4 - AI] 🌐 Calling Gemini API (${model}). URL: ${requestUrl}`);
+    const netStart = Date.now();
+
+    const response = await fetch(actualUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: timeoutSignal,
@@ -419,9 +428,22 @@ async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Pro
       }),
     });
 
-    if (!response.ok) return null;
+    const netElapsed = Date.now() - netStart;
+    console.log(`[STAGE 4 - AI] 📡 Gemini (${model}) responded in ${netElapsed}ms with HTTP status ${response.status}`);
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      console.warn(`[STAGE 4 - AI] ⚠️ Gemini call failed with status ${response.status}: ${errText.slice(0, 150)}`);
+      return null;
+    }
     const data = await response.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+    const resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+    if (resultText) {
+      console.log(`[STAGE 4 - AI] 📥 Received valid JSON payload from Gemini (${resultText.length} chars)`);
+    } else {
+      console.warn('[STAGE 4 - AI] ⚠️ Gemini responded with empty candidate parts');
+    }
+    return resultText;
   };
 
   try {
@@ -429,16 +451,16 @@ async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Pro
     try {
       const textPrimary = await callModel(PRIMARY_MODEL);
       if (textPrimary) return extractJsonFromString(textPrimary);
-    } catch {
-      // Failover
+    } catch (e: any) {
+      console.log(`[STAGE 4 - AI] ⚠️ Primary model (${PRIMARY_MODEL}) failed: ${e?.message || e}. Attempting fallback (${FALLBACK_MODEL})...`);
     }
 
     // Try fallback model (gemini-3.5-flash-lite)
     try {
       const textFallback = await callModel(FALLBACK_MODEL);
       if (textFallback) return extractJsonFromString(textFallback);
-    } catch {
-      // Complete failure
+    } catch (e: any) {
+      console.log(`[STAGE 4 - AI] ⚠️ Fallback model (${FALLBACK_MODEL}) failed: ${e?.message || e}`);
     }
   } finally {
     cleanup();
@@ -605,26 +627,41 @@ export async function runFullSkinForecastingPipeline(
     signal?: AbortSignal;
   }
 ): Promise<SkinForecastSynthesis> {
+  const pipelineStart = Date.now();
+  console.log('[PIPELINE] ════════════════════════════════════════════════════════════════');
+  console.log(`[PIPELINE] 🏁 STARTING 4-STAGE PIPELINE (Records: ${historyRecords.length}, Questions: ${questions.length})`);
+
   // STAGE 1: Extract & sanitize raw history data
+  const t1 = Date.now();
   const stage1Logs: Stage1DailyLog[] = extractStage1HistoryLogs(historyRecords, questions);
+  console.log(`[PIPELINE] 🔹 Stage 1 (Raw Rules) completed in ${Date.now() - t1}ms | Valid logs: ${stage1Logs.length}`);
 
   // STAGE 2 & 3 BRIDGE: Assemble engine payload with fast-track tickets + custom AI ingestion
+  const t2 = Date.now();
   const stage3Payload: Stage3EngineInputPayload = await assembleStage3EnginePayload(
     stage1Logs,
     questions,
     userProfile?.skinType || 'combination',
     options?.signal
   );
+  console.log(`[PIPELINE] 🔹 Stage 2 (Biological Ingestion) completed in ${Date.now() - t2}ms | Trigger tickets: ${stage3Payload.chronologicalTickets.length}`);
 
   // STAGE 3 ENGINE: Simulate continuous state-space trajectory
+  const t3 = Date.now();
   const stage3Result: Stage3ForecastResult = runStage3ForecastEngine(stage3Payload);
+  const winning = stage3Result.winningForecast;
+  console.log(`[PIPELINE] 🔹 Stage 3 (Bateman ODE Solver) completed in ${Date.now() - t3}ms | Dominant: ${winning.dominantAxis} (${winning.direction}, score: ${winning.severityScore} at ${winning.horizonKey})`);
 
   // STAGE 4: Synthesize human clinical forecast
+  const t4 = Date.now();
   const synthesisResult: SkinForecastSynthesis = await synthesizeSkinForecast(
     stage3Result,
     userProfile,
     options
   );
+  console.log(`[PIPELINE] 🔹 Stage 4 (Clinical Synthesis) completed in ${Date.now() - t4}ms | Source: ${synthesisResult.source}`);
+  console.log(`[PIPELINE] 🏁 Total Pipeline Time: ${Date.now() - pipelineStart}ms`);
+  console.log('[PIPELINE] ════════════════════════════════════════════════════════════════');
 
   return synthesisResult;
 }

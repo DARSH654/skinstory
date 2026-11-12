@@ -202,6 +202,8 @@ export interface ForecastState {
   isCalculating: boolean;
   lastCalculatedAt: number;
   lastHistoryFingerprint: string;
+  isJournalSheetActive: boolean;
+  setJournalSheetActive: (active: boolean) => void;
 
   // Actions
   init: (
@@ -220,7 +222,8 @@ export interface ForecastState {
   recalculateToday: (
     questions: QuestionDef[],
     historyRecords: JournalHistoryRecord[],
-    userProfile?: UserSkinProfile
+    userProfile?: UserSkinProfile,
+    options?: { forceAiRefresh?: boolean }
   ) => Promise<void>;
   handleJournalRecordsChanged: (
     updatedRecords: JournalHistoryRecord[],
@@ -239,6 +242,8 @@ export const useForecastStore = create<ForecastState>()(
       isCalculating: false,
       lastCalculatedAt: 0,
       lastHistoryFingerprint: '',
+      isJournalSheetActive: false,
+      setJournalSheetActive: (active: boolean) => set({ isJournalSheetActive: active }),
 
       /**
        * Primary Initialization.
@@ -421,16 +426,23 @@ export const useForecastStore = create<ForecastState>()(
       /**
        * Recalculates today's live forecast silently in the background.
        */
-      recalculateToday: async (questions, historyRecords, userProfile) => {
-        if (get().isCalculating) return;
+      recalculateToday: async (questions, historyRecords, userProfile, options) => {
+        if (get().isCalculating) {
+          console.log('[FORECAST] ⚠️ Recalculation already in progress, skipping duplicate request.');
+          return;
+        }
         set({ isCalculating: true });
+        const startTotal = Date.now();
+        console.log('[FORECAST] 🚀 === STARTING 4-STAGE SKIN FORECASTING PIPELINE ===');
+        console.log(`[FORECAST] Input records: ${historyRecords.length}, Questions: ${questions.length}, Force AI Refresh: ${Boolean(options?.forceAiRefresh)}`);
 
         try {
           const todayGlobalIdx = getInitialDayGlobalIndex();
           const synthesis = await runFullSkinForecastingPipeline(
             historyRecords,
             questions,
-            userProfile
+            userProfile,
+            options
           );
 
           const { basisLabel, logDays } = deriveBasisInfo(historyRecords, true);
@@ -455,7 +467,13 @@ export const useForecastStore = create<ForecastState>()(
             lastHistoryFingerprint: fingerprint,
             isCalculating: false,
           }));
-        } catch (e) {
+
+          const totalElapsed = Date.now() - startTotal;
+          console.log(`[FORECAST] ✅ === PIPELINE COMPLETE IN ${totalElapsed}ms ===`);
+          console.log(`[FORECAST] 🏆 Forecast Card: "${synthesis.heroCard.prefix} ${synthesis.heroCard.highlight}" (Source: ${synthesis.source})`);
+          console.log(`[FORECAST] 📋 Clinical Insight: "${synthesis.clinicalInsight.title}"`);
+        } catch (e: any) {
+          console.error('[FORECAST] ❌ Pipeline execution failed with error:', e);
           set({ isCalculating: false });
         }
       },
@@ -568,6 +586,10 @@ export function initJournalForecastSync() {
   isJournalSyncAttached = true;
 
   useJournalStore.subscribe((journalState) => {
+    if (useForecastStore.getState().isJournalSheetActive) {
+      console.log('[FORECAST_SYNC] ⏸️ Journal sheet is open. Forecast calculation stays quiet and deferred until sheet close.');
+      return;
+    }
     useForecastStore
       .getState()
       .handleJournalRecordsChanged(journalState.historyRecords, journalState.questions);
