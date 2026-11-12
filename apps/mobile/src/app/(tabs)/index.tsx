@@ -59,109 +59,22 @@ import Animated, {
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
-const METRIC_NAMES = [
-  { name: 'Forehead', accent: '#a855f7' },
-  { name: 'Nose',     accent: '#ec4899' },
-  { name: 'Chin',     accent: '#14b8a6' },
-  { name: 'L Cheek',  accent: '#f59e0b' },
-  { name: 'R Cheek',  accent: '#10b981' },
-  { name: 'Jawline',  accent: '#3b82f6' },
-  { name: 'T-Zone',   accent: '#6366f1' },
-  { name: 'U-Zone',   accent: '#8b5cf6' },
-  { name: 'Under Eye',accent: '#ef4444' },
-];
-
-const SCORES_BY_DAY = [
-  { overall: 81, metrics: [72, 65, 78, 80, 85, 89, 74, 82, 68] }, // Monday
-  { overall: 85, metrics: [74, 68, 80, 82, 88, 91, 76, 85, 70] }, // Tuesday (Today)
-  { overall: 78, metrics: [69, 62, 73, 76, 81, 84, 70, 78, 64] }, // Wednesday
-  { overall: 83, metrics: [72, 66, 78, 80, 86, 89, 74, 83, 69] }, // Thursday
-  { overall: 86, metrics: [75, 70, 82, 84, 89, 92, 78, 86, 72] }, // Friday
-  { overall: 89, metrics: [78, 73, 85, 87, 92, 95, 81, 89, 75] }, // Saturday
-  { overall: 87, metrics: [76, 71, 83, 85, 90, 93, 79, 87, 73] }  // Sunday
-];
-
-const getSkinFeedback = (score: number) => {
-  if (score >= 85) {
-    return "“You have a glowing skin. Keep up your current routine to maintain this healthy radiance!”";
-  } else if (score >= 75) {
-    return "“Your skin is in good condition. Just a little more hydration will make it perfect!”";
-  } else {
-    return "“Your skin score is a bit low today. Make sure to follow your routines and stay hydrated.”";
-  }
-};
-
-const getMetricColor = (score: number) => {
-  if (score >= 80) return '#22c55e'; // Green
-  if (score >= 65) return '#f59e0b'; // Yellow/Orange
-  return '#ef4444'; // Red
-};
-
 const getForecastForDay = (globalIndex: number): ForecastHeroCardData => {
   return useForecastStore.getState().getForecastForDay(globalIndex);
 };
 
 function AnimatedScoreItem({
   dayIndex,
-  scoreVal,
-  dayMeta,
-  feedbackText,
   isDark,
   itemWidth,
-  shouldAnimate,
-  animationKey,
   onInfoPress,
 }: {
   dayIndex: number;
-  scoreVal: number;
-  dayMeta: { label: string; dateStr: string };
-  feedbackText: string;
   isDark: boolean;
   itemWidth: number;
-  shouldAnimate: boolean;
-  animationKey: number;
   onInfoPress: (logDays: number, origin: { x: number; y: number }) => void;
 }) {
   const iconRef = useRef<View>(null);
-  const radius = 90;
-  const circumference = 2 * Math.PI * radius;
-
-  // Shared value lives on the UI thread — never touches JS thread during animation
-  const progress = useSharedValue(0);
-  const opacity = useSharedValue(0);
-
-  React.useEffect(() => {
-    if (shouldAnimate) {
-      progress.value = 0;
-      opacity.value = 0;
-      
-      // Smooth fade-in so initial zero is never seen frozen
-      opacity.value = withTiming(1, { duration: 250 });
-      progress.value = withTiming(1, {
-        duration: 1100,
-        easing: Easing.out(Easing.cubic),
-      });
-    } else {
-      progress.value = 1;
-      opacity.value = 1;
-    }
-  }, [scoreVal, shouldAnimate, animationKey]);
-
-  // useAnimatedProps runs on the UI thread — zero React re-renders
-  const animatedArcProps = useAnimatedProps(() => ({
-    strokeDashoffset: circumference * (1 - progress.value * scoreVal / 100),
-  }));
-
-  // Number counter also runs on UI thread via AnimatedTextInput
-  const animatedScoreTextProps = useAnimatedProps(() => ({
-    text: `${Math.round(progress.value * scoreVal)}`,
-    defaultValue: `${Math.round(progress.value * scoreVal)}`,
-  }));
-
-  const animatedTextStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
   const historyRecords = useJournalStore((state) => state.historyRecords);
   const todayGlobalIdx = getInitialDayGlobalIndex();
   const isToday = dayIndex === todayGlobalIdx;
@@ -442,97 +355,6 @@ function AnalyzingDataCircle({ isDark }: { isDark: boolean }) {
   );
 }
 
-function AnimatedMetricNode({
-  metric,
-  isDark,
-  pageWidth,
-}: {
-  metric: { id: string; name: string; score: number; accent: string };
-  isDark: boolean;
-  pageWidth: number;
-}) {
-  const radius = 32;
-  const circumference = 2 * Math.PI * radius;
-
-  // Shared value lives on the UI thread
-  const progress = useSharedValue(0);
-
-  React.useEffect(() => {
-    progress.value = 0;
-    progress.value = withTiming(1, {
-      duration: 1100,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [metric.score]);
-
-  // Both props computed on UI thread — zero React re-renders
-  const animatedArcProps = useAnimatedProps(() => ({
-    strokeDashoffset: circumference * (1 - progress.value * metric.score / 100),
-  }));
-
-  const animatedTextProps = useAnimatedProps(() => ({
-    text: `${Math.round(progress.value * metric.score)}%`,
-    defaultValue: `${Math.round(progress.value * metric.score)}%`,
-  }));
-
-  return (
-    <View style={{ alignItems: 'center', width: (pageWidth - 20) / 3 }} pointerEvents="none">
-      <View style={{ width: 80, height: 80, alignItems: 'center', justifyContent: 'center' }}>
-        <Svg width={80} height={80} viewBox="0 0 80 80">
-          <Defs>
-            <LinearGradient id={`metricGrad-${metric.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#937abd" />
-              <Stop offset="100%" stopColor="#d6cbe8" />
-            </LinearGradient>
-          </Defs>
-          {/* Background track circle */}
-          <Circle
-            cx="40"
-            cy="40"
-            r={radius}
-            fill="none"
-            stroke={isDark ? 'rgba(147, 122, 189, 0.2)' : '#e8e3f1'}
-            strokeWidth={7}
-          />
-          {/* Animated progress arc — driven by UI thread */}
-          <AnimatedCircle
-            cx="40"
-            cy="40"
-            r={radius}
-            fill="none"
-            stroke={`url(#metricGrad-${metric.id})`}
-            strokeWidth={7}
-            strokeDasharray={circumference}
-            strokeLinecap="round"
-            transform="rotate(-90 40 40)"
-            animatedProps={animatedArcProps}
-          />
-        </Svg>
-        <AnimatedTextInput
-          animatedProps={animatedTextProps}
-          editable={false}
-          pointerEvents="none"
-          underlineColorAndroid="transparent"
-          style={{
-            position: 'absolute',
-            color: isDark ? '#ffffff' : '#1a1a1a',
-            fontSize: 14,
-            fontWeight: '600',
-            textAlign: 'center',
-            padding: 0,
-            margin: 0,
-            backgroundColor: 'transparent',
-            minWidth: 44,
-          }}
-        />
-      </View>
-      <Text style={{ color: isDark ? '#ffffff' : '#1a1a1a', fontSize: 13, fontWeight: '700', marginTop: 8, textAlign: 'center' }}>
-        {metric.name}
-      </Text>
-    </View>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // CalendarDayPill: Week Day Item with Future Date Lock Interception
 // ---------------------------------------------------------------------------
@@ -690,14 +512,6 @@ export default function HomeScreen() {
     },
   });
 
-  const flatRef = useRef<FlatList>(null);
-  const [pageIndex, setPageIndex] = useState(0);
-  const metricsScrollX = useSharedValue(0);
-  const metricsScrollHandler = useAnimatedScrollHandler({
-    onScroll: (e) => {
-      metricsScrollX.value = e.contentOffset.x;
-    },
-  });
   const [userProfile, setUserProfile] = useState<{ name: string; avatarUri: string | null } | null>(null);
   const [forecastModalVisible, setForecastModalVisible] = useState(false);
   const [forecastModalDays, setForecastModalDays] = useState(7);
@@ -991,6 +805,7 @@ export default function HomeScreen() {
 
   // Initialize and sync forecast store with live journal data
   React.useEffect(() => {
+    initJournalForecastSync();
     useForecastStore.getState().init(questions, historyRecords);
   }, [questions, historyRecords]);
 
@@ -1053,36 +868,6 @@ export default function HomeScreen() {
 
   const selectedDateHeaderStr = getSelectedDateDisplay(selectedGlobalDayIdx);
 
-  // Dynamically calculate metadata and date string for any global day index
-  const getDayMetadata = (globalIdx: number) => {
-    const { weekOffset, dayIdx } = getWeekOffsetAndDay(globalIdx);
-    const todayDate = new Date();
-    const currentDayVal = todayDate.getDay();
-    const distanceToMon = currentDayVal === 0 ? -6 : 1 - currentDayVal;
-    
-    const targetDate = new Date(todayDate);
-    targetDate.setDate(todayDate.getDate() + distanceToMon + weekOffset * 7 + dayIdx);
-    
-    const dayNum = targetDate.getDate();
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthStr = monthNames[targetDate.getMonth()];
-    const yearNum = targetDate.getFullYear();
-    const dateStr = `${dayNum} ${monthStr} ${yearNum}`;
-    
-    const todayIndexVal = currentDayVal === 0 ? 6 : currentDayVal - 1;
-    
-    let label = `guidance ${dateStr}`;
-    if (weekOffset === 0 && dayIdx === todayIndexVal) {
-      label = `TODAY'S GUIDANCE`;
-    } else if ((weekOffset === 0 && dayIdx === todayIndexVal - 1) || (weekOffset === -1 && todayIndexVal === 0 && dayIdx === 6)) {
-      label = `YESTERDAY'S GUIDANCE`;
-    }
-    
-    return { label, dateStr };
-  };
-
-  const dayMeta = getDayMetadata(selectedGlobalDayIdx);
-
   // Generate an array of global day indices up to Today [0..INITIAL_DAY_GLOBAL_INDEX]
   // Clamping to today physically prevents carousel sliding into future unlogged dates
   const allDaysArray = Array.from({ length: INITIAL_DAY_GLOBAL_INDEX + 1 }, (_, i) => i);
@@ -1135,36 +920,6 @@ export default function HomeScreen() {
       scorePagerRef.current?.scrollToIndex({ index: INITIAL_DAY_GLOBAL_INDEX, animated: true });
     } catch {}
   }, [visibleWeekIndex]);
-
-  const currentDayData = SCORES_BY_DAY[selectedDayIdx] || SCORES_BY_DAY[todayIdx];
-
-  const dynamicMetricsPages = [
-    [
-      { id: '1', name: METRIC_NAMES[0].name, score: currentDayData.metrics[0], accent: METRIC_NAMES[0].accent },
-      { id: '2', name: METRIC_NAMES[1].name, score: currentDayData.metrics[1], accent: METRIC_NAMES[1].accent },
-      { id: '3', name: METRIC_NAMES[2].name, score: currentDayData.metrics[2], accent: METRIC_NAMES[2].accent },
-    ],
-    [
-      { id: '4', name: METRIC_NAMES[3].name, score: currentDayData.metrics[3], accent: METRIC_NAMES[3].accent },
-      { id: '5', name: METRIC_NAMES[4].name, score: currentDayData.metrics[4], accent: METRIC_NAMES[4].accent },
-      { id: '6', name: METRIC_NAMES[5].name, score: currentDayData.metrics[5], accent: METRIC_NAMES[5].accent },
-    ],
-    [
-      { id: '7', name: METRIC_NAMES[6].name, score: currentDayData.metrics[6], accent: METRIC_NAMES[6].accent },
-      { id: '8', name: METRIC_NAMES[7].name, score: currentDayData.metrics[7], accent: METRIC_NAMES[7].accent },
-      { id: '9', name: METRIC_NAMES[8].name, score: currentDayData.metrics[8], accent: METRIC_NAMES[8].accent },
-    ]
-  ];
-
-  const nudgePage = (dir: number) => {
-    const next = Math.min(Math.max(pageIndex + dir, 0), dynamicMetricsPages.length - 1);
-    flatRef.current?.scrollToIndex({ index: next, animated: true });
-    setPageIndex(next);
-  };
-
-  const PAGE_WIDTH = SCREEN_WIDTH - 40;
-
-
 
   // Scroll-reactive subtle parallax for background aura shapes (moves smoothly on scroll, stays still when idle)
   const bgAuraAnimatedStyle = useAnimatedStyle(() => {
@@ -1418,26 +1173,14 @@ export default function HomeScreen() {
                   onScrollEndDrag={() => { activeScrollRef.current = null; }}
                   onMomentumScrollEnd={handleScoreScrollEnd}
                   scrollEnabled={activeScrollRef.current === null || activeScrollRef.current === 'score'}
-                  renderItem={({ item: globalIndex }) => {
-                    const dayIdxInWeek = globalIndex % 7;
-                    const scoreData = SCORES_BY_DAY[dayIdxInWeek] || SCORES_BY_DAY[todayIdx];
-                    const scoreVal = scoreData.overall;
-                    const itemMeta = getDayMetadata(globalIndex);
-                    const feedbackText = getSkinFeedback(scoreVal);
-                    return (
-                      <AnimatedScoreItem
-                        dayIndex={globalIndex}
-                        scoreVal={scoreVal}
-                        dayMeta={itemMeta}
-                        feedbackText={feedbackText}
-                        isDark={isDark}
-                        itemWidth={SCREEN_WIDTH - 40}
-                        shouldAnimate={globalIndex === selectedGlobalDayIdx}
-                        animationKey={selectedGlobalDayIdx}
-                        onInfoPress={openForecastModal}
-                      />
-                    );
-                  }}
+                  renderItem={({ item: globalIndex }) => (
+                    <AnimatedScoreItem
+                      dayIndex={globalIndex}
+                      isDark={isDark}
+                      itemWidth={SCREEN_WIDTH - 40}
+                      onInfoPress={openForecastModal}
+                    />
+                  )}
                 />
               </Animated.View>
 

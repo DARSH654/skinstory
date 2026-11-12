@@ -246,10 +246,31 @@ export function extractStage1HistoryLogs(
     // 1. RULE 1: Question 1 validation
     const rule1Result = validateRule1SkinMap(rawAnswers['q_skin_map']);
 
-    // Derive base record timestamp from isoDate (e.g., '2026-10-18' or Date.now())
-    const recordTimestamp = record.isoDate
-      ? new Date(record.isoDate).getTime() || Date.now()
-      : Date.now();
+    // Derive base record timestamp dynamically: Today is always Date.now()
+    const isToday = record.dateStr?.toLowerCase() === 'today' || record.id === 'rec-1';
+    const isYesterday = record.dateStr?.toLowerCase() === 'yesterday' || record.id === 'rec-2';
+
+    let resolvedIso = record.isoDate;
+    let recordTimestamp = Date.now();
+
+    if (isToday) {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      resolvedIso = `${y}-${m}-${day}`;
+      recordTimestamp = Date.now();
+    } else if (isYesterday) {
+      const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      resolvedIso = `${y}-${m}-${day}`;
+      recordTimestamp = d.getTime();
+    } else if (record.isoDate) {
+      resolvedIso = record.isoDate;
+      recordTimestamp = new Date(record.isoDate).getTime() || Date.now();
+    }
 
     // Stored question-level timestamps map (Rule 4) if tracked on record, else falls back to recordTimestamp
     const timestampsMap: Record<string, number> =
@@ -277,7 +298,7 @@ export function extractStage1HistoryLogs(
       dailyLogs.push({
         recordId: record.id,
         dateStr: record.dateStr,
-        isoDate: record.isoDate,
+        isoDate: resolvedIso,
         recordTimestamp,
         hasSkinMap: rule1Result.isValid,
         skinMapData: rule1Result.parsed,

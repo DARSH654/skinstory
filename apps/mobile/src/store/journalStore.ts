@@ -214,12 +214,27 @@ export interface JournalHistoryRecord {
   answeredTimestamps?: Record<string, number>;
 }
 
+export const getRelativeDateInfo = (daysAgo: number) => {
+  const d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const formattedStr = `${monthNames[d.getMonth()]} ${d.getDate()}, ${y}`;
+  const isoDate = `${y}-${m}-${day}`;
+  return { isoDate, dayName, formattedStr };
+};
+
+const d0 = getRelativeDateInfo(0);
+const d1 = getRelativeDateInfo(1);
+
 export const DEMO_HISTORY_RECORDS: JournalHistoryRecord[] = [
   {
     id: 'rec-1',
     dateStr: 'Today',
-    dayName: 'Saturday',
-    isoDate: '2026-10-18',
+    dayName: d0.dayName,
+    isoDate: d0.isoDate,
     image: MOCK_SCANS[0]?.image,
     answers: {
       q_routine: 'Morning & Evening',
@@ -229,8 +244,8 @@ export const DEMO_HISTORY_RECORDS: JournalHistoryRecord[] = [
   {
     id: 'rec-2',
     dateStr: 'Yesterday',
-    dayName: 'Friday',
-    isoDate: '2026-10-17',
+    dayName: d1.dayName,
+    isoDate: d1.isoDate,
     image: MOCK_SCANS[1]?.image,
     answers: {
       q_routine: 'Morning',
@@ -529,6 +544,32 @@ export const useJournalStore = create<JournalState>()(
         availableQuestions: state.availableQuestions,
         historyRecords: state.historyRecords,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state || !state.historyRecords) return;
+        const todayInfo = getRelativeDateInfo(0);
+        const yesterdayInfo = getRelativeDateInfo(1);
+
+        const updated = state.historyRecords.map((r) => {
+          if (r.dateStr?.toLowerCase() === 'today' || r.id === 'rec-1') {
+            return {
+              ...r,
+              dateStr: 'Today',
+              dayName: todayInfo.dayName,
+              isoDate: todayInfo.isoDate,
+            };
+          }
+          if (r.dateStr?.toLowerCase() === 'yesterday' || r.id === 'rec-2') {
+            return {
+              ...r,
+              dateStr: 'Yesterday',
+              dayName: yesterdayInfo.dayName,
+              isoDate: yesterdayInfo.isoDate,
+            };
+          }
+          return r;
+        });
+        state.setHistoryRecords(updated);
+      },
     }
   )
 );

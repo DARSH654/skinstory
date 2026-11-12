@@ -78,12 +78,12 @@ export function toDateKey(date: Date): string {
  * Resolves record timestamp or isoDate to a clean midnight Date object.
  */
 export function resolveRecordDate(record: JournalHistoryRecord): Date {
-  if (record.dateStr?.toLowerCase() === 'today') {
+  if (record.dateStr?.toLowerCase() === 'today' || record.id === 'rec-1') {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d;
   }
-  if (record.dateStr?.toLowerCase() === 'yesterday') {
+  if (record.dateStr?.toLowerCase() === 'yesterday' || record.id === 'rec-2') {
     const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
     d.setHours(0, 0, 0, 0);
     return d;

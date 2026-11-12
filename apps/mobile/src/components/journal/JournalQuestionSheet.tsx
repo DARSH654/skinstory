@@ -938,6 +938,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
   const scrollRef = useRef<ScrollView>(null);
   // Per AGENTS.md: store live text in a ref, never set state on every keystroke
   const textInputRef = useRef<string>('');
+  const skinMapDraftRef = useRef<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1027,6 +1028,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
         }
       }
 
+      skinMapDraftRef.current = recordAnswers['q_skin_map'] || null;
       setEditingAnswers(recordAnswers);
       setSlideDirection('forward');
 
@@ -1087,12 +1089,19 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     (qKey: string, val: string, updatedAnswersMap: Record<string, string>) => {
       if (!activeRecordId) return;
       const now = Date.now();
+      const todayDate = new Date();
+      const todayIso = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+      const todayDayName = todayDate.toLocaleDateString('en-US', { weekday: 'long' });
+
       setHistoryRecords((prev) =>
         prev.map((item) => {
           if (item.id === activeRecordId) {
             const nextTimestamps = { ...(item.answeredTimestamps || {}), [qKey]: now };
+            const isToday = item.dateStr?.toLowerCase() === 'today' || item.id === 'rec-1';
             return {
               ...item,
+              isoDate: isToday ? todayIso : item.isoDate,
+              dayName: isToday ? todayDayName : item.dayName,
               answers: updatedAnswersMap,
               answeredTimestamps: nextTimestamps,
             };
@@ -1418,9 +1427,9 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
   // Skin Experience (Question 1) Continue
   const handleContinueSkinMap = useCallback(() => {
     const qKey = 'q_skin_map';
-    const currentVal = editingAnswers[qKey] || JSON.stringify({ zones: [], maxSeverityScale: 5, summary: 'Clear / No issues reported' });
+    const currentVal = skinMapDraftRef.current || editingAnswers[qKey] || JSON.stringify({ zones: [], maxSeverityScale: 5, summary: 'Clear / No issues reported' });
     const updatedAnswers = { ...editingAnswers, [qKey]: currentVal };
-    if (!editingAnswers[qKey]) {
+    if (!editingAnswers[qKey] || editingAnswers[qKey] !== currentVal) {
       setEditingAnswers(updatedAnswers);
     }
 
@@ -1612,28 +1621,8 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
                     primaryColor={primaryColor}
                     currentAnswer={currentAnswer || undefined}
                     onSelect={(val) => {
-                      setEditingAnswers((prev) => {
-                        const nextAnswers = { ...prev, [currentQ.key]: val };
-                        // Immediately persist to history record with exact timestamp (Rule 4)
-                        if (activeRecordId) {
-                          const now = Date.now();
-                          setHistoryRecords((hrList) =>
-                            hrList.map((item) =>
-                              item.id === activeRecordId
-                                ? {
-                                    ...item,
-                                    answers: { ...(item.answers || {}), [currentQ.key]: val },
-                                    answeredTimestamps: {
-                                      ...(item.answeredTimestamps || {}),
-                                      [currentQ.key]: now,
-                                    },
-                                  }
-                                : item
-                            )
-                          );
-                        }
-                        return nextAnswers;
-                      });
+                      skinMapDraftRef.current = val;
+                      setEditingAnswers((prev) => (prev[currentQ.key] === val ? prev : { ...prev, [currentQ.key]: val }));
                     }}
                     onContinue={handleContinueSkinMap}
                   />
