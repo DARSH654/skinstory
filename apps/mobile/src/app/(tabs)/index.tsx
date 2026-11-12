@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,6 +16,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import Svg, { Defs, LinearGradient, Stop, Rect, Path, Circle } from 'react-native-svg';
 import { Flame, ChevronLeft, ChevronRight, Sparkles, Moon, Sun, CalendarDays, Calendar, User, Plus, ScanFace, Clock, BookOpen, Check, X } from 'lucide-react-native';
+import FutureLockModal from '@/components/home/FutureLockModal';
+import {
+  useForecastStore,
+  initJournalForecastSync,
+  ForecastHeroCardData,
+  getInitialDayGlobalIndex,
+  getDateForGlobalIndex,
+  toDateKey,
+  resolveRecordDate,
+} from '@/store/forecastStore';
+
+// Initialize global auto-listener between journal store edits and the forecast rules engine
+initJournalForecastSync();
 import { useRouter, useFocusEffect, useNavigation } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
@@ -84,63 +97,8 @@ const getMetricColor = (score: number) => {
   return '#ef4444'; // Red
 };
 
-interface ForecastItemData {
-  prefix: string;
-  highlight: string;
-  suffix?: string;
-  meta: string;
-  logDays: number;
-}
-
-const SAMPLE_FORECASTS: ForecastItemData[] = [
-  {
-    prefix: 'Peak glow and clarity expected in',
-    highlight: '1 day',
-    meta: 'Next skin renewal in 7 days',
-    logDays: 7,
-  },
-  {
-    prefix: 'Potential hormonal breakout window',
-    highlight: 'Tomorrow morning',
-    meta: 'Sebum activity elevated by 18%',
-    logDays: 14,
-  },
-  {
-    prefix: 'Barrier recovery complete in',
-    highlight: '48 hours',
-    meta: 'Ceramide synthesis on track',
-    logDays: 5,
-  },
-  {
-    prefix: 'Optimal time for active exfoliation',
-    highlight: 'Tonight',
-    suffix: 'after 9 PM',
-    meta: 'Cell turnover cycle peak',
-    logDays: 10,
-  },
-  {
-    prefix: 'Visible acne reduction targeted by',
-    highlight: '3 weeks',
-    meta: 'Blemish healing phase at 62%',
-    logDays: 21,
-  },
-  {
-    prefix: 'Deep hydration stabilization in',
-    highlight: '5 days',
-    meta: 'Transepidermal water loss decreasing',
-    logDays: 8,
-  },
-  {
-    prefix: 'Collagen rebuilding milestone in',
-    highlight: '1 month',
-    meta: 'Cellular elasticity trending upward',
-    logDays: 30,
-  },
-];
-
-const getForecastForDay = (globalIndex: number): ForecastItemData => {
-  const index = Math.abs(globalIndex) % SAMPLE_FORECASTS.length;
-  return SAMPLE_FORECASTS[index];
+const getForecastForDay = (globalIndex: number): ForecastHeroCardData => {
+  return useForecastStore.getState().getForecastForDay(globalIndex);
 };
 
 function AnimatedScoreItem({
@@ -204,7 +162,55 @@ function AnimatedScoreItem({
     opacity: opacity.value,
   }));
 
-  const forecast = getForecastForDay(dayIndex);
+  const historyRecords = useJournalStore((state) => state.historyRecords);
+  const todayGlobalIdx = getInitialDayGlobalIndex();
+  const isToday = dayIndex === todayGlobalIdx;
+
+  const hasLogForDay = useMemo(() => {
+    if (isToday) return true; // Today is always normal / live
+    const targetDate = getDateForGlobalIndex(dayIndex);
+    const targetKey = toDateKey(targetDate);
+
+    return historyRecords.some((r) => {
+      if (r.isoDate && r.isoDate === targetKey) {
+        return Object.keys(r.answers || {}).length > 0;
+      }
+      if (r.dateStr) {
+        const d = resolveRecordDate(r);
+        if (toDateKey(d) === targetKey) {
+          return Object.keys(r.answers || {}).length > 0;
+        }
+      }
+      return false;
+    });
+  }, [dayIndex, isToday, historyRecords]);
+
+  // If a past day has NO log recorded, render the uplifted card
+  if (!hasLogForDay) {
+    return (
+      <View style={{ width: itemWidth, height: 240, alignItems: 'center', justifyContent: 'center' }} pointerEvents="box-none">
+        <View
+          style={[
+            styles.emptyPastForecastCard,
+            isDark ? styles.emptyPastForecastCardDark : styles.emptyPastForecastCardLight,
+          ]}
+        >
+          {/* Title centered */}
+          <Text style={[styles.emptyPastTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
+            No Data Logged for This Day
+          </Text>
+
+          {/* Subtitle filling the space properly */}
+          <Text style={[styles.emptyPastSubtitle, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
+            No journal entries were recorded for this date. Complete your daily logs to generate skin forecasts.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const forecastFromStore = useForecastStore((state) => state.forecastCardsByDay[dayIndex]);
+  const forecast = forecastFromStore || getForecastForDay(dayIndex);
 
   return (
     <View style={{ width: itemWidth, height: 240, alignItems: 'center', justifyContent: 'center' }} pointerEvents="box-none">
@@ -212,8 +218,6 @@ function AnimatedScoreItem({
         style={{
           width: '100%',
           height: 240,
-          borderWidth: 2,
-          borderColor: '#ef4444',
           alignItems: 'center',
           justifyContent: 'center',
           paddingHorizontal: 16,
@@ -229,11 +233,11 @@ function AnimatedScoreItem({
               styles.forecastBigNumber, 
               { 
                 color: isDark ? '#ffffff' : '#000000',
-                fontSize: forecast.highlight.length > 12 ? 32 : (forecast.highlight.length > 7 ? 40 : 50),
+                fontSize: forecast.highlight.length > 14 ? 26 : (forecast.highlight.length > 10 ? 30 : (forecast.highlight.length > 7 ? 38 : 46)),
               }
             ]}
             numberOfLines={1}
-            adjustsFontSizeToFit={false}
+            adjustsFontSizeToFit={true}
           >
             {forecast.highlight}
           </Text>
@@ -529,6 +533,133 @@ function AnimatedMetricNode({
   );
 }
 
+// ---------------------------------------------------------------------------
+// CalendarDayPill: Week Day Item with Future Date Lock Interception
+// ---------------------------------------------------------------------------
+function CalendarDayPill({
+  item,
+  globalDayIdx,
+  isSelected,
+  isToday,
+  isFuture,
+  isDark,
+  onSelectDay,
+  onFutureLockPress,
+}: {
+  item: { label: string; dateNum: number; isToday: boolean };
+  globalDayIdx: number;
+  isSelected: boolean;
+  isToday: boolean;
+  isFuture: boolean;
+  isDark: boolean;
+  onSelectDay: (idx: number) => void;
+  onFutureLockPress: (origin: { x: number; y: number }) => void;
+}) {
+  const pillRef = useRef<View>(null);
+
+  const handlePress = (e: any) => {
+    if (isFuture) {
+      const fallbackX = e?.nativeEvent?.pageX || 200;
+      const fallbackY = e?.nativeEvent?.pageY || 200;
+      if (pillRef.current?.measureInWindow) {
+        pillRef.current.measureInWindow((x, y, width, height) => {
+          if (width > 0 && height > 0) {
+            onFutureLockPress({
+              x: x + width / 2,
+              y: y + height / 2,
+            });
+          } else {
+            onFutureLockPress({ x: fallbackX, y: fallbackY });
+          }
+        });
+      } else {
+        onFutureLockPress({ x: fallbackX, y: fallbackY });
+      }
+      return;
+    }
+    onSelectDay(globalDayIdx);
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={[
+        styles.dayColumn,
+      ]}
+      hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+    >
+      <View ref={pillRef} collapsable={false} style={{ alignItems: 'center', width: '100%' }}>
+        {/* Day Label / "TODAY" */}
+        <Text
+          style={[
+            styles.dayColumnLabel,
+            {
+              color: isToday
+                ? isDark
+                  ? '#ffffff'
+                  : '#111827'
+                : isDark
+                ? '#a1a1aa'
+                : '#6b7280',
+              fontWeight: isToday ? '800' : '600',
+              fontSize: isToday ? 10 : 12,
+            },
+          ]}
+        >
+          {isToday ? 'TODAY' : item.label}
+        </Text>
+
+        {/* Day Number Circle */}
+        <View style={styles.dayNumberCircle}>
+          {/* Filled circle for selected day */}
+          {isSelected && (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  borderRadius: 999,
+                  backgroundColor: isDark ? '#ffffff' : Colors.light.primary,
+                },
+              ]}
+            />
+          )}
+          {/* Outlined circle for today (when not selected) */}
+          {!isSelected && isToday && (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  borderRadius: 999,
+                  borderWidth: 1.5,
+                  borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)',
+                  backgroundColor: 'transparent',
+                },
+              ]}
+            />
+          )}
+          <Text
+            style={[
+              styles.dayNumberText,
+              {
+                color: isSelected
+                  ? isDark
+                    ? '#111827'
+                    : '#ffffff'
+                  : isDark
+                  ? '#ffffff'
+                  : '#111827',
+                fontWeight: isSelected ? '800' : '600',
+              },
+            ]}
+          >
+            {String(item.dateNum)}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 export default function HomeScreen() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const scheme = useColorScheme();
@@ -594,6 +725,19 @@ export default function HomeScreen() {
     }, 220);
   }, []);
 
+  // Future Date Lock Modal State
+  const [futureLockModalVisible, setFutureLockModalVisible] = useState(false);
+  const [futureModalOrigin, setFutureModalOrigin] = useState({ x: 0, y: 0 });
+
+  const openFutureLockModal = useCallback((origin: { x: number; y: number }) => {
+    setFutureModalOrigin(origin);
+    setFutureLockModalVisible(true);
+  }, []);
+
+  const closeFutureLockModal = useCallback(() => {
+    setFutureLockModalVisible(false);
+  }, []);
+
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const animatedModalPillStyle = useAnimatedStyle(() => {
     const targetX = SCREEN_WIDTH / 2;
@@ -624,8 +768,21 @@ export default function HomeScreen() {
   const historyRecords = useJournalStore((state) => state.historyRecords);
   const questions = useJournalStore((state) => state.questions);
 
+  // Derive today's record and completion status for Future Lock Modal
+  const todayRecord = useMemo(() => {
+    return historyRecords.find(
+      (r) => r.dateStr?.toLowerCase() === 'today' || r.id === 'rec-1'
+    ) || historyRecords[0];
+  }, [historyRecords]);
+
+  const isTodayIncomplete = useMemo(() => {
+    if (!todayRecord) return true;
+    const answeredCount = questions.filter((q) => Boolean(todayRecord.answers?.[q.key])).length;
+    return answeredCount < questions.length;
+  }, [todayRecord, questions]);
+
   // Scroll lock: only one horizontal carousel scrolls at a time
-  const activeScrollRef = useRef<'scans' | 'journals' | null>(null);
+  const activeScrollRef = useRef<'scans' | 'journals' | 'score' | null>(null);
 
   // Journal Question Sheet ref for live daily tracking
   const journalSheetRef = useRef<JournalQuestionSheetRef>(null);
@@ -832,6 +989,16 @@ export default function HomeScreen() {
   const [visibleWeekIndex, setVisibleWeekIndex] = useState(INITIAL_WEEK_INDEX);
   const [selectedGlobalDayIdx, setSelectedGlobalDayIdx] = useState(INITIAL_DAY_GLOBAL_INDEX);
 
+  // Initialize and sync forecast store with live journal data
+  React.useEffect(() => {
+    useForecastStore.getState().init(questions, historyRecords);
+  }, [questions, historyRecords]);
+
+  // Ensure forecast exists when sliding to any past day
+  React.useEffect(() => {
+    useForecastStore.getState().ensureForecastForDay(selectedGlobalDayIdx, questions, historyRecords);
+  }, [selectedGlobalDayIdx, questions, historyRecords]);
+
   // Helper to convert global index (0..62) to week offset and day index (0..6)
   const getWeekOffsetAndDay = (globalIdx: number) => {
     const weekIdx = Math.floor(globalIdx / 7);
@@ -916,8 +1083,9 @@ export default function HomeScreen() {
 
   const dayMeta = getDayMetadata(selectedGlobalDayIdx);
 
-  // Generate an array of global day indices [0..TOTAL_DAYS-1] for continuous sliding
-  const allDaysArray = Array.from({ length: TOTAL_DAYS }, (_, i) => i);
+  // Generate an array of global day indices up to Today [0..INITIAL_DAY_GLOBAL_INDEX]
+  // Clamping to today physically prevents carousel sliding into future unlogged dates
+  const allDaysArray = Array.from({ length: INITIAL_DAY_GLOBAL_INDEX + 1 }, (_, i) => i);
 
   // Refs for synchronization
   const scorePagerRef = useRef<FlatList>(null);
@@ -925,13 +1093,15 @@ export default function HomeScreen() {
   
   // Callback when user slides the main score block day-to-day
   const handleScoreScrollEnd = (e: any) => {
-    const slideWidth = SCREEN_WIDTH - 40;
+    activeScrollRef.current = null;
+    const slideWidth = SCREEN_WIDTH - 40 + 14;
     const xOffset = e.nativeEvent.contentOffset.x;
     const newGlobalIdx = Math.round(xOffset / slideWidth);
-    if (newGlobalIdx >= 0 && newGlobalIdx < TOTAL_DAYS) {
-      setSelectedGlobalDayIdx(newGlobalIdx);
+    const clampedIdx = Math.max(0, Math.min(newGlobalIdx, INITIAL_DAY_GLOBAL_INDEX));
+    if (clampedIdx >= 0 && clampedIdx <= INITIAL_DAY_GLOBAL_INDEX) {
+      setSelectedGlobalDayIdx(clampedIdx);
       // Auto-slide calendar week if day moves into a different week
-      const targetWeekIdx = Math.floor(newGlobalIdx / 7);
+      const targetWeekIdx = Math.floor(clampedIdx / 7);
       if (targetWeekIdx !== visibleWeekIndex) {
         setVisibleWeekIndex(targetWeekIdx);
         weekCalendarRef.current?.scrollToIndex({ index: targetWeekIdx, animated: true });
@@ -949,6 +1119,22 @@ export default function HomeScreen() {
       setVisibleWeekIndex(newWeekIndex);
     }
   };
+
+  // Redirect to Current Week on header date press (No reaction if already in current week)
+  const handleHeaderDatePress = useCallback(() => {
+    if (visibleWeekIndex === INITIAL_WEEK_INDEX) {
+      // In current week: no reaction
+      return;
+    }
+    setVisibleWeekIndex(INITIAL_WEEK_INDEX);
+    setSelectedGlobalDayIdx(INITIAL_DAY_GLOBAL_INDEX);
+    try {
+      weekCalendarRef.current?.scrollToIndex({ index: INITIAL_WEEK_INDEX, animated: true });
+    } catch {}
+    try {
+      scorePagerRef.current?.scrollToIndex({ index: INITIAL_DAY_GLOBAL_INDEX, animated: true });
+    } catch {}
+  }, [visibleWeekIndex]);
 
   const currentDayData = SCORES_BY_DAY[selectedDayIdx] || SCORES_BY_DAY[todayIdx];
 
@@ -1091,11 +1277,20 @@ export default function HomeScreen() {
                 <User size={20} color={isDark ? "#ffffff" : "#1f2937"} strokeWidth={2.2} />
               </Pressable>
 
-              {/* Centered Date (e.g., "26 October") - absolutely centered across the screen */}
-              <View style={styles.headerCenterDateWrapper} pointerEvents="none">
-                <Text style={[styles.headerDateTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
-                  {selectedDateHeaderStr}
-                </Text>
+              {/* Centered Date (e.g., "12 November") - clickable to return to current week */}
+              <View style={styles.headerCenterDateWrapper} pointerEvents="box-none">
+                <Pressable
+                  onPress={handleHeaderDatePress}
+                  hitSlop={{ top: 10, bottom: 10, left: 16, right: 16 }}
+                  disabled={visibleWeekIndex === INITIAL_WEEK_INDEX}
+                  style={({ pressed }) => [
+                    { opacity: visibleWeekIndex !== INITIAL_WEEK_INDEX && pressed ? 0.7 : 1 }
+                  ]}
+                >
+                  <Text style={[styles.headerDateTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
+                    {selectedDateHeaderStr}
+                  </Text>
+                </Pressable>
               </View>
 
               {/* Streak pill on right */}
@@ -1154,70 +1349,25 @@ export default function HomeScreen() {
                         const globalDayIdx = weekIdx * 7 + idx;
                         const isSelected = selectedGlobalDayIdx === globalDayIdx;
                         const isToday = item.isToday;
+                        const isFuture = globalDayIdx > INITIAL_DAY_GLOBAL_INDEX;
 
                         return (
-                          <Pressable
-                            key={idx}
-                            onPress={() => {
-                              setSelectedGlobalDayIdx(globalDayIdx);
-                              scorePagerRef.current?.scrollToIndex({ index: globalDayIdx, animated: true });
+                          <CalendarDayPill
+                            key={`pill-${globalDayIdx}`}
+                            item={item}
+                            globalDayIdx={globalDayIdx}
+                            isSelected={isSelected}
+                            isToday={isToday}
+                            isFuture={isFuture}
+                            isDark={isDark}
+                            onSelectDay={(dayIdx) => {
+                              setSelectedGlobalDayIdx(dayIdx);
+                              scorePagerRef.current?.scrollToIndex({ index: dayIdx, animated: true });
                             }}
-                            style={styles.dayColumn}
-                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-                          >
-                            {/* Day Label / "TODAY" */}
-                            <Text style={[
-                              styles.dayColumnLabel,
-                              {
-                                color: isToday 
-                                  ? (isDark ? '#ffffff' : '#111827') 
-                                  : (isDark ? '#a1a1aa' : '#6b7280'),
-                                fontWeight: isToday ? '800' : '600',
-                                fontSize: isToday ? 10 : 12,
-                              }
-                            ]}>
-                              {isToday ? 'TODAY' : item.label}
-                            </Text>
-
-                            {/* Day Number Circle — background and text are decoupled:
-                                The bg View handles its own borderRadius (no overflow needed).
-                                The Text sits as a sibling on top, never clipped. */}
-                            <View style={styles.dayNumberCircle}>
-                              {/* Filled circle for selected day - ONLY shows on that exact selected day */}
-                              {isSelected && (
-                                <View style={[
-                                  StyleSheet.absoluteFill,
-                                  {
-                                    borderRadius: 999,
-                                    backgroundColor: isDark ? '#ffffff' : Colors.light.primary,
-                                  }
-                                ]} />
-                              )}
-                              {/* Outlined circle for today (when not selected) */}
-                              {!isSelected && isToday && (
-                                <View style={[
-                                  StyleSheet.absoluteFill,
-                                  {
-                                    borderRadius: 999,
-                                    borderWidth: 1.5,
-                                    borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)',
-                                    backgroundColor: 'transparent',
-                                  }
-                                ]} />
-                              )}
-                              <Text style={[
-                                styles.dayNumberText,
-                                {
-                                  color: isSelected
-                                    ? (isDark ? '#111827' : '#ffffff')
-                                    : (isDark ? '#ffffff' : '#111827'),
-                                  fontWeight: isSelected ? '800' : '600',
-                                }
-                              ]}>
-                                {String(item.dateNum)}
-                              </Text>
-                            </View>
-                          </Pressable>
+                            onFutureLockPress={(origin) => {
+                              openFutureLockModal(origin);
+                            }}
+                          />
                         );
                       })}
                     </View>
@@ -1227,32 +1377,47 @@ export default function HomeScreen() {
             </View>
 
             {/* Center Area: Animated Analyzing Data Disc AND Slideable Score Block with smooth transition */}
-            <View style={{ height: 240, width: SCREEN_WIDTH - 40, alignSelf: 'center', marginBottom: 0, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            <View style={{ height: 240, width: SCREEN_WIDTH - 40, alignSelf: 'center', marginBottom: 0, alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
               {/* Score / Forecast Slideable block across all days */}
               <Animated.View 
-                style={[{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }, scoreBlockAnimStyle]}
+                style={[{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, scoreBlockAnimStyle]}
                 pointerEvents={isAnalyzing ? 'none' : 'auto'}
               >
                 <FlatList
                   ref={scorePagerRef}
                   data={allDaysArray}
                   horizontal
-                  pagingEnabled
                   showsHorizontalScrollIndicator={false}
-                  snapToInterval={SCREEN_WIDTH - 40}
-                  snapToAlignment="center"
                   decelerationRate="fast"
+                  snapToInterval={SCREEN_WIDTH - 40 + 14}
+                  snapToAlignment="start"
                   disableIntervalMomentum={true}
+                  bounces={true}
+                  overScrollMode="never"
+                  getItemLayout={(_, index) => ({
+                    length: SCREEN_WIDTH - 40 + 14,
+                    offset: (SCREEN_WIDTH - 40 + 14) * index,
+                    index,
+                  })}
+                  ItemSeparatorComponent={() => <View style={{ width: 14 }} />}
                   initialNumToRender={2}
                   maxToRenderPerBatch={3}
                   windowSize={5}
-                  removeClippedSubviews={true}
+                  removeClippedSubviews={false}
                   keyExtractor={(item) => `score-day-${item}`}
                   initialScrollIndex={INITIAL_DAY_GLOBAL_INDEX}
-                  getItemLayout={(_, index) => (
-                    { length: SCREEN_WIDTH - 40, offset: (SCREEN_WIDTH - 40) * index, index }
-                  )}
+                  onScrollToIndexFailed={(info) => {
+                    scorePagerRef.current?.scrollToOffset({
+                      offset: info.index * (SCREEN_WIDTH - 40 + 14),
+                      animated: false,
+                    });
+                  }}
+                  style={{ width: SCREEN_WIDTH - 40, overflow: 'hidden' }}
+                  contentContainerStyle={{ paddingVertical: 0 }}
+                  onScrollBeginDrag={() => { activeScrollRef.current = 'score'; }}
+                  onScrollEndDrag={() => { activeScrollRef.current = null; }}
                   onMomentumScrollEnd={handleScoreScrollEnd}
+                  scrollEnabled={activeScrollRef.current === null || activeScrollRef.current === 'score'}
                   renderItem={({ item: globalIndex }) => {
                     const dayIdxInWeek = globalIndex % 7;
                     const scoreData = SCORES_BY_DAY[dayIdxInWeek] || SCORES_BY_DAY[todayIdx];
@@ -1627,15 +1792,23 @@ export default function HomeScreen() {
               >
                 <Text style={[
                   styles.forecastModalText,
-                  { color: isDark ? '#ffffff' : '#111827' }
+                  { color: isDark ? '#ffffff' : '#000000' }
                 ]}>
-                  Based on logs from the past {forecastModalDays} days
+                  Based on logs from the past {forecastModalDays === 1 ? '1 day' : `${forecastModalDays} days`}
                 </Text>
               </Pressable>
             </Animated.View>
           </Animated.View>
         </Pressable>
       </Modal>
+
+      {/* Future Date Forecast Lock Modal */}
+      <FutureLockModal
+        visible={futureLockModalVisible}
+        origin={futureModalOrigin}
+        isDark={isDark}
+        onClose={closeFutureLockModal}
+      />
     </View>
   );
 }
@@ -1725,6 +1898,46 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
 
+  /* Empty Past Day Uplifted Card — Exact match of upliftedCardBox with 1px border */
+  emptyPastForecastCard: {
+    width: '100%',
+    height: 220,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 26,
+    paddingVertical: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  emptyPastForecastCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+  },
+  emptyPastForecastCardDark: {
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
+  },
+  emptyPastTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyPastSubtitle: {
+    fontSize: 13.5,
+    fontWeight: '500',
+    lineHeight: 19,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+    maxWidth: 290,
+  },
+
   analyzingWrapper: {
     width: 280,
     height: 250,
@@ -1792,6 +2005,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
+    zIndex: 2,
   },
   profileIconBtnLight: {
     backgroundColor: '#ffffff',
@@ -1809,7 +2023,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 0,
+    zIndex: 1,
   },
   headerDateTitle: {
     fontSize: 18,
@@ -1881,6 +2095,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
+    zIndex: 2,
   },
   streakPillLight: {
     backgroundColor: 'rgba(255,255,255,0.22)',
@@ -2282,25 +2497,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  textLight: {
+    color: '#111827',
+  },
+  textDark: {
+    color: '#ffffff',
+  },
   forecastModalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
   forecastModalPill: {
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 100,
+    width: '100%',
+    maxWidth: 300,
+    paddingHorizontal: 22,
+    paddingVertical: 16,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 0,
-    maxWidth: '90%',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
   },
   forecastModalPillLight: {
     backgroundColor: '#FAF8F6',
@@ -2308,14 +2530,14 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
   },
   forecastModalPillDark: {
-    backgroundColor: '#18181b',
+    backgroundColor: '#121212',
     borderWidth: 1,
-    borderColor: '#27272a',
+    borderColor: '#2b2b30',
   },
   forecastModalText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
-    letterSpacing: -0.2,
+    lineHeight: 20,
   },
 });

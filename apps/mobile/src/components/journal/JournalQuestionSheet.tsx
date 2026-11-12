@@ -1017,8 +1017,8 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
       const recordAnswers = { ...(record.answers || {}) };
 
       // Smart persistence for Question 1 (q_skin_map):
-      // If current record has no q_skin_map, carry forward from past records so the user isn't forced to re-enter daily
-      if (!recordAnswers['q_skin_map']) {
+      // Only carry forward if current record does NOT have q_skin_map explicitly defined yet
+      if (recordAnswers['q_skin_map'] === undefined) {
         const pastRecordWithSkinMap = historyRecords.find(
           (hr) => hr.id !== record.id && hr.answers && hr.answers['q_skin_map']
         );
@@ -1082,6 +1082,28 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     setSlideDirection('forward');
   }, []);
 
+  // Helper to commit an updated answer and stamp its exact question timestamp (Rule 4)
+  const commitAnswerToRecord = useCallback(
+    (qKey: string, val: string, updatedAnswersMap: Record<string, string>) => {
+      if (!activeRecordId) return;
+      const now = Date.now();
+      setHistoryRecords((prev) =>
+        prev.map((item) => {
+          if (item.id === activeRecordId) {
+            const nextTimestamps = { ...(item.answeredTimestamps || {}), [qKey]: now };
+            return {
+              ...item,
+              answers: updatedAnswersMap,
+              answeredTimestamps: nextTimestamps,
+            };
+          }
+          return item;
+        })
+      );
+    },
+    [activeRecordId, setHistoryRecords]
+  );
+
   const selectAnswer = useCallback((qKey: string, val: string) => {
     const updatedAnswers = {
       ...editingAnswers,
@@ -1091,13 +1113,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
 
     setTimeout(() => {
       if (reansweringKey && qKey === reansweringKey) {
-        if (activeRecordId) {
-          setHistoryRecords((prev) =>
-            prev.map((item) =>
-              item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
-            )
-          );
-        }
+        commitAnswerToRecord(qKey, val, updatedAnswers);
         setReansweringKey(null);
         sheetRef.current?.hide();
         setCurrentIndex(0);
@@ -1106,23 +1122,18 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
       }
 
       if (isLastQuestion) {
-        if (activeRecordId) {
-          setHistoryRecords((prev) =>
-            prev.map((item) =>
-              item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
-            )
-          );
-        }
+        commitAnswerToRecord(qKey, val, updatedAnswers);
         sheetRef.current?.hide();
         setCurrentIndex(0);
         setActiveRecordId(null);
         onCompleted?.();
       } else {
+        commitAnswerToRecord(qKey, val, updatedAnswers);
         setSlideDirection('forward');
         setCurrentIndex((prev) => Math.min(prev + 1, questions.length - 1));
       }
     }, 220);
-  }, [editingAnswers, reansweringKey, activeRecordId, isLastQuestion, questions.length, setHistoryRecords]);
+  }, [editingAnswers, reansweringKey, isLastQuestion, questions.length, commitAnswerToRecord, onCompleted]);
 
   // Image type: open the Scan tab's camera page to capture a photo.
   // The origin ("journal") + question key are forwarded so the camera knows to
@@ -1221,7 +1232,9 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
             if (item.id === activeRecordId) {
               const updated = { ...(item.answers || {}) };
               delete updated[qKey];
-              return { ...item, answers: updated };
+              const updatedTimestamps = { ...(item.answeredTimestamps || {}) };
+              delete updatedTimestamps[qKey];
+              return { ...item, answers: updated, answeredTimestamps: updatedTimestamps };
             }
             return item;
           })
@@ -1281,13 +1294,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     if (!qKey) return;
 
     if (reansweringKey && qKey === reansweringKey) {
-      if (activeRecordId) {
-        setHistoryRecords((prev) =>
-          prev.map((item) =>
-            item.id === activeRecordId ? { ...item, answers: { ...editingAnswers } } : item
-          )
-        );
-      }
+      commitAnswerToRecord(qKey, editingAnswers[qKey] || '', editingAnswers);
       setReansweringKey(null);
       sheetRef.current?.hide();
       setCurrentIndex(0);
@@ -1296,22 +1303,17 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     }
 
     if (isLastQuestion) {
-      if (activeRecordId) {
-        setHistoryRecords((prev) =>
-          prev.map((item) =>
-            item.id === activeRecordId ? { ...item, answers: { ...editingAnswers } } : item
-          )
-        );
-      }
+      commitAnswerToRecord(qKey, editingAnswers[qKey] || '', editingAnswers);
       sheetRef.current?.hide();
       setCurrentIndex(0);
       setActiveRecordId(null);
       onCompleted?.();
     } else {
+      commitAnswerToRecord(qKey, editingAnswers[qKey] || '', editingAnswers);
       setSlideDirection('forward');
       setCurrentIndex((prev) => Math.min(prev + 1, questions.length - 1));
     }
-  }, [currentQ?.key, reansweringKey, activeRecordId, editingAnswers, isLastQuestion, questions.length, setHistoryRecords]);
+  }, [currentQ?.key, reansweringKey, editingAnswers, isLastQuestion, questions.length, commitAnswerToRecord, onCompleted]);
 
   // Text type: Continue — read from ref, commit, then navigate
   const handleContinueText = useCallback(() => {
@@ -1323,13 +1325,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     setEditingAnswers(updatedAnswers);
 
     if (reansweringKey && qKey === reansweringKey) {
-      if (activeRecordId) {
-        setHistoryRecords((prev) =>
-          prev.map((item) =>
-            item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
-          )
-        );
-      }
+      commitAnswerToRecord(qKey, textVal, updatedAnswers);
       setReansweringKey(null);
       sheetRef.current?.hide();
       setCurrentIndex(0);
@@ -1338,22 +1334,17 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     }
 
     if (isLastQuestion) {
-      if (activeRecordId) {
-        setHistoryRecords((prev) =>
-          prev.map((item) =>
-            item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
-          )
-        );
-      }
+      commitAnswerToRecord(qKey, textVal, updatedAnswers);
       sheetRef.current?.hide();
       setCurrentIndex(0);
       setActiveRecordId(null);
       onCompleted?.();
     } else {
+      commitAnswerToRecord(qKey, textVal, updatedAnswers);
       setSlideDirection('forward');
       setCurrentIndex((prev) => Math.min(prev + 1, questions.length - 1));
     }
-  }, [currentQ?.key, reansweringKey, activeRecordId, editingAnswers, isLastQuestion, questions.length, setHistoryRecords]);
+  }, [currentQ?.key, reansweringKey, editingAnswers, isLastQuestion, questions.length, commitAnswerToRecord, onCompleted]);
 
   // Scale type: Continue — ensure selected value is recorded, then navigate
   const handleContinueScale = useCallback(() => {
@@ -1368,13 +1359,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     }
 
     if (reansweringKey && qKey === reansweringKey) {
-      if (activeRecordId) {
-        setHistoryRecords((prev) =>
-          prev.map((item) =>
-            item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
-          )
-        );
-      }
+      commitAnswerToRecord(qKey, currentVal, updatedAnswers);
       setReansweringKey(null);
       sheetRef.current?.hide();
       setCurrentIndex(0);
@@ -1383,22 +1368,17 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     }
 
     if (isLastQuestion) {
-      if (activeRecordId) {
-        setHistoryRecords((prev) =>
-          prev.map((item) =>
-            item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
-          )
-        );
-      }
+      commitAnswerToRecord(qKey, currentVal, updatedAnswers);
       sheetRef.current?.hide();
       setCurrentIndex(0);
       setActiveRecordId(null);
       onCompleted?.();
     } else {
+      commitAnswerToRecord(qKey, currentVal, updatedAnswers);
       setSlideDirection('forward');
       setCurrentIndex((prev) => Math.min(prev + 1, questions.length - 1));
     }
-  }, [currentQ?.key, reansweringKey, activeRecordId, editingAnswers, isLastQuestion, questions.length, setHistoryRecords]);
+  }, [currentQ?.key, reansweringKey, editingAnswers, isLastQuestion, questions.length, commitAnswerToRecord, onCompleted]);
 
   // Numeric type: Continue — ensure selected value is recorded, then navigate
   const handleContinueNumeric = useCallback(() => {
@@ -1414,13 +1394,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     }
 
     if (reansweringKey && qKey === reansweringKey) {
-      if (activeRecordId) {
-        setHistoryRecords((prev) =>
-          prev.map((item) =>
-            item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
-          )
-        );
-      }
+      commitAnswerToRecord(qKey, currentVal, updatedAnswers);
       setReansweringKey(null);
       sheetRef.current?.hide();
       setCurrentIndex(0);
@@ -1429,22 +1403,17 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     }
 
     if (isLastQuestion) {
-      if (activeRecordId) {
-        setHistoryRecords((prev) =>
-          prev.map((item) =>
-            item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
-          )
-        );
-      }
+      commitAnswerToRecord(qKey, currentVal, updatedAnswers);
       sheetRef.current?.hide();
       setCurrentIndex(0);
       setActiveRecordId(null);
       onCompleted?.();
     } else {
+      commitAnswerToRecord(qKey, currentVal, updatedAnswers);
       setSlideDirection('forward');
       setCurrentIndex((prev) => Math.min(prev + 1, questions.length - 1));
     }
-  }, [currentQ, reansweringKey, activeRecordId, editingAnswers, isLastQuestion, questions.length, setHistoryRecords]);
+  }, [currentQ, reansweringKey, editingAnswers, isLastQuestion, questions.length, commitAnswerToRecord, onCompleted]);
 
   // Skin Experience (Question 1) Continue
   const handleContinueSkinMap = useCallback(() => {
@@ -1456,13 +1425,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     }
 
     if (reansweringKey && qKey === reansweringKey) {
-      if (activeRecordId) {
-        setHistoryRecords((prev) =>
-          prev.map((item) =>
-            item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
-          )
-        );
-      }
+      commitAnswerToRecord(qKey, currentVal, updatedAnswers);
       setReansweringKey(null);
       sheetRef.current?.hide();
       setCurrentIndex(0);
@@ -1471,22 +1434,17 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     }
 
     if (isLastQuestion) {
-      if (activeRecordId) {
-        setHistoryRecords((prev) =>
-          prev.map((item) =>
-            item.id === activeRecordId ? { ...item, answers: { ...updatedAnswers } } : item
-          )
-        );
-      }
+      commitAnswerToRecord(qKey, currentVal, updatedAnswers);
       sheetRef.current?.hide();
       setCurrentIndex(0);
       setActiveRecordId(null);
       onCompleted?.();
     } else {
+      commitAnswerToRecord(qKey, currentVal, updatedAnswers);
       setSlideDirection('forward');
       setCurrentIndex((prev) => Math.min(prev + 1, questions.length - 1));
     }
-  }, [reansweringKey, activeRecordId, editingAnswers, isLastQuestion, questions.length, setHistoryRecords, onCompleted]);
+  }, [reansweringKey, editingAnswers, isLastQuestion, questions.length, commitAnswerToRecord, onCompleted]);
 
   // Ref to debounce rapid Next/Prev clicks and prevent mid-animation overlapping views
   const isNavigatingRef = useRef(false);
@@ -1654,7 +1612,28 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
                     primaryColor={primaryColor}
                     currentAnswer={currentAnswer || undefined}
                     onSelect={(val) => {
-                      setEditingAnswers((prev) => ({ ...prev, [currentQ.key]: val }));
+                      setEditingAnswers((prev) => {
+                        const nextAnswers = { ...prev, [currentQ.key]: val };
+                        // Immediately persist to history record with exact timestamp (Rule 4)
+                        if (activeRecordId) {
+                          const now = Date.now();
+                          setHistoryRecords((hrList) =>
+                            hrList.map((item) =>
+                              item.id === activeRecordId
+                                ? {
+                                    ...item,
+                                    answers: { ...(item.answers || {}), [currentQ.key]: val },
+                                    answeredTimestamps: {
+                                      ...(item.answeredTimestamps || {}),
+                                      [currentQ.key]: now,
+                                    },
+                                  }
+                                : item
+                            )
+                          );
+                        }
+                        return nextAnswers;
+                      });
                     }}
                     onContinue={handleContinueSkinMap}
                   />

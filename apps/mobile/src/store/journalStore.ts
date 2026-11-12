@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MOCK_SCANS } from '@/constants/mockScans';
 
 export interface QuestionDef {
@@ -208,6 +210,8 @@ export interface JournalHistoryRecord {
   isoDate: string;
   image?: any;
   answers: Record<string, string>;
+  // Exact timestamp when each individual question was logged or last edited (Rule 4)
+  answeredTimestamps?: Record<string, number>;
 }
 
 export const DEMO_HISTORY_RECORDS: JournalHistoryRecord[] = [
@@ -218,7 +222,6 @@ export const DEMO_HISTORY_RECORDS: JournalHistoryRecord[] = [
     isoDate: '2026-10-18',
     image: MOCK_SCANS[0]?.image,
     answers: {
-      q_skin_map: '{"zones":[{"id":"temples","name":"Temples","conditions":["Subsurface texture"],"severity":3},{"id":"chin","name":"Chin","conditions":["Hormonal breakouts","Deep painful cysts"],"severity":3}],"maxSeverityScale":5,"summary":"Temples: Subsurface texture (Severity: 3/5); Chin: Hormonal breakouts, Deep painful cysts (Severity: 3/5)"}',
       q_routine: 'Morning & Evening',
       q_water: 'Around 2L',
     },
@@ -373,7 +376,9 @@ interface JournalState {
   deleteHistoryRecord: (id: string) => void;
 }
 
-export const useJournalStore = create<JournalState>((set, get) => ({
+export const useJournalStore = create<JournalState>()(
+  persist(
+    (set, get) => ({
   questions: INITIAL_QUESTIONS,
   availableQuestions: INITIAL_AVAILABLE_QUESTIONS,
   historyRecords: DEMO_HISTORY_RECORDS,
@@ -405,7 +410,9 @@ export const useJournalStore = create<JournalState>((set, get) => ({
         if (r.dateStr.toLowerCase() === 'today' || r.id === 'rec-1') {
           const updatedAnswers = { ...(r.answers || {}) };
           delete updatedAnswers[key];
-          return { ...r, answers: updatedAnswers };
+          const updatedTimestamps = { ...(r.answeredTimestamps || {}) };
+          delete updatedTimestamps[key];
+          return { ...r, answers: updatedAnswers, answeredTimestamps: updatedTimestamps };
         }
         return r;
       }),
@@ -513,4 +520,15 @@ export const useJournalStore = create<JournalState>((set, get) => ({
     set((state) => ({
       historyRecords: state.historyRecords.filter((r) => r.id !== id),
     })),
-}));
+    }),
+    {
+      name: 'skinstory_journal_storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        questions: state.questions,
+        availableQuestions: state.availableQuestions,
+        historyRecords: state.historyRecords,
+      }),
+    }
+  )
+);
