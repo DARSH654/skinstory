@@ -78,12 +78,16 @@ export function toDateKey(date: Date): string {
  * Resolves record timestamp or isoDate to a clean midnight Date object.
  */
 export function resolveRecordDate(record: JournalHistoryRecord): Date {
-  if (record.dateStr?.toLowerCase() === 'today' || record.id === 'rec-1') {
+  const todayDate = new Date();
+  const todayKey = toDateKey(todayDate);
+  const yesterdayKey = toDateKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
+
+  if (record.dateStr?.toLowerCase() === 'today' || record.isoDate === todayKey) {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d;
   }
-  if (record.dateStr?.toLowerCase() === 'yesterday' || record.id === 'rec-2') {
+  if (record.dateStr?.toLowerCase() === 'yesterday' || record.isoDate === yesterdayKey) {
     const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
     d.setHours(0, 0, 0, 0);
     return d;
@@ -117,7 +121,8 @@ export const DEFAULT_HERO_CARD: ForecastHeroCardData = {
 export function computeDeterministicInstantSynthesis(
   historyRecords: JournalHistoryRecord[],
   questions: QuestionDef[],
-  userProfile?: UserSkinProfile
+  userProfile?: UserSkinProfile,
+  isTodayLogged: boolean = true
 ): SkinForecastSynthesis {
   const stage1Logs: Stage1DailyLog[] = extractStage1HistoryLogs(historyRecords, questions);
   const baselineProfile = resolveUserSkinBaseline(userProfile?.skinType || 'combination');
@@ -154,19 +159,37 @@ export function computeDeterministicInstantSynthesis(
   };
 
   const stage3Result: Stage3ForecastResult = runStage3ForecastEngine(stage3Payload);
-  return buildDeterministicSynthesis(stage3Result, userProfile);
+  return buildDeterministicSynthesis(stage3Result, userProfile, isTodayLogged);
 }
 
 /**
  * Helper to determine data freshness and format the transparent basis label:
  * "Based on your log from [Date]"
  */
-function deriveBasisInfo(
+export function deriveBasisInfo(
   historyRecords: JournalHistoryRecord[],
   isToday: boolean
-): { basisLabel: string; logDays: number } {
+): { basisLabel: string; logDays: number; isTodayLogged: boolean; hasAnyLogs: boolean } {
+  const todayDate = new Date();
+  const todayKey = toDateKey(todayDate);
+  const yesterdayKey = toDateKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
+
+  const validLoggedRecords = historyRecords.filter(
+    (r) => Object.keys(r.answers || {}).length > 0
+  );
+  const hasAnyLogs = validLoggedRecords.length > 0;
+
+  if (!hasAnyLogs) {
+    return {
+      basisLabel: 'No logs recorded',
+      logDays: 0,
+      isTodayLogged: false,
+      hasAnyLogs: false,
+    };
+  }
+
   const todayRecord = historyRecords.find(
-    (r) => r.dateStr?.toLowerCase() === 'today' || r.id === 'rec-1'
+    (r) => r.isoDate === todayKey || r.dateStr?.toLowerCase() === 'today'
   );
   const hasTodayAnswers = Boolean(todayRecord && Object.keys(todayRecord.answers || {}).length > 0);
 
@@ -174,23 +197,41 @@ function deriveBasisInfo(
     if (hasTodayAnswers) {
       return {
         basisLabel: "Based on today's log",
-        logDays: Math.min(14, historyRecords.filter((r) => Object.keys(r.answers || {}).length > 0).length || 1),
+        logDays: Math.min(14, validLoggedRecords.length),
+        isTodayLogged: true,
+        hasAnyLogs: true,
       };
     }
-    // Today not yet logged: find the most recent prior logged record
+
+    // Today not yet logged (Morning Pre-Log Mode): Find most recent prior logged record
     const lastLogged = historyRecords.find(
-      (r) => r.id !== todayRecord?.id && Object.keys(r.answers || {}).length > 0
+      (r) => r.id !== todayRecord?.id && r.isoDate !== todayKey && Object.keys(r.answers || {}).length > 0
     );
-    const dateName = lastLogged ? (lastLogged.dateStr || lastLogged.isoDate || 'recent logs') : 'past 7 days';
+
+    if (lastLogged) {
+      const isYesterday = lastLogged.isoDate === yesterdayKey || lastLogged.dateStr?.toLowerCase() === 'yesterday';
+      const dateName = isYesterday ? 'yesterday' : (lastLogged.dateStr || lastLogged.isoDate || 'recent logs');
+      return {
+        basisLabel: isYesterday ? "Based on yesterday's log" : `Based on your log from ${dateName}`,
+        logDays: Math.min(14, validLoggedRecords.length),
+        isTodayLogged: false,
+        hasAnyLogs: true,
+      };
+    }
+
     return {
-      basisLabel: `Based on your log from ${dateName}`,
-      logDays: Math.min(14, historyRecords.filter((r) => Object.keys(r.answers || {}).length > 0).length || 5),
+      basisLabel: 'Based on recent logs',
+      logDays: Math.min(14, validLoggedRecords.length),
+      isTodayLogged: false,
+      hasAnyLogs: true,
     };
   }
 
   return {
     basisLabel: 'Based on your logs',
-    logDays: Math.min(14, historyRecords.length || 7),
+    logDays: Math.min(14, validLoggedRecords.length),
+    isTodayLogged: false,
+    hasAnyLogs: true,
   };
 }
 
@@ -258,23 +299,32 @@ export const useForecastStore = create<ForecastState>()(
 
         // Check day rollover: If todaySynthesis exists from a past date, freeze it permanently!
         const existingToday = get().todaySynthesis;
+        let dayRolledOver = false;
         if (existingToday) {
           const synthesisDate = new Date(existingToday.computedAt);
           const synthesisKey = toDateKey(synthesisDate);
           if (synthesisKey !== todayKey && synthesisKey < todayKey) {
+            console.log(`[FORECAST] 📅 Day rollover detected: Freezing ${synthesisKey} and resetting today (${todayKey})`);
             const frozen = { ...get().frozenPastSyntheses };
             frozen[synthesisKey] = existingToday;
-            set({ frozenPastSyntheses: frozen });
+            set({ frozenPastSyntheses: frozen, todaySynthesis: null });
+            dayRolledOver = true;
           }
         }
 
-        // Build instant 0ms deterministic card for today if missing so screen is NEVER blank
+        const { basisLabel, logDays, isTodayLogged, hasAnyLogs } = deriveBasisInfo(historyRecords, true);
+
+        if (!hasAnyLogs) {
+          console.log('[FORECAST] ℹ️ Zero journal logs recorded in history. Retaining empty state.');
+          return;
+        }
+
+        // Build instant 0ms deterministic card for today if missing or if day rolled over
         const currentCards = { ...get().forecastCardsByDay };
         const currentLabels = { ...get().basisLabelsByDay };
 
-        if (!currentCards[todayGlobalIdx]) {
-          const instant = computeDeterministicInstantSynthesis(historyRecords, questions, userProfile);
-          const { basisLabel, logDays } = deriveBasisInfo(historyRecords, true);
+        if (!currentCards[todayGlobalIdx] || dayRolledOver || !get().todaySynthesis) {
+          const instant = computeDeterministicInstantSynthesis(historyRecords, questions, userProfile, isTodayLogged);
           instant.heroCard.meta = basisLabel;
           instant.heroCard.logDays = logDays;
 
@@ -426,14 +476,33 @@ export const useForecastStore = create<ForecastState>()(
 
         try {
           const todayGlobalIdx = getInitialDayGlobalIndex();
+          const { basisLabel, logDays, isTodayLogged, hasAnyLogs } = deriveBasisInfo(historyRecords, true);
+
+          if (!hasAnyLogs) {
+            console.log('[FORECAST] ℹ️ Zero journal logs recorded in history. Clearing today forecast card.');
+            const currentCards = { ...get().forecastCardsByDay };
+            const currentLabels = { ...get().basisLabelsByDay };
+            delete currentCards[todayGlobalIdx];
+            delete currentLabels[todayGlobalIdx];
+            set({
+              todaySynthesis: null,
+              forecastCardsByDay: currentCards,
+              basisLabelsByDay: currentLabels,
+              isCalculating: false,
+            });
+            return;
+          }
+
           const synthesis = await runFullSkinForecastingPipeline(
             historyRecords,
             questions,
             userProfile,
-            options
+            {
+              ...options,
+              isTodayLogged,
+            }
           );
 
-          const { basisLabel, logDays } = deriveBasisInfo(historyRecords, true);
           synthesis.heroCard.meta = basisLabel;
           synthesis.heroCard.logDays = logDays;
 

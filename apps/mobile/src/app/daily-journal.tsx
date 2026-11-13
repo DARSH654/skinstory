@@ -578,8 +578,10 @@ export default function DailyJournalScreen() {
     const targetKey = pendingReanswerKey;
     setPendingReanswerKey(null);
 
+    const dNow = new Date();
+    const todayIso = `${dNow.getFullYear()}-${String(dNow.getMonth() + 1).padStart(2, '0')}-${String(dNow.getDate()).padStart(2, '0')}`;
     const todayRecord = historyRecords.find(
-      (r) => r.dateStr.toLowerCase() === 'today' || r.id === 'rec-1'
+      (r) => r.isoDate === todayIso || r.dateStr?.toLowerCase() === 'today'
     );
     if (!todayRecord) return;
 

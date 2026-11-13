@@ -247,8 +247,13 @@ export function extractStage1HistoryLogs(
     const rule1Result = validateRule1SkinMap(rawAnswers['q_skin_map']);
 
     // Derive base record timestamp dynamically: Today is always Date.now()
-    const isToday = record.dateStr?.toLowerCase() === 'today' || record.id === 'rec-1';
-    const isYesterday = record.dateStr?.toLowerCase() === 'yesterday' || record.id === 'rec-2';
+    const dNow = new Date();
+    const todayIso = `${dNow.getFullYear()}-${String(dNow.getMonth() + 1).padStart(2, '0')}-${String(dNow.getDate()).padStart(2, '0')}`;
+    const dYest = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const yesterdayIso = `${dYest.getFullYear()}-${String(dYest.getMonth() + 1).padStart(2, '0')}-${String(dYest.getDate()).padStart(2, '0')}`;
+
+    const isToday = record.dateStr?.toLowerCase() === 'today' || record.isoDate === todayIso;
+    const isYesterday = record.dateStr?.toLowerCase() === 'yesterday' || record.isoDate === yesterdayIso;
 
     let resolvedIso = record.isoDate;
     let recordTimestamp = Date.now();

@@ -175,7 +175,8 @@ const AXIS_DISPLAY_INFO: Record<SkinAxisCategory, { title: string; positiveName:
  */
 export function buildDeterministicSynthesis(
   stage3Result: Stage3ForecastResult,
-  userProfile?: UserSkinProfile
+  userProfile?: UserSkinProfile,
+  isTodayLogged: boolean = true
 ): SkinForecastSynthesis {
   const { winningForecast, horizons, currentStateVector, baselineVector } = stage3Result;
   const { dominantAxis, horizonKey, horizonDisplay, direction, severityScore, activeDrivers } = winningForecast;
@@ -188,19 +189,34 @@ export function buildDeterministicSynthesis(
 
   // 1. Build Hero Card (matching index.tsx ForecastItemData)
   let prefix = '';
-  let highlight = horizonDisplay;
+  let highlight = isTodayLogged ? horizonDisplay : 'This Morning';
   let suffix: string | undefined = undefined;
   let meta = '';
 
-  if (direction === 'improving') {
-    prefix = `Optimal ${info.positiveName.toLowerCase()} expected in`;
-    meta = `${info.title} trending +${Math.round(severityScore * 30)}% above baseline`;
-  } else if (direction === 'worsening') {
-    prefix = `Potential ${info.negativeName.toLowerCase()} window`;
-    meta = `${info.title} active stress detected (+${Math.round(severityScore * 35)}%)`;
+  if (isTodayLogged) {
+    // Post-Log Mode: Forward Projection into tomorrow/future
+    if (direction === 'improving') {
+      prefix = `Optimal ${info.positiveName.toLowerCase()} expected in`;
+      meta = `${info.title} trending +${Math.round(severityScore * 30)}% above baseline`;
+    } else if (direction === 'worsening') {
+      prefix = `Potential ${info.negativeName.toLowerCase()} window`;
+      meta = `${info.title} active stress detected (+${Math.round(severityScore * 35)}%)`;
+    } else {
+      prefix = `Peak equilibrium and stability in`;
+      meta = `Skin metrics holding steady at physiological baseline`;
+    }
   } else {
-    prefix = `Peak equilibrium and stability in`;
-    meta = `Skin metrics holding steady at physiological baseline`;
+    // Pre-Log Mode: Morning status based on decaying past 24-72h logs
+    if (direction === 'improving') {
+      prefix = `Active ${info.positiveName.toLowerCase()} phase`;
+      meta = `${info.title} recovering (+${Math.round(severityScore * 30)}% vs baseline)`;
+    } else if (direction === 'worsening') {
+      prefix = `Active ${info.negativeName.toLowerCase()} status`;
+      meta = `${info.title} active response (+${Math.round(severityScore * 35)}%)`;
+    } else {
+      prefix = `Skin physiological equilibrium`;
+      meta = `Metrics balanced at physiological baseline`;
+    }
   }
 
   // 2. Build Biomarker Deltas
@@ -279,27 +295,56 @@ export function buildDeterministicSynthesis(
   const driverNames = activeDrivers.map((d) => d.sourceLabel).filter(Boolean);
   const driverContext = driverNames.length > 0 ? `influenced by recent ${driverNames.slice(0, 2).join(' and ')}` : 'maintaining homeostatic equilibrium';
 
-  const insightTitle = direction === 'improving'
-    ? `${info.title} Recovery Phase`
-    : direction === 'worsening'
-    ? `${info.title} Elevation Alert`
-    : `${info.title} Stable`;
+  let insightTitle = '';
+  let insightSummary = '';
+  let actionTip = '';
 
-  const insightSummary = direction === 'improving'
-    ? `Your skin is actively clearing metabolic stress, ${driverContext}. Lipid repair kinetics indicate peak recovery by ${horizonDisplay}.`
-    : direction === 'worsening'
-    ? `Elevated biological markers in ${info.title.toLowerCase()} detected, ${driverContext}. Expect transient reactivity before stabilizing.`
-    : `Your skin parameters remain tightly anchored to your biological baseline. Hydration and barrier kinetics are balanced.`;
+  if (isTodayLogged) {
+    insightTitle = direction === 'improving'
+      ? `${info.title} Recovery Phase`
+      : direction === 'worsening'
+      ? `${info.title} Elevation Alert`
+      : `${info.title} Stable`;
 
-  const actionTip = dominantAxis === 'barrier'
-    ? 'Reinforce barrier lipids tonight with ceramides and avoid physical scrubs.'
-    : dominantAxis === 'hydration'
-    ? 'Drink an extra glass of water and layer a humectant (hyaluronic or glycerin) onto damp skin.'
-    : dominantAxis === 'inflammation'
-    ? 'Soothe active pathways with centella, niacinamide, or panthenol; pause harsh acids today.'
-    : dominantAxis === 'sebum'
-    ? 'Keep routine lightweight with gel-based hydrators and gentle salicylic acid cleanse.'
-    : 'Maintain your consistent AM/PM routine to preserve epidermal barrier strength.';
+    insightSummary = direction === 'improving'
+      ? `Your skin is actively clearing metabolic stress, ${driverContext}. Lipid repair kinetics indicate peak recovery by ${horizonDisplay}.`
+      : direction === 'worsening'
+      ? `Elevated biological markers in ${info.title.toLowerCase()} detected, ${driverContext}. Expect transient reactivity before stabilizing.`
+      : `Your skin parameters remain tightly anchored to your biological baseline. Hydration and barrier kinetics are balanced.`;
+
+    actionTip = dominantAxis === 'barrier'
+      ? 'Reinforce barrier lipids tonight with ceramides and avoid physical scrubs.'
+      : dominantAxis === 'hydration'
+      ? 'Drink an extra glass of water and layer a humectant (hyaluronic or glycerin) onto damp skin.'
+      : dominantAxis === 'inflammation'
+      ? 'Soothe active pathways with centella, niacinamide, or panthenol; pause harsh acids today.'
+      : dominantAxis === 'sebum'
+      ? 'Keep routine lightweight with gel-based hydrators and gentle salicylic acid cleanse.'
+      : 'Maintain your consistent AM/PM routine to preserve epidermal barrier strength.';
+  } else {
+    // Pre-Log Mode: Morning status from decaying past 24-72h logs
+    insightTitle = direction === 'improving'
+      ? `${info.title} Morning Recovery`
+      : direction === 'worsening'
+      ? `${info.title} Morning Alert`
+      : `${info.title} Steady State`;
+
+    insightSummary = direction === 'improving'
+      ? `Your skin is in an active repair phase this morning, ${driverContext}. Short-term daily factors have cleared, while cellular recovery is underway.`
+      : direction === 'worsening'
+      ? `Elevated biological markers in ${info.title.toLowerCase()} are active this morning, ${driverContext}. Guard against external skin stressors today.`
+      : `Your skin parameters remain balanced at your biological baseline this morning. Moisture and barrier kinetics are holding steady.`;
+
+    actionTip = dominantAxis === 'barrier'
+      ? 'Protect your skin barrier today with ceramides and broad-spectrum sunscreen.'
+      : dominantAxis === 'hydration'
+      ? 'Start your morning with a tall glass of water and apply a lightweight moisturizer to damp skin.'
+      : dominantAxis === 'inflammation'
+      ? 'Calm morning sensitivity with centella or niacinamide, and keep your routine gentle today.'
+      : dominantAxis === 'sebum'
+      ? 'Balance morning oil with a gentle cleanse and an oil-free hydrating moisturizer.'
+      : 'Apply broad-spectrum sunscreen and maintain gentle barrier care today.';
+  }
 
   return {
     heroCard: {
@@ -334,15 +379,19 @@ export function buildDeterministicSynthesis(
 
 function buildStage4AiPrompt(
   stage3Result: Stage3ForecastResult,
-  userProfile?: UserSkinProfile
+  userProfile?: UserSkinProfile,
+  isTodayLogged: boolean = true
 ): string {
   const { currentStateVector, baselineVector, winningForecast, horizons, totalTicketsEvaluated } = stage3Result;
 
-  const promptObj = {
-    clinical_instructions: `You are a Board-Certified Clinical Dermatologist and Director of Dermatological Data Science.
+  const clinicalInstructions = isTodayLogged
+    ? `You are a Board-Certified Clinical Dermatologist and Director of Dermatological Data Science.
 Analyze the provided continuous-time skin state space vectors (scale 0.0 to 1.0) and write a succinct, empowering, highly personalized skin forecast for the user's mobile app.
 
-Tone: Clinical yet warm, deeply empathetic, highly precise. Avoid generic clichés. Directly reference the biological mechanisms (e.g., ceramide lipid lamellae, cytokine clearance, sebaceous homeostasis, transepidermal water loss).
+TEMPORAL CONTEXT:
+The user has logged today's activities. Project forward into tomorrow and subsequent days based on today's logged triggers.
+
+Tone: Clinical yet warm, deeply empathetic, highly precise. Avoid generic clichés. Directly reference biological mechanisms (e.g., ceramide lipid lamellae, cytokine clearance, sebaceous homeostasis, transepidermal water loss).
 
 Format Requirement: Return ONLY valid RFC-8259 JSON matching this exact structure:
 {
@@ -360,7 +409,41 @@ Format Requirement: Return ONLY valid RFC-8259 JSON matching this exact structur
   "tomorrowMorningSummary": "One crisp sentence on tomorrow morning's state",
   "in48HoursSummary": "One crisp sentence on the 48-hour outlook",
   "in7DaysSummary": "One crisp sentence on the 7-day outlook"
-}`,
+}`
+    : `You are a Board-Certified Clinical Dermatologist and Director of Dermatological Data Science.
+Analyze the provided continuous-time skin state space vectors (scale 0.0 to 1.0) and write a succinct, empowering, highly personalized morning skin status for the user's mobile app.
+
+IMPORTANT TEMPORAL CONTEXT:
+The user has opened the app THIS MORNING, and has NOT yet logged today's activities. This evaluation is based on the lingering and decaying biological effects from their past 24-72 hours of logs (e.g. yesterday's sleep, routines, or stress).
+CRITICAL RULES FOR MORNING PRE-LOG EVALUATION:
+1. Short-lived events (such as drinking water or caffeine yesterday, half-life ~8h) have ALREADY CLEARED by this morning. DO NOT say "you had water yesterday" or lecture them about yesterday's water.
+2. Focus on ACTIVE medium-to-long recovery processes (such as skin barrier lipid lamellae repair from sleep debt, lingering inflammation clearance, or sebaceous stabilization) that are physically occurring in their skin THIS MORNING.
+3. heroCard.highlight MUST be "This Morning".
+4. heroCard.prefix MUST describe the active morning phase (e.g. "Active barrier recovery phase" or "Active inflammatory resolution").
+5. clinicalInsight.actionTip MUST be an ultra-specific morning routine recommendation for today.
+
+Tone: Clinical yet warm, deeply empathetic, highly precise. Avoid generic clichés. Directly reference biological mechanisms.
+
+Format Requirement: Return ONLY valid RFC-8259 JSON matching this exact structure:
+{
+  "heroCard": {
+    "prefix": "Short lead-in text (e.g. 'Active barrier recovery phase' or 'Active inflammatory resolution')",
+    "highlight": "This Morning",
+    "suffix": "Optional suffix or empty string",
+    "meta": "One crisp clinical takeaway metric (e.g. 'Ceramide lipid synthesis up 24%')"
+  },
+  "clinicalInsight": {
+    "title": "3-5 word clinical headline (e.g. 'Morning Barrier Recovery Window')",
+    "summary": "2 clear sentences explaining the skin state active this morning based on the biological clearance of recent logged days.",
+    "actionTip": "1 ultra-specific, practical morning routine recommendation for today."
+  },
+  "tomorrowMorningSummary": "One crisp sentence on the morning outlook",
+  "in48HoursSummary": "One crisp sentence on the 48-hour outlook",
+  "in7DaysSummary": "One crisp sentence on the 7-day outlook"
+}`;
+
+  const promptObj = {
+    clinical_instructions: clinicalInstructions,
     user_context: {
       skin_type: userProfile?.skinType || 'combination',
       primary_concerns: userProfile?.concerns || ['barrier health', 'glow'],
@@ -472,17 +555,23 @@ async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Pro
  */
 function mergeAiOutputWithSynthesis(
   aiData: any,
-  deterministic: SkinForecastSynthesis
+  deterministic: SkinForecastSynthesis,
+  isTodayLogged: boolean = true
 ): SkinForecastSynthesis {
   if (!aiData || typeof aiData !== 'object') return deterministic;
+
+  const rawHighlight = typeof aiData.heroCard?.highlight === 'string' && aiData.heroCard.highlight.trim()
+    ? aiData.heroCard.highlight.trim()
+    : deterministic.heroCard.highlight;
+
+  // In Pre-Log mode, highlight MUST always be "This Morning"
+  const highlight = isTodayLogged ? rawHighlight : 'This Morning';
 
   const heroCard: ForecastHeroCardData = {
     prefix: typeof aiData.heroCard?.prefix === 'string' && aiData.heroCard.prefix.trim()
       ? aiData.heroCard.prefix.trim()
       : deterministic.heroCard.prefix,
-    highlight: typeof aiData.heroCard?.highlight === 'string' && aiData.heroCard.highlight.trim()
-      ? aiData.heroCard.highlight.trim()
-      : deterministic.heroCard.highlight,
+    highlight,
     suffix: typeof aiData.heroCard?.suffix === 'string' && aiData.heroCard.suffix.trim()
       ? aiData.heroCard.suffix.trim()
       : undefined,
@@ -562,18 +651,21 @@ export async function synthesizeSkinForecast(
   options?: {
     forceAiRefresh?: boolean;
     signal?: AbortSignal;
+    isTodayLogged?: boolean;
   }
 ): Promise<SkinForecastSynthesis> {
+  const isTodayLogged = options?.isTodayLogged ?? true;
+
   // Step 1: Immediately build the rock-solid deterministic baseline
-  const deterministic = buildDeterministicSynthesis(stage3Result, userProfile);
+  const deterministic = buildDeterministicSynthesis(stage3Result, userProfile, isTodayLogged);
 
   // If no Gemini API key configured, return deterministic immediately
   if (!getGeminiApiKey()) {
     return deterministic;
   }
 
-  // Step 2: Formulate unique cache key based on winning axis, computedAt bucket, and user skin type
-  const cacheKey = `${winningKey(stage3Result)}_${userProfile?.skinType || 'combo'}`;
+  // Step 2: Formulate unique cache key based on winning axis, computedAt bucket, skin type, and pre/post mode
+  const cacheKey = `${winningKey(stage3Result)}_${userProfile?.skinType || 'combo'}_${isTodayLogged ? 'post' : 'pre'}`;
 
   if (!options?.forceAiRefresh) {
     const cached = await getCachedSynthesis(cacheKey);
@@ -584,11 +676,11 @@ export async function synthesizeSkinForecast(
 
   // Step 3: Invoke Gemini 3.8-flash
   try {
-    const prompt = buildStage4AiPrompt(stage3Result, userProfile);
+    const prompt = buildStage4AiPrompt(stage3Result, userProfile, isTodayLogged);
     const aiResponse = await callGeminiForSynthesis(prompt, options?.signal);
 
     if (aiResponse) {
-      const merged = mergeAiOutputWithSynthesis(aiResponse, deterministic);
+      const merged = mergeAiOutputWithSynthesis(aiResponse, deterministic, isTodayLogged);
       // Save to cache asynchronously
       setCachedSynthesis(cacheKey, merged).catch(() => {});
       return merged;
@@ -623,11 +715,12 @@ export async function runFullSkinForecastingPipeline(
   options?: {
     forceAiRefresh?: boolean;
     signal?: AbortSignal;
+    isTodayLogged?: boolean;
   }
 ): Promise<SkinForecastSynthesis> {
   const pipelineStart = Date.now();
   console.log('[PIPELINE] ════════════════════════════════════════════════════════════════');
-  console.log(`[PIPELINE] 🏁 STARTING 4-STAGE PIPELINE (Records: ${historyRecords.length}, Questions: ${questions.length})`);
+  console.log(`[PIPELINE] 🏁 STARTING 4-STAGE PIPELINE (Records: ${historyRecords.length}, Questions: ${questions.length}, Mode: ${options?.isTodayLogged ? 'Post-Log' : 'Pre-Log (Morning)'})`);
 
   // STAGE 1: Extract & sanitize raw history data
   const t1 = Date.now();

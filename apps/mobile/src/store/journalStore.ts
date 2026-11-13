@@ -419,10 +419,11 @@ export const useJournalStore = create<JournalState>()(
         typeof updater === 'function' ? updater(state.historyRecords) : updater,
     })),
 
-  clearTodayAnswerForQuestion: (key: string) =>
+  clearTodayAnswerForQuestion: (key: string) => {
+    const todayIso = getRelativeDateInfo(0).isoDate;
     set((state) => ({
       historyRecords: state.historyRecords.map((r) => {
-        if (r.dateStr.toLowerCase() === 'today' || r.id === 'rec-1') {
+        if (r.dateStr?.toLowerCase() === 'today' || r.isoDate === todayIso) {
           const updatedAnswers = { ...(r.answers || {}) };
           delete updatedAnswers[key];
           const updatedTimestamps = { ...(r.answeredTimestamps || {}) };
@@ -431,11 +432,13 @@ export const useJournalStore = create<JournalState>()(
         }
         return r;
       }),
-    })),
+    }));
+  },
 
   hasTodayAnswerForQuestion: (key: string) => {
+    const todayIso = getRelativeDateInfo(0).isoDate;
     const today = get().historyRecords.find(
-      (r) => r.dateStr.toLowerCase() === 'today' || r.id === 'rec-1'
+      (r) => r.dateStr?.toLowerCase() === 'today' || r.isoDate === todayIso
     );
     return Boolean(today?.answers && today.answers[key]);
   },
@@ -549,25 +552,55 @@ export const useJournalStore = create<JournalState>()(
         const todayInfo = getRelativeDateInfo(0);
         const yesterdayInfo = getRelativeDateInfo(1);
 
-        const updated = state.historyRecords.map((r) => {
-          if (r.dateStr?.toLowerCase() === 'today' || r.id === 'rec-1') {
+        const hasRecordForToday = state.historyRecords.some(
+          (r) => r.isoDate === todayInfo.isoDate
+        );
+
+        let updated = state.historyRecords.map((r) => {
+          if (r.isoDate === todayInfo.isoDate) {
             return {
               ...r,
               dateStr: 'Today',
               dayName: todayInfo.dayName,
-              isoDate: todayInfo.isoDate,
             };
           }
-          if (r.dateStr?.toLowerCase() === 'yesterday' || r.id === 'rec-2') {
+          if (r.isoDate === yesterdayInfo.isoDate) {
             return {
               ...r,
               dateStr: 'Yesterday',
               dayName: yesterdayInfo.dayName,
-              isoDate: yesterdayInfo.isoDate,
+            };
+          }
+          if (r.dateStr?.toLowerCase() === 'today' && r.isoDate !== todayInfo.isoDate) {
+            // Day rolled over!
+            if (r.isoDate === yesterdayInfo.isoDate) {
+              return {
+                ...r,
+                dateStr: 'Yesterday',
+                dayName: yesterdayInfo.dayName,
+              };
+            }
+            return {
+              ...r,
+              dateStr: r.isoDate || r.dateStr,
             };
           }
           return r;
         });
+
+        // If today does not have a record yet, create a fresh unlogged today record
+        if (!hasRecordForToday) {
+          const newToday: JournalHistoryRecord = {
+            id: `rec-${todayInfo.isoDate}`,
+            dateStr: 'Today',
+            dayName: todayInfo.dayName,
+            isoDate: todayInfo.isoDate,
+            answers: {},
+            answeredTimestamps: {},
+          };
+          updated = [newToday, ...updated];
+        }
+
         state.setHistoryRecords(updated);
       },
     }

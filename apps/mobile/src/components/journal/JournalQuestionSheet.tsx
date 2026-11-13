@@ -1103,7 +1103,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
         prev.map((item) => {
           if (item.id === activeRecordId) {
             const nextTimestamps = { ...(item.answeredTimestamps || {}), [qKey]: now };
-            const isToday = item.dateStr?.toLowerCase() === 'today' || item.id === 'rec-1';
+            const isToday = item.dateStr?.toLowerCase() === 'today' || item.isoDate === todayIso;
             return {
               ...item,
               isoDate: isToday ? todayIso : item.isoDate,

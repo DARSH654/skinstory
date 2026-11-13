@@ -80,7 +80,11 @@ function AnimatedScoreItem({
   const isToday = dayIndex === todayGlobalIdx;
 
   const hasLogForDay = useMemo(() => {
-    if (isToday) return true; // Today is always normal / live
+    if (isToday) {
+      // For Today: if there are ANY answers across recent history or today, we have data to display a forecast.
+      // If there are literally 0 answers in all records (e.g. user deleted all logs), then even today has no data.
+      return historyRecords.some((r) => Object.keys(r.answers || {}).length > 0);
+    }
     const targetDate = getDateForGlobalIndex(dayIndex);
     const targetKey = toDateKey(targetDate);
 
@@ -98,7 +102,7 @@ function AnimatedScoreItem({
     });
   }, [dayIndex, isToday, historyRecords]);
 
-  // If a past day has NO log recorded, render the uplifted card
+  // If a day has NO log recorded, render the empty card
   if (!hasLogForDay) {
     return (
       <View style={{ width: itemWidth, height: 240, alignItems: 'center', justifyContent: 'center' }} pointerEvents="box-none">
@@ -115,7 +119,9 @@ function AnimatedScoreItem({
 
           {/* Subtitle filling the space properly */}
           <Text style={[styles.emptyPastSubtitle, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
-            No journal entries were recorded for this date. Complete your daily logs to generate skin forecasts.
+            {isToday
+              ? 'No journal entries recorded. Complete your daily check-in to generate your personalized skin forecast.'
+              : 'No journal entries were recorded for this date. Complete your daily logs to generate skin forecasts.'}
           </Text>
         </View>
       </View>
@@ -584,8 +590,9 @@ export default function HomeScreen() {
 
   // Derive today's record and completion status for Future Lock Modal
   const todayRecord = useMemo(() => {
+    const todayKey = toDateKey(new Date());
     return historyRecords.find(
-      (r) => r.dateStr?.toLowerCase() === 'today' || r.id === 'rec-1'
+      (r) => r.isoDate === todayKey || r.dateStr?.toLowerCase() === 'today'
     ) || historyRecords[0];
   }, [historyRecords]);
 
