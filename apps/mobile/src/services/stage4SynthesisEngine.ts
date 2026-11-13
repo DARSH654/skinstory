@@ -50,8 +50,8 @@ function getGeminiApiKey(): string {
   return process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 }
 
-const PRIMARY_MODEL = 'gemini-3.8-flash';
-const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+const PRIMARY_MODEL = 'gemini-3.5-flash';
+const FALLBACK_MODEL = 'gemini-flash-latest';
 
 const ASYNC_STORAGE_SYNTHESIS_CACHE_KEY = 'skinstory_forecast_synthesis_cache_v1';
 
@@ -395,7 +395,7 @@ function extractJsonFromString(text: string): any {
 }
 
 /**
- * Invokes Gemini 3.8-flash for clinical synthesis
+ * Invokes Gemini for clinical synthesis without arbitrary premature timeout
  */
 async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Promise<any> {
   const apiKey = getGeminiApiKey();
@@ -403,8 +403,6 @@ async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Pro
     console.log('[STAGE 4 - AI] ⚠️ No EXPO_PUBLIC_GEMINI_API_KEY detected in env. Falling back to local deterministic synthesis.');
     return null;
   }
-
-  const { signal: timeoutSignal, cleanup } = createTimeoutSignal(signal, 8000);
 
   const callModel = async (model: string): Promise<string | null> => {
     const maskedKey = apiKey.length > 8 ? `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}` : '***';
@@ -417,7 +415,7 @@ async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Pro
     const response = await fetch(actualUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: timeoutSignal,
+      signal,
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
@@ -447,7 +445,7 @@ async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Pro
   };
 
   try {
-    // Try primary model (gemini-3.8-flash)
+    // Try primary model (gemini-3.5-flash)
     try {
       const textPrimary = await callModel(PRIMARY_MODEL);
       if (textPrimary) return extractJsonFromString(textPrimary);
@@ -455,15 +453,15 @@ async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Pro
       console.log(`[STAGE 4 - AI] ⚠️ Primary model (${PRIMARY_MODEL}) failed: ${e?.message || e}. Attempting fallback (${FALLBACK_MODEL})...`);
     }
 
-    // Try fallback model (gemini-3.5-flash-lite)
+    // Try fallback model (gemini-flash-latest)
     try {
       const textFallback = await callModel(FALLBACK_MODEL);
       if (textFallback) return extractJsonFromString(textFallback);
     } catch (e: any) {
       console.log(`[STAGE 4 - AI] ⚠️ Fallback model (${FALLBACK_MODEL}) failed: ${e?.message || e}`);
     }
-  } finally {
-    cleanup();
+  } catch (err: any) {
+    console.warn(`[STAGE 4 - AI] ⚠️ Unexpected error: ${err?.message || err}`);
   }
 
   return null;

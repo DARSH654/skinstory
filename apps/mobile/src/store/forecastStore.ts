@@ -286,18 +286,6 @@ export const useForecastStore = create<ForecastState>()(
             basisLabelsByDay: currentLabels,
           });
         }
-
-        // Compute fingerprint to track changes
-        const fingerprint = JSON.stringify(
-          historyRecords.map((r) => ({ id: r.id, answers: r.answers }))
-        );
-
-        if (fingerprint === get().lastHistoryFingerprint && get().todaySynthesis) {
-          return;
-        }
-
-        // Silently run the full pipeline in background
-        await get().recalculateToday(questions, historyRecords, userProfile);
       },
 
       /**

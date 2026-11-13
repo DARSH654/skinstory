@@ -30,8 +30,8 @@ function getGeminiApiKey(): string {
   return process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 }
 
-const PRIMARY_MODEL = 'gemini-3.8-flash';
-const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+const PRIMARY_MODEL = 'gemini-3.5-flash';
+const FALLBACK_MODEL = 'gemini-flash-latest';
 
 function createTimeoutSignal(externalSignal?: AbortSignal, timeoutMs = 8000): { signal: AbortSignal; cleanup: () => void } {
   const controller = new AbortController();
