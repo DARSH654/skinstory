@@ -493,6 +493,22 @@ export const useForecastStore = create<ForecastState>()(
             return;
           }
 
+          // Instant 0ms baseline update so UI flips between Pre-Log and Post-Log immediately
+          const instant = computeDeterministicInstantSynthesis(historyRecords, questions, userProfile, isTodayLogged);
+          instant.heroCard.meta = basisLabel;
+          instant.heroCard.logDays = logDays;
+          set((prev) => ({
+            todaySynthesis: instant,
+            forecastCardsByDay: {
+              ...prev.forecastCardsByDay,
+              [todayGlobalIdx]: instant.heroCard,
+            },
+            basisLabelsByDay: {
+              ...prev.basisLabelsByDay,
+              [todayGlobalIdx]: basisLabel,
+            },
+          }));
+
           const synthesis = await runFullSkinForecastingPipeline(
             historyRecords,
             questions,

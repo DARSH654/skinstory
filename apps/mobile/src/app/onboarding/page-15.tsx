@@ -4,6 +4,7 @@ import { Text } from '@/components/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { scale, verticalScale, moderateScale } from 'react-native-size-matters';
+import { commitOnboardingToJournalAndProfile } from '@/services/onboardingSyncService';
 
 export default function OnboardingPage15() {
   const mountStart = useRef(Date.now());
@@ -27,9 +28,10 @@ export default function OnboardingPage15() {
       <Text style={styles.title} maxFontSizeMultiplier={1.2}>Page 15</Text>
       <Pressable 
         style={styles.button} 
-        onPress={() => {
+        onPress={async () => {
           const t = Date.now();
-          console.log(`[PAGE-15 ACTION] 🏁 Finish Onboarding PRESSED`);
+          console.log(`[PAGE-15 ACTION] 🏁 Finish Onboarding PRESSED -> Committing onboarding data to journal & profile`);
+          await commitOnboardingToJournalAndProfile();
           console.log(`[PAGE-15 -> HOME] 🚀 router.replace('/') called`);
           router.replace('/');
           console.log(`[PAGE-15 -> HOME] ⏱️ dispatched in ${Date.now() - t}ms`);

@@ -9,6 +9,7 @@ import {
   TextInput,
   Image,
   Modal,
+  AppState,
 } from 'react-native';
 import { scale, verticalScale, moderateScale } from 'react-native-size-matters';
 import { Text } from '@/components/AppText';
@@ -794,7 +795,9 @@ export default function HomeScreen() {
     };
   });
 
-  // Load user profile on screen focus
+  const currentDayKeyRef = useRef(toDateKey(new Date()));
+
+  // Load user profile on screen focus + check foreground day rollover
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
@@ -806,10 +809,40 @@ export default function HomeScreen() {
         } catch (e) {
           console.error("Failed to load user profile on home", e);
         }
+
+        const freshDayKey = toDateKey(new Date());
+        if (freshDayKey !== currentDayKeyRef.current) {
+          currentDayKeyRef.current = freshDayKey;
+          useForecastStore.getState().init(questions, historyRecords);
+        }
       };
       loadData();
-    }, [])
+    }, [questions, historyRecords])
   );
+
+  // Active foreground day-rollover check (e.g. overnight sleep / app resume)
+  React.useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        const freshDayKey = toDateKey(new Date());
+        if (freshDayKey !== currentDayKeyRef.current) {
+          console.log(`[HOME] 📅 Day rollover detected on app resume: ${currentDayKeyRef.current} -> ${freshDayKey}`);
+          currentDayKeyRef.current = freshDayKey;
+          useForecastStore.getState().init(questions, historyRecords);
+          const freshGlobalIdx = getInitialDayGlobalIndex();
+          setSelectedGlobalDayIdx(freshGlobalIdx);
+          setVisibleWeekIndex(INITIAL_WEEK_INDEX);
+          try {
+            scorePagerRef.current?.scrollToIndex({ index: freshGlobalIdx, animated: false });
+            weekCalendarRef.current?.scrollToIndex({ index: INITIAL_WEEK_INDEX, animated: false });
+          } catch {}
+        }
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
+  }, [questions, historyRecords]);
 
   // Current date constants
   const today = new Date();
