@@ -30,7 +30,7 @@ function getGeminiApiKey(): string {
   return process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 }
 
-const PRIMARY_MODEL = 'gemini-3.5-flash';
+const PRIMARY_MODEL = 'gemini-2.5-flash';
 const FALLBACK_MODEL = 'gemini-flash-latest';
 
 function createTimeoutSignal(externalSignal?: AbortSignal, timeoutMs = 8000): { signal: AbortSignal; cleanup: () => void } {
@@ -159,27 +159,30 @@ async function callGeminiForTicket(prompt: string, signal?: AbortSignal): Promis
   const apiKey = getGeminiApiKey();
   if (!apiKey) return null;
 
-  const { signal: timeoutSignal, cleanup } = createTimeoutSignal(signal, 8000);
-
   const callModel = async (model: string): Promise<string | null> => {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: timeoutSignal,
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.1, // Near-deterministic clinical precision
-          maxOutputTokens: 250,
-          responseMimeType: 'application/json',
-        },
-      }),
-    });
+    const { signal: timeoutSignal, cleanup } = createTimeoutSignal(signal, 6000);
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: timeoutSignal,
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1, // Near-deterministic clinical precision
+            maxOutputTokens: 250,
+            responseMimeType: 'application/json',
+          },
+        }),
+      });
 
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+    } finally {
+      cleanup();
+    }
   };
 
   try {
@@ -196,8 +199,8 @@ async function callGeminiForTicket(prompt: string, signal?: AbortSignal): Promis
     } catch {
       // Network or parse failure
     }
-  } finally {
-    cleanup();
+  } catch {
+    // Fail silently
   }
 
   return null;
