@@ -4,277 +4,34 @@ import {
   Animated,
   StyleSheet,
   Pressable,
-  TextInput,
-  Modal,
-  ScrollView,
-  PanResponder,
 } from 'react-native';
 import { Text } from '@/components/AppText';
-import { Plus, X, SlidersHorizontal, Check, ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { Colors } from '@/constants/theme';
+import { Plus } from 'lucide-react-native';
 import SkinItemActionMenu from '@/components/journal/SkinItemActionMenu';
 import SkinItemEditModal from '@/components/journal/SkinItemEditModal';
 import SkinItemDeleteModal from '@/components/journal/SkinItemDeleteModal';
+import {
+  validateCustomSkinCondition,
+  validateCustomSkinZone,
+  validateCustomSkinSeverity,
+} from '@/services/stage2AiIngestionWorker';
 
-export interface ZoneConfig {
-  id: string;
-  name: string;
-  conditions: string[];
-  severity: number;
-  isCustom?: boolean;
-}
+import {
+  ZoneConfig,
+  SkinExperienceQuestionViewProps,
+  ClarificationModalState,
+  INITIAL_CLARIFICATION_MODAL,
+  DEFAULT_ZONES,
+  DEFAULT_ZONE_CONDITIONS,
+  DEFAULT_SEVERITY_LEVELS,
+} from './skinExperience/types';
+import SeveritySlider from './skinExperience/SeveritySlider';
+import AddCustomZoneModal from './skinExperience/AddCustomZoneModal';
+import AddCustomConditionModal from './skinExperience/AddCustomConditionModal';
+import ClarificationModal from './skinExperience/ClarificationModal';
+import CustomScaleModal from './skinExperience/CustomScaleModal';
 
-export interface SkinExperienceQuestionViewProps {
-  isDark: boolean;
-  primaryColor: string;
-  currentAnswer?: string;
-  onSelect: (val: string) => void;
-  onContinue: () => void;
-}
-
-const DEFAULT_ZONES: { id: string; name: string; isCustom?: boolean }[] = [
-  { id: 'forehead', name: 'Forehead' },
-  { id: 'temples', name: 'Temples' },
-  { id: 'nose', name: 'Nose' },
-  { id: 'under_eye', name: 'Under-eye' },
-  { id: 'cheeks', name: 'Cheeks' },
-  { id: 'chin', name: 'Chin' },
-  { id: 'jawline', name: 'Jawline' },
-];
-
-const DEFAULT_ZONE_CONDITIONS: Record<string, string[]> = {
-  forehead: [
-    'Active breakouts / pimples',
-    'Excess oil & shine',
-    'Flaky dry patches',
-    'Hyperpigmentation',
-  ],
-  temples: [
-    'Active pimples',
-    'Dryness & peeling',
-    'Subsurface texture',
-  ],
-  nose: [
-    'Stubborn blackheads',
-    'Enlarged visible pores',
-    'Excess oiliness',
-    'Redness around nostrils',
-  ],
-  under_eye: [
-    'Puffy eyes',
-    'Under-eye bags',
-    'Dark circles',
-    'Under-eye redness',
-  ],
-  cheeks: [
-    'Redness & flushing',
-    'Acne breakouts',
-    'Dark spots / Melasma',
-    'Enlarged pores',
-  ],
-  chin: [
-    'Hormonal breakouts',
-    'Deep painful cysts',
-    'Post-acne marks',
-    'Excess oil',
-  ],
-  jawline: [
-    'Cystic acne',
-    'Subsurface bumps',
-    'Rough dry patches',
-  ],
-};
-
-const DEFAULT_SEVERITY_LEVELS: { level: number; label: string }[] = [
-  { level: 1, label: 'Minimal / Barely noticeable' },
-  { level: 2, label: 'Just a bit / Mild' },
-  { level: 3, label: 'Medium / Moderate' },
-  { level: 4, label: 'Difficult / Strong' },
-  { level: 5, label: 'Very severe' },
-];
-
-// ---------------------------------------------------------------------------
-// SeveritySlider — Exact copy of the standard journal ScaleSliderQuestion slider
-// ---------------------------------------------------------------------------
-interface SeveritySliderProps {
-  severity: number;
-  maxScale: number;
-  isDark: boolean;
-  primaryColor: string;
-  onSeverityChange: (lvl: number) => void;
-}
-
-function SeveritySlider({ severity, maxScale, isDark, primaryColor, onSeverityChange }: SeveritySliderProps) {
-  const minVal = 1;
-  const maxVal = maxScale;
-
-  const [selectedValue, setSelectedValue] = useState(severity);
-  const selectedValueRef = useRef(selectedValue);
-  selectedValueRef.current = selectedValue;
-
-  const [trackWidth, setTrackWidth] = useState(0);
-  const trackWidthRef = useRef(0);
-  const trackPageXRef = useRef(0);
-  const trackViewRef = useRef<View>(null);
-
-  // Sync when severity prop changes (switching zones)
-  useEffect(() => {
-    setSelectedValue(severity);
-  }, [severity]);
-
-  const THUMB_RADIUS = 19;
-
-  const updateFromPosition = useCallback((pageX: number) => {
-    const totalWidth = trackWidthRef.current;
-    if (totalWidth <= THUMB_RADIUS * 2) return;
-    const usableWidth = totalWidth - THUMB_RADIUS * 2;
-    const relX = Math.max(0, Math.min(pageX - trackPageXRef.current - THUMB_RADIUS, usableWidth));
-    const ratio = relX / usableWidth;
-    const computedVal = Math.round(minVal + ratio * (maxVal - minVal));
-    const clampedVal = Math.max(minVal, Math.min(maxVal, computedVal));
-    if (clampedVal !== selectedValueRef.current) {
-      setSelectedValue(clampedVal);
-      onSeverityChange(clampedVal);
-    }
-  }, [minVal, maxVal, onSeverityChange]);
-
-  const panResponder = useMemo(() => {
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        trackViewRef.current?.measure((_x, _y, width, _height, pageX) => {
-          trackWidthRef.current = width;
-          trackPageXRef.current = pageX;
-          setTrackWidth(width);
-          updateFromPosition(evt.nativeEvent.pageX);
-        });
-      },
-      onPanResponderMove: (evt) => {
-        updateFromPosition(evt.nativeEvent.pageX);
-      },
-      onPanResponderRelease: (evt) => {
-        updateFromPosition(evt.nativeEvent.pageX);
-      },
-    });
-  }, [updateFromPosition]);
-
-  const handleTrackLayout = useCallback((e: any) => {
-    const w = e.nativeEvent.layout.width;
-    trackWidthRef.current = w;
-    setTrackWidth(w);
-    trackViewRef.current?.measure((_x, _y, width, _height, pageX) => {
-      trackWidthRef.current = width;
-      trackPageXRef.current = pageX;
-      setTrackWidth(width);
-    });
-  }, []);
-
-  const percentage = maxVal === minVal ? 0 : ((selectedValue - minVal) / (maxVal - minVal)) * 100;
-  const usableWidth = Math.max(0, trackWidth - THUMB_RADIUS * 2);
-  const activeTrackWidth = (percentage / 100) * usableWidth;
-  const thumbTranslateX = (percentage / 100) * usableWidth;
-
-  return (
-    <View style={sliderStyles.scaleContainer}>
-      <View
-        ref={trackViewRef}
-        style={sliderStyles.sliderTrackWrapper}
-        onLayout={handleTrackLayout}
-        {...panResponder.panHandlers}
-      >
-        {/* Inactive Track */}
-        <View
-          style={[
-            sliderStyles.sliderBaseTrack,
-            {
-              left: THUMB_RADIUS,
-              right: THUMB_RADIUS,
-              backgroundColor: isDark ? '#27272a' : '#e5e7eb',
-            },
-          ]}
-        />
-        {/* Active Filled Track */}
-        <View
-          style={[
-            sliderStyles.sliderActiveTrack,
-            {
-              left: THUMB_RADIUS,
-              width: activeTrackWidth,
-              backgroundColor: primaryColor,
-            },
-          ]}
-        />
-        {/* Draggable Circle Thumb */}
-        <View
-          style={[
-            sliderStyles.sliderThumb,
-            {
-              left: THUMB_RADIUS,
-              transform: [{ translateX: thumbTranslateX }],
-              backgroundColor: primaryColor,
-              borderColor: '#ffffff',
-            },
-          ]}
-        >
-          <Text style={sliderStyles.sliderThumbText}>
-            {selectedValue}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-// Slider styles — exact copy from JournalQuestionSheet ScaleSliderQuestion
-const sliderStyles = StyleSheet.create({
-  scaleContainer: {
-    width: '100%',
-    paddingTop: 0,
-    marginTop: -4,
-  },
-  sliderTrackWrapper: {
-    width: '100%',
-    height: 38,
-    justifyContent: 'center',
-    position: 'relative',
-    marginVertical: 0,
-  },
-  sliderBaseTrack: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 8,
-    borderRadius: 4,
-  },
-  sliderActiveTrack: {
-    position: 'absolute',
-    left: 0,
-    height: 8,
-    borderRadius: 4,
-  },
-  sliderThumb: {
-    position: 'absolute',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: -19,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  sliderThumbText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-});
+export type { ZoneConfig, SkinExperienceQuestionViewProps } from './skinExperience/types';
 
 export default function SkinExperienceQuestionView({
   isDark,
@@ -284,46 +41,118 @@ export default function SkinExperienceQuestionView({
   onContinue,
 }: SkinExperienceQuestionViewProps) {
   // Parse initial answer if already stored
-  const parsedInitial = useMemo<{ zones: ZoneConfig[]; maxSeverityScale: number }>(() => {
-    if (!currentAnswer) return { zones: [], maxSeverityScale: 5 };
+  const parsedInitial = useMemo<{
+    zones: ZoneConfig[];
+    maxSeverityScale: number;
+    customScaleLabels: Record<number, string>;
+    customConditionsByZone: Record<string, string[]>;
+    customZones: { id: string; name: string; isCustom?: boolean }[];
+  }>(() => {
+    if (!currentAnswer) {
+      return {
+        zones: [],
+        maxSeverityScale: 5,
+        customScaleLabels: {},
+        customConditionsByZone: {},
+        customZones: [],
+      };
+    }
     try {
       const data = JSON.parse(currentAnswer);
-      if (Array.isArray(data.zones)) {
-        return {
-          zones: data.zones,
-          maxSeverityScale: data.maxSeverityScale || 5,
-        };
-      }
+      const zones: ZoneConfig[] = Array.isArray(data.zones) ? data.zones : (Array.isArray(data) ? data : []);
+      const maxSeverityScale = data.maxSeverityScale || 5;
+      const customScaleLabels = data.customScaleLabels || {};
+
+      // 1. Reconstruct customZones from both data.customZones and zones with isCustom: true
+      const explicitCustomZones: { id: string; name: string; isCustom?: boolean }[] = Array.isArray(data.customZones) ? data.customZones : [];
+      const fromZones: { id: string; name: string; isCustom?: boolean }[] = zones.filter((z) => z.isCustom).map((z) => ({ id: z.id, name: z.name, isCustom: true }));
+      const customZonesMap = new Map<string, { id: string; name: string; isCustom?: boolean }>();
+      [...explicitCustomZones, ...fromZones].forEach((item) => customZonesMap.set(item.id, item));
+      const customZones = Array.from(customZonesMap.values());
+
+      // 2. Reconstruct customConditionsByZone from both data.customConditionsByZone and all non-default conditions in zones
+      const explicitConditionsMap: Record<string, string[]> = data.customConditionsByZone || {};
+      const reconstructedConditionsMap: Record<string, string[]> = { ...explicitConditionsMap };
+
+      zones.forEach((z) => {
+        if (Array.isArray(z.conditions) && z.conditions.length > 0) {
+          const defaults = DEFAULT_ZONE_CONDITIONS[z.id] || [];
+          const customs = z.conditions.filter((c) => !defaults.includes(c));
+          if (customs.length > 0) {
+            const existing = reconstructedConditionsMap[z.id] || [];
+            reconstructedConditionsMap[z.id] = Array.from(new Set([...existing, ...customs]));
+          }
+        }
+      });
+
+      return {
+        zones,
+        maxSeverityScale,
+        customScaleLabels,
+        customConditionsByZone: reconstructedConditionsMap,
+        customZones,
+      };
     } catch {
       // Not JSON
     }
-    return { zones: [], maxSeverityScale: 5 };
+    return {
+      zones: [],
+      maxSeverityScale: 5,
+      customScaleLabels: {},
+      customConditionsByZone: {},
+      customZones: [],
+    };
   }, [currentAnswer]);
 
   const [selectedZones, setSelectedZones] = useState<ZoneConfig[]>(parsedInitial.zones);
   const [currentlySelectedZoneId, setCurrentlySelectedZoneId] = useState<string | null>(
     parsedInitial.zones.length > 0 ? parsedInitial.zones[0].id : null
   );
-  const [customZones, setCustomZones] = useState<{ id: string; name: string; isCustom?: boolean }[]>(
-    parsedInitial.zones.filter((z) => z.isCustom).map((z) => ({ id: z.id, name: z.name, isCustom: true }))
-  );
-  const [customConditionsByZone, setCustomConditionsByZone] = useState<Record<string, string[]>>({});
+  const [customZones, setCustomZones] = useState<{ id: string; name: string; isCustom?: boolean }[]>(parsedInitial.customZones);
+  const [customConditionsByZone, setCustomConditionsByZone] = useState<Record<string, string[]>>(parsedInitial.customConditionsByZone);
   const [maxSeverityScale, setMaxSeverityScale] = useState<number>(parsedInitial.maxSeverityScale || 5);
+  const [customScaleLabels, setCustomScaleLabels] = useState<Record<number, string>>(parsedInitial.customScaleLabels || {});
 
-  // Modals with Android IME decoupled ref pattern
+  // Synchronize state when question sheet navigates back / currentAnswer is re-hydrated
+  useEffect(() => {
+    if (parsedInitial.zones.length > 0) {
+      setSelectedZones(parsedInitial.zones);
+      setCurrentlySelectedZoneId((prev) => {
+        if (prev && parsedInitial.zones.some((z) => z.id === prev)) return prev;
+        return parsedInitial.zones[0]?.id || null;
+      });
+    }
+    if (parsedInitial.customZones.length > 0) {
+      setCustomZones(parsedInitial.customZones);
+    }
+    if (Object.keys(parsedInitial.customConditionsByZone).length > 0) {
+      setCustomConditionsByZone((prev) => ({
+        ...prev,
+        ...parsedInitial.customConditionsByZone,
+      }));
+    }
+    if (Object.keys(parsedInitial.customScaleLabels).length > 0) {
+      setCustomScaleLabels((prev) => ({
+        ...prev,
+        ...parsedInitial.customScaleLabels,
+      }));
+    }
+    if (parsedInitial.maxSeverityScale) {
+      setMaxSeverityScale(parsedInitial.maxSeverityScale);
+    }
+  }, [parsedInitial]);
+
+  // Modal visibility states
   const [zoneModalVisible, setZoneModalVisible] = useState(false);
-  const zoneDraftRef = useRef('');
-  const [canAddZone, setCanAddZone] = useState(false);
-
-  const zoneDraftCacheRef = useRef<Record<string, { conditions: string[]; severity: number }>>({});
   const [conditionModalVisible, setConditionModalVisible] = useState(false);
   const [scaleModalVisible, setScaleModalVisible] = useState(false);
   const [editingScaleLevel, setEditingScaleLevel] = useState<number>(6);
-  const scaleDraftRef = useRef('');
-  const [canAddScale, setCanAddScale] = useState(false);
-  const [customScaleLabels, setCustomScaleLabels] = useState<Record<number, string>>({});
-  const conditionDraftRef = useRef('');
-  const [canAddCondition, setCanAddCondition] = useState(false);
+
+  const zoneDraftCacheRef = useRef<Record<string, { conditions: string[]; severity: number }>>({});
+
+  // AI Validation & Clarification Modal State
+  const [isValidatingCondition, setIsValidatingCondition] = useState(false);
+  const [clarificationModal, setClarificationModal] = useState<ClarificationModalState>(INITIAL_CLARIFICATION_MODAL);
 
   // Dropdown Action Menu State (Anchored at exact touch coordinates)
   const [actionMenu, setActionMenu] = useState<{
@@ -393,14 +222,27 @@ export default function SkinExperienceQuestionView({
   }, [customZones]);
 
   // Sync state upward to parent
-  const emitState = useCallback((zones: ZoneConfig[], maxScale: number) => {
+  const emitState = useCallback((
+    zones: ZoneConfig[],
+    maxScale: number,
+    labelsOverride?: Record<number, string>,
+    conditionsMapOverride?: Record<string, string[]>,
+    customZonesOverride?: { id: string; name: string; isCustom?: boolean }[]
+  ) => {
+    const labels = labelsOverride !== undefined ? labelsOverride : customScaleLabels;
+    const customsMap = conditionsMapOverride !== undefined ? conditionsMapOverride : customConditionsByZone;
+    const cZones = customZonesOverride !== undefined ? customZonesOverride : customZones;
+
     const payload = JSON.stringify({
       zones,
+      customZones: cZones,
+      customConditionsByZone: customsMap,
+      customScaleLabels: labels,
       maxSeverityScale: maxScale,
-      summary: zones.map((z) => `${z.name}: ${z.conditions.join(', ') || 'Reported'} (Severity: ${z.severity}/5)`).join('; '),
+      summary: zones.map((z) => `${z.name}: ${z.conditions.join(', ') || 'Reported'} (Severity: ${z.severity}/${maxScale})`).join('; '),
     });
     onSelect(payload);
-  }, [onSelect]);
+  }, [onSelect, customScaleLabels, customConditionsByZone, customZones]);
 
   // Remove / Deselect a zone completely (saving draft to cache first)
   const handleRemoveZone = useCallback((zoneId: string) => {
@@ -419,21 +261,15 @@ export default function SkinExperienceQuestionView({
     emitState(updated, maxSeverityScale);
   }, [selectedZones, currentlySelectedZoneId, maxSeverityScale, emitState]);
 
-  // Zone click handler:
-  // - 1-tap on unselected -> selects & focuses it (restoring any cached draft)
-  // - 1-tap on another selected zone -> immediately switches active focus to it (view/edit in 1 tap)
-  // - 1-tap on currently active zone -> deselects it safely (caches draft so data is never lost)
+  // Zone click handler
   const handleZonePress = (zone: { id: string; name: string; isCustom?: boolean }) => {
     if (currentlySelectedZoneId === zone.id) {
-      // Tapping the active zone again deselects it safely
       handleRemoveZone(zone.id);
     } else {
       const existing = selectedZones.find((z) => z.id === zone.id);
       if (existing) {
-        // Already selected -> switch focus directly to it so user can view/edit in 1 tap
         setCurrentlySelectedZoneId(zone.id);
       } else {
-        // Unselected -> restore cached draft if available, or initialize
         const cached = zoneDraftCacheRef.current[zone.id];
         const newZone: ZoneConfig = {
           id: zone.id,
@@ -451,7 +287,7 @@ export default function SkinExperienceQuestionView({
   };
 
   // Toggle condition for currently selected zone
-  const toggleCondition = (cond: string) => {
+  const toggleCondition = (cond: string, conditionsMapOverride?: Record<string, string[]>) => {
     if (!currentlySelectedZoneId) return;
 
     const updated = selectedZones.map((z) => {
@@ -464,7 +300,7 @@ export default function SkinExperienceQuestionView({
     });
 
     setSelectedZones(updated);
-    emitState(updated, maxSeverityScale);
+    emitState(updated, maxSeverityScale, undefined, conditionsMapOverride);
   };
 
   // Set severity for currently selected zone
@@ -480,48 +316,263 @@ export default function SkinExperienceQuestionView({
     emitState(updated, maxSeverityScale);
   };
 
-  // Add Custom Zone
-  const handleAddCustomZone = () => {
-    const clean = zoneDraftRef.current.trim();
+  // Add Custom Zone with AI validation
+  const handleAddCustomZone = async (cleanName: string) => {
+    const clean = cleanName.trim();
     if (!clean) return;
 
-    const id = `custom_${Date.now()}`;
-    const newCustom = { id, name: clean, isCustom: true };
-    setCustomZones((prev) => [...prev, newCustom]);
+    console.log(`[SKIN_ZONE_AI] 🚀 [UI] Submitting custom zone: "${clean}"`);
+    setIsValidatingCondition(true);
 
-    const newZoneConfig: ZoneConfig = {
-      id,
-      name: clean,
-      conditions: [],
-      severity: 3,
-      isCustom: true,
-    };
-    const updated = [...selectedZones, newZoneConfig];
-    setSelectedZones(updated);
-    setCurrentlySelectedZoneId(id);
-    emitState(updated, maxSeverityScale);
+    try {
+      const result = await validateCustomSkinZone(clean);
+      console.log(`[SKIN_ZONE_AI] 🎯 [UI] Worker returned:`, JSON.stringify(result));
 
-    zoneDraftRef.current = '';
-    setCanAddZone(false);
-    setZoneModalVisible(false);
+      if (result.isValid) {
+        const id = `custom_${Date.now()}`;
+        const newCustom = { id, name: clean, isCustom: true };
+        const updatedCustomZones = [...customZones, newCustom];
+        setCustomZones(updatedCustomZones);
+
+        const newZoneConfig: ZoneConfig = {
+          id,
+          name: clean,
+          conditions: [],
+          severity: 3,
+          isCustom: true,
+        };
+        const updated = [...selectedZones, newZoneConfig];
+        setSelectedZones(updated);
+        setCurrentlySelectedZoneId(id);
+        emitState(updated, maxSeverityScale, undefined, undefined, updatedCustomZones);
+        setZoneModalVisible(false);
+      } else {
+        setZoneModalVisible(false);
+        setClarificationModal({
+          visible: true,
+          type: 'zone',
+          title: "We couldn't recognize this face zone",
+          userInput: clean,
+          suggestions: result.suggestions || ['Neck', 'Upper Lip', 'Jawline'],
+          selectedSuggestion: null,
+          targetZoneId: null,
+          replaceOldCondition: null,
+        });
+      }
+    } catch {
+      setZoneModalVisible(false);
+      setClarificationModal({
+        visible: true,
+        type: 'zone',
+        title: "We couldn't recognize this face zone",
+        userInput: clean,
+        suggestions: ['Neck', 'Upper Lip', 'Jawline'],
+        selectedSuggestion: null,
+        targetZoneId: null,
+        replaceOldCondition: null,
+      });
+    } finally {
+      setIsValidatingCondition(false);
+    }
   };
 
-  // Add Custom Condition for currently active zone
-  const handleAddCustomCondition = () => {
-    const clean = conditionDraftRef.current.trim();
+  // Add Custom Condition for currently active zone with AI validation
+  const handleAddCustomCondition = async (cleanCondition: string) => {
+    const clean = cleanCondition.trim();
     if (!clean || !currentlySelectedZoneId) return;
 
-    setCustomConditionsByZone((prev) => ({
-      ...prev,
-      [currentlySelectedZoneId]: [...(prev[currentlySelectedZoneId] || []), clean],
-    }));
+    const activeZone = allZones.find((z) => z.id === currentlySelectedZoneId);
+    const zoneName = activeZone?.name || 'Face Zone';
 
-    // Auto-select the newly added condition
-    toggleCondition(clean);
+    console.log(`[SKIN_CONDITION_AI] 🚀 [UI] User submitted condition: "${clean}" for zone: "${zoneName}"`);
+    setIsValidatingCondition(true);
 
-    conditionDraftRef.current = '';
-    setCanAddCondition(false);
-    setConditionModalVisible(false);
+    try {
+      const result = await validateCustomSkinCondition(clean, zoneName);
+      console.log(`[SKIN_CONDITION_AI] 🎯 [UI] Worker returned:`, JSON.stringify(result));
+
+      if (result.isValid) {
+        const finalConditionName = clean;
+        console.log(`[SKIN_CONDITION_AI] ✅ [UI] Adding valid condition: "${finalConditionName}"`);
+
+        const updatedConditionsMap = {
+          ...customConditionsByZone,
+          [currentlySelectedZoneId]: [...(customConditionsByZone[currentlySelectedZoneId] || []), finalConditionName],
+        };
+        setCustomConditionsByZone(updatedConditionsMap);
+
+        toggleCondition(finalConditionName, updatedConditionsMap);
+        setConditionModalVisible(false);
+      } else {
+        console.log(`[SKIN_CONDITION_AI] ❓ [UI] Condition unrecognized. Opening Clarification Modal with suggestions:`, result.suggestions);
+        setConditionModalVisible(false);
+        setClarificationModal({
+          visible: true,
+          type: 'condition',
+          title: "We couldn't recognize this condition",
+          userInput: clean,
+          suggestions: result.suggestions || ['Acne / Breakout', 'Dryness / Flaking', 'Redness / Irritation'],
+          selectedSuggestion: null,
+          targetZoneId: currentlySelectedZoneId,
+          replaceOldCondition: null,
+        });
+      }
+    } catch (e: any) {
+      console.error(`[SKIN_CONDITION_AI] 💥 [UI] Exception in handleAddCustomCondition:`, e);
+      setConditionModalVisible(false);
+      setClarificationModal({
+        visible: true,
+        type: 'condition',
+        title: "We couldn't recognize this condition",
+        userInput: clean,
+        suggestions: ['Acne / Breakout', 'Dryness / Flaking', 'Redness / Irritation'],
+        selectedSuggestion: null,
+        targetZoneId: currentlySelectedZoneId,
+        replaceOldCondition: null,
+      });
+    } finally {
+      setIsValidatingCondition(false);
+    }
+  };
+
+  // Clarification modal: user selected a suggested condition/zone/severity and pressed Continue
+  const handleClarificationContinue = async () => {
+    const selected = clarificationModal.selectedSuggestion;
+    if (!selected) return;
+
+    if (clarificationModal.type === 'zone') {
+      console.log(`[SKIN_ZONE_AI] ✅ [UI] Clarification zone chosen: "${selected}"`);
+
+      if (clarificationModal.replaceOldZoneId) {
+        const zoneId = clarificationModal.replaceOldZoneId;
+        const updatedCustomZones = customZones.map((z) =>
+          z.id === zoneId ? { ...z, name: selected } : z
+        );
+        setCustomZones(updatedCustomZones);
+
+        const updatedSelected = selectedZones.map((z) =>
+          z.id === zoneId ? { ...z, name: selected } : z
+        );
+        setSelectedZones(updatedSelected);
+        emitState(updatedSelected, maxSeverityScale, undefined, undefined, updatedCustomZones);
+
+        setClarificationModal(INITIAL_CLARIFICATION_MODAL);
+        return;
+      }
+
+      const id = `custom_${Date.now()}`;
+      const newCustom = { id, name: selected, isCustom: true };
+      const updatedCustomZones = [...customZones, newCustom];
+      setCustomZones(updatedCustomZones);
+
+      const newZoneConfig: ZoneConfig = {
+        id,
+        name: selected,
+        conditions: [],
+        severity: 3,
+        isCustom: true,
+      };
+      const updated = [...selectedZones, newZoneConfig];
+      setSelectedZones(updated);
+      setCurrentlySelectedZoneId(id);
+      emitState(updated, maxSeverityScale, undefined, undefined, updatedCustomZones);
+
+      setClarificationModal(INITIAL_CLARIFICATION_MODAL);
+      return;
+    }
+
+    if (clarificationModal.type === 'severity') {
+      const lvl = clarificationModal.scaleLevel || 6;
+      console.log(`[SKIN_SEVERITY_AI] ✅ [UI] Clarification severity chosen: "${selected}" for level ${lvl}`);
+      const newCustoms = {
+        ...customScaleLabels,
+        [lvl]: selected,
+      };
+      setCustomScaleLabels(newCustoms);
+
+      let newMax = maxSeverityScale;
+      if (lvl > maxSeverityScale) {
+        newMax = lvl;
+        setMaxSeverityScale(newMax);
+      }
+      emitState(selectedZones, newMax, newCustoms);
+
+      setClarificationModal(INITIAL_CLARIFICATION_MODAL);
+      return;
+    }
+
+    // Condition flow
+    const targetZone = clarificationModal.targetZoneId || currentlySelectedZoneId;
+    if (!targetZone) return;
+
+    const activeZone = allZones.find((z) => z.id === targetZone);
+    const zoneName = activeZone?.name || 'Face Zone';
+    const oldCond = clarificationModal.replaceOldCondition;
+
+    console.log(`[SKIN_CONDITION_AI] 🔄 [UI] Clarification chosen: "${selected}" for zone: "${zoneName}" (replace: ${oldCond || 'none'})`);
+    setIsValidatingCondition(true);
+
+    try {
+      const result = await validateCustomSkinCondition(selected, zoneName);
+      const finalName = result.isValid && result.resolvedName ? result.resolvedName : selected;
+      console.log(`[SKIN_CONDITION_AI] ✅ [UI] Clarification verified: "${finalName}"`);
+
+      if (oldCond) {
+        const updatedCustomConditions = {
+          ...customConditionsByZone,
+          [targetZone]: (customConditionsByZone[targetZone] || []).map((c) => (c === oldCond ? finalName : c)),
+        };
+        setCustomConditionsByZone(updatedCustomConditions);
+
+        const updatedSelected = selectedZones.map((z) => {
+          if (z.id !== targetZone) return z;
+          return {
+            ...z,
+            conditions: z.conditions.map((c) => (c === oldCond ? finalName : c)),
+          };
+        });
+        setSelectedZones(updatedSelected);
+        emitState(updatedSelected, maxSeverityScale, undefined, updatedCustomConditions);
+      } else {
+        const updatedCustomConditions = {
+          ...customConditionsByZone,
+          [targetZone]: [...(customConditionsByZone[targetZone] || []), finalName],
+        };
+        setCustomConditionsByZone(updatedCustomConditions);
+
+        toggleCondition(finalName, updatedCustomConditions);
+      }
+    } catch {
+      const oldCondFallback = clarificationModal.replaceOldCondition;
+      if (oldCondFallback) {
+        const updatedCustomConditions = {
+          ...customConditionsByZone,
+          [targetZone]: (customConditionsByZone[targetZone] || []).map((c) => (c === oldCondFallback ? selected : c)),
+        };
+        setCustomConditionsByZone(updatedCustomConditions);
+
+        const updatedSelected = selectedZones.map((z) => {
+          if (z.id !== targetZone) return z;
+          return {
+            ...z,
+            conditions: z.conditions.map((c) => (c === oldCondFallback ? selected : c)),
+          };
+        });
+        setSelectedZones(updatedSelected);
+        emitState(updatedSelected, maxSeverityScale, undefined, updatedCustomConditions);
+      } else {
+        const updatedCustomConditions = {
+          ...customConditionsByZone,
+          [targetZone]: [...(customConditionsByZone[targetZone] || []), selected],
+        };
+        setCustomConditionsByZone(updatedCustomConditions);
+
+        toggleCondition(selected, updatedCustomConditions);
+      }
+    } finally {
+      setIsValidatingCondition(false);
+      setClarificationModal(INITIAL_CLARIFICATION_MODAL);
+    }
   };
 
   // Long-press trigger on custom pill with exact touch coordinates
@@ -567,59 +618,153 @@ export default function SkinExperienceQuestionView({
   };
 
   // Save Edit Changes (Invoked from SkinItemEditModal)
-  const handleSaveEdit = (newName: string) => {
+  const handleSaveEdit = async (newName: string) => {
     if (editModal.type === 'zone') {
-      const updatedCustom = customZones.map((z) =>
-        z.id === editModal.id ? { ...z, name: newName } : z
-      );
-      setCustomZones(updatedCustom);
+      const clean = newName.trim();
+      if (!clean || clean === editModal.name.trim()) {
+        setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+        return;
+      }
 
-      const updatedSelected = selectedZones.map((z) =>
-        z.id === editModal.id ? { ...z, name: newName } : z
-      );
-      setSelectedZones(updatedSelected);
-      emitState(updatedSelected, maxSeverityScale);
+      const zoneId = editModal.id;
+      console.log(`[SKIN_ZONE_AI] 🚀 [UI] Submitting edited zone: "${clean}" (replacing "${editModal.name}")`);
+      setIsValidatingCondition(true);
+
+      try {
+        const result = await validateCustomSkinZone(clean);
+        console.log(`[SKIN_ZONE_AI] 🎯 [UI] Worker returned:`, JSON.stringify(result));
+
+        if (result.isValid) {
+          const finalName = clean;
+          const updatedCustomZones = customZones.map((z) =>
+            z.id === zoneId ? { ...z, name: finalName } : z
+          );
+          setCustomZones(updatedCustomZones);
+
+          const updatedSelected = selectedZones.map((z) =>
+            z.id === zoneId ? { ...z, name: finalName } : z
+          );
+          setSelectedZones(updatedSelected);
+          emitState(updatedSelected, maxSeverityScale, undefined, undefined, updatedCustomZones);
+          setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+        } else {
+          setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+          setClarificationModal({
+            visible: true,
+            type: 'zone',
+            title: "We couldn't recognize this face zone",
+            userInput: clean,
+            suggestions: result.suggestions || ['Neck', 'Upper Lip', 'Jawline'],
+            selectedSuggestion: null,
+            targetZoneId: null,
+            replaceOldCondition: null,
+            replaceOldZoneId: zoneId,
+          });
+        }
+      } catch {
+        setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+        setClarificationModal({
+          visible: true,
+          type: 'zone',
+          title: "We couldn't recognize this face zone",
+          userInput: clean,
+          suggestions: ['Neck', 'Upper Lip', 'Jawline'],
+          selectedSuggestion: null,
+          targetZoneId: null,
+          replaceOldCondition: null,
+          replaceOldZoneId: zoneId,
+        });
+      } finally {
+        setIsValidatingCondition(false);
+      }
     } else if (editModal.type === 'condition' && editModal.parentZoneId) {
       const pZone = editModal.parentZoneId;
       const oldName = editModal.name;
+      const clean = newName.trim();
 
-      setCustomConditionsByZone((prev) => ({
-        ...prev,
-        [pZone]: (prev[pZone] || []).map((c) => (c === oldName ? newName : c)),
-      }));
+      if (clean === oldName.trim()) {
+        setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+        return;
+      }
 
-      const updatedSelected = selectedZones.map((z) => {
-        if (z.id !== pZone) return z;
-        return {
-          ...z,
-          conditions: z.conditions.map((c) => (c === oldName ? newName : c)),
-        };
-      });
-      setSelectedZones(updatedSelected);
-      emitState(updatedSelected, maxSeverityScale);
+      const activeZone = allZones.find((z) => z.id === pZone);
+      const zoneName = activeZone?.name || 'Face Zone';
+
+      setIsValidatingCondition(true);
+
+      try {
+        const result = await validateCustomSkinCondition(clean, zoneName);
+
+        if (result.isValid) {
+          const finalName = clean;
+
+          const updatedCustomConditions = {
+            ...customConditionsByZone,
+            [pZone]: (customConditionsByZone[pZone] || []).map((c) => (c === oldName ? finalName : c)),
+          };
+          setCustomConditionsByZone(updatedCustomConditions);
+
+          const updatedSelected = selectedZones.map((z) => {
+            if (z.id !== pZone) return z;
+            return {
+              ...z,
+              conditions: z.conditions.map((c) => (c === oldName ? finalName : c)),
+            };
+          });
+          setSelectedZones(updatedSelected);
+          emitState(updatedSelected, maxSeverityScale, undefined, updatedCustomConditions);
+          setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+        } else {
+          setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+          setClarificationModal({
+            visible: true,
+            type: 'condition',
+            title: "We couldn't recognize this condition",
+            userInput: clean,
+            suggestions: result.suggestions || ['Acne / Breakout', 'Dryness / Flaking', 'Redness / Irritation'],
+            selectedSuggestion: null,
+            targetZoneId: pZone,
+            replaceOldCondition: oldName,
+          });
+        }
+      } catch {
+        setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+        setClarificationModal({
+          visible: true,
+          type: 'condition',
+          title: "We couldn't recognize this condition",
+          userInput: clean,
+          suggestions: ['Acne / Breakout', 'Dryness / Flaking', 'Redness / Irritation'],
+          selectedSuggestion: null,
+          targetZoneId: pZone,
+          replaceOldCondition: oldName,
+        });
+      } finally {
+        setIsValidatingCondition(false);
+      }
     }
-
-    setEditModal({ visible: false, type: 'zone', id: '', name: '' });
   };
 
   // Confirm Delete Item (Invoked from SkinItemDeleteModal)
   const handleConfirmDelete = () => {
     if (deleteModal.type === 'zone') {
-      setCustomZones((prev) => prev.filter((z) => z.id !== deleteModal.id));
+      const updatedCustomZones = customZones.filter((z) => z.id !== deleteModal.id);
+      setCustomZones(updatedCustomZones);
       const updatedSelected = selectedZones.filter((z) => z.id !== deleteModal.id);
       setSelectedZones(updatedSelected);
       if (currentlySelectedZoneId === deleteModal.id) {
         setCurrentlySelectedZoneId(null);
       }
-      emitState(updatedSelected, maxSeverityScale);
+      emitState(updatedSelected, maxSeverityScale, undefined, undefined, updatedCustomZones);
     } else if (deleteModal.type === 'condition' && deleteModal.parentZoneId) {
       const pZone = deleteModal.parentZoneId;
       const condName = deleteModal.name;
 
-      setCustomConditionsByZone((prev) => ({
-        ...prev,
-        [pZone]: (prev[pZone] || []).filter((c) => c !== condName),
-      }));
+      const updatedCustomConditions = {
+        ...customConditionsByZone,
+        [pZone]: (customConditionsByZone[pZone] || []).filter((c) => c !== condName),
+      };
+      setCustomConditionsByZone(updatedCustomConditions);
 
       const updatedSelected = selectedZones.map((z) => {
         if (z.id !== pZone) return z;
@@ -629,33 +774,64 @@ export default function SkinExperienceQuestionView({
         };
       });
       setSelectedZones(updatedSelected);
-      emitState(updatedSelected, maxSeverityScale);
+      emitState(updatedSelected, maxSeverityScale, undefined, updatedCustomConditions);
     }
 
     setDeleteModal({ visible: false, type: 'zone', id: '', name: '' });
   };
 
-  // Save/Update Scale Level (1 to maxSeverityScale + 1)
-  const handleSaveScaleLevel = () => {
-    const clean = scaleDraftRef.current.trim();
+  // Save/Update Scale Level (1 to maxSeverityScale + 1) with AI validation
+  const handleSaveScaleLevel = async (level: number, label: string) => {
+    const clean = label.trim();
     if (!clean) return;
 
-    const newCustoms = {
-      ...customScaleLabels,
-      [editingScaleLevel]: clean,
-    };
-    setCustomScaleLabels(newCustoms);
+    console.log(`[SKIN_SEVERITY_AI] 🚀 [UI] Submitting custom severity: "${clean}" for level ${level}`);
+    setIsValidatingCondition(true);
 
-    let newMax = maxSeverityScale;
-    if (editingScaleLevel > maxSeverityScale) {
-      newMax = editingScaleLevel;
-      setMaxSeverityScale(newMax);
+    try {
+      const result = await validateCustomSkinSeverity(clean, level);
+      console.log(`[SKIN_SEVERITY_AI] 🎯 [UI] Worker returned:`, JSON.stringify(result));
+
+      if (result.isValid) {
+        const newCustoms = {
+          ...customScaleLabels,
+          [level]: clean,
+        };
+        setCustomScaleLabels(newCustoms);
+
+        let newMax = maxSeverityScale;
+        if (level > maxSeverityScale) {
+          newMax = level;
+          setMaxSeverityScale(newMax);
+        }
+        emitState(selectedZones, newMax, newCustoms);
+        setScaleModalVisible(false);
+      } else {
+        setScaleModalVisible(false);
+        setClarificationModal({
+          visible: true,
+          type: 'severity',
+          title: "We couldn't recognize this severity label",
+          userInput: clean,
+          suggestions: result.suggestions || ['Moderate discomfort', 'Severe flare-up', 'Mild irritation'],
+          selectedSuggestion: null,
+          scaleLevel: level,
+        });
+      }
+    } catch {
+      setScaleModalVisible(false);
+      setClarificationModal({
+        visible: true,
+        type: 'severity',
+        title: "We couldn't recognize this severity label",
+        userInput: clean,
+        suggestions: ['Moderate discomfort', 'Severe flare-up', 'Mild irritation'],
+        selectedSuggestion: null,
+        scaleLevel: level,
+      });
+    } finally {
+      setIsValidatingCondition(false);
     }
-    emitState(selectedZones, newMax);
-
-    scaleDraftRef.current = '';
-    setCanAddScale(false);
-    setScaleModalVisible(false);
   };
 
   // Active zone object
@@ -740,10 +916,6 @@ export default function SkinExperienceQuestionView({
           const isSelected = selectedZones.some((z) => z.id === zone.id);
           const isCurrentlySelected = currentlySelectedZoneId === zone.id;
 
-          // 3 VISUAL STATES:
-          // 1. Not Selected: Uplifted, default neutral background, no primary color, no border
-          // 2. Selected: Uplifted, filled with primary color, NO border
-          // 3. Currently Selected: Uplifted, filled with primary color, PURE WHITE border (2px)
           let bgColor = isDark ? '#18181b' : '#ffffff';
           let borderColor = isDark ? '#27272a' : '#e4e4e7';
           let borderWidth = 1;
@@ -751,12 +923,12 @@ export default function SkinExperienceQuestionView({
 
           if (isCurrentlySelected) {
             bgColor = primaryColor;
-            borderColor = '#ffffff'; // Pure white border in both light and dark mode
+            borderColor = '#ffffff';
             borderWidth = 2;
             textColor = '#ffffff';
           } else if (isSelected) {
             bgColor = primaryColor;
-            borderColor = primaryColor; // No white border when just selected
+            borderColor = primaryColor;
             borderWidth = 1;
             textColor = '#ffffff';
           }
@@ -815,10 +987,9 @@ export default function SkinExperienceQuestionView({
         </Pressable>
       </View>
 
-      {/* 2. DYNAMIC EXPANSION WHEN A ZONE IS "CURRENTLY SELECTED" — NO CARD */}
+      {/* 2. DYNAMIC EXPANSION WHEN A ZONE IS "CURRENTLY SELECTED" */}
       {currentlySelectedZoneId && activeZoneConfig && (
         <View style={styles.expansionFlat}>
-          {/* Active zone sub-header */}
           <View style={styles.expansionHeader}>
             <Text style={[styles.expansionZoneTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
               {activeZoneConfig.name} Details
@@ -858,7 +1029,11 @@ export default function SkinExperienceQuestionView({
 
             {/* + Add Custom Condition Pill */}
             <Pressable
-              onPress={() => setConditionModalVisible(true)}
+              onPress={() => {
+                const zName = allZones.find((z) => z.id === currentlySelectedZoneId)?.name || 'Unknown Zone';
+                console.log(`[SKIN_CONDITION_AI] 👆 [UI] Clicked "+ Condition" pill for zone: "${zName}" (id: ${currentlySelectedZoneId})`);
+                setConditionModalVisible(true);
+              }}
               style={({ pressed }) => [
                 styles.pill,
                 {
@@ -881,23 +1056,20 @@ export default function SkinExperienceQuestionView({
             </Pressable>
           </View>
 
-          {/* Sub-Section B: Severity — Standard Journal Draggable Slider */}
+          {/* Sub-Section B: Severity Slider */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <Text style={[styles.severityLabelHeading, { color: isDark ? '#ffffff' : '#111827', marginBottom: 0 }]}>
               Severity:
             </Text>
             <Pressable
               onPress={() => {
-                // If the user's slider is on the maximum scale level, open to the next level (to add new scale)
+                // If the slider is at the max scale level, open to the next level (to add new scale)
                 // Otherwise open directly to the currently selected slider level
                 const targetLvl = activeZoneConfig.severity >= maxSeverityScale
                   ? maxSeverityScale + 1
                   : activeZoneConfig.severity;
 
                 setEditingScaleLevel(targetLvl);
-                const existingVal = customScaleLabels[targetLvl] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === targetLvl)?.label || '';
-                scaleDraftRef.current = existingVal;
-                setCanAddScale(false); // Clean initial state -> Save disabled until text is altered!
                 setScaleModalVisible(true);
               }}
               style={({ pressed }) => [
@@ -930,7 +1102,6 @@ export default function SkinExperienceQuestionView({
             onSeverityChange={setSeverity}
           />
 
-          {/* Uplifted Step Label Card (matches standard journal scale) */}
           <View
             style={[
               styles.scaleUpliftedCard,
@@ -973,364 +1144,56 @@ export default function SkinExperienceQuestionView({
         </Pressable>
       </View>
 
-      {/* 4. MODAL: ADD CUSTOM ZONE (Matches RenameChatModal layout) */}
-      <Modal
+      {/* 4. MODAL: ADD CUSTOM ZONE */}
+      <AddCustomZoneModal
         visible={zoneModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setZoneModalVisible(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setZoneModalVisible(false)}>
-          <Pressable
-            style={[
-              styles.modalCard,
-              isDark ? styles.modalCardDark : styles.modalCardLight,
-            ]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight]}>
-              Add Custom Face Zone
-            </Text>
-
-            <View
-              style={[
-                styles.inputCard,
-                isDark ? styles.inputCardDark : styles.inputCardLight,
-              ]}
-            >
-              <TextInput
-                key={zoneModalVisible ? 'zone-input-open' : 'zone-input-closed'}
-                style={[
-                  styles.modalInput,
-                  isDark ? styles.inputTextDark : styles.inputTextLight,
-                ]}
-                defaultValue=""
-                onChangeText={(text) => {
-                  zoneDraftRef.current = text;
-                  const hasContent = text.trim().length > 0;
-                  if (hasContent !== canAddZone) {
-                    setCanAddZone(hasContent);
-                  }
-                }}
-                maxLength={40}
-                multiline={false}
-                numberOfLines={1}
-                placeholder="e.g. Between lips & nose, Neck..."
-                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                autoFocus
-              />
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                onPress={() => {
-                  zoneDraftRef.current = '';
-                  setCanAddZone(false);
-                  setZoneModalVisible(false);
-                }}
-                style={[
-                  styles.modalActionBtn,
-                  isDark ? styles.cancelBtnDark : styles.cancelBtnLight,
-                ]}
-              >
-                <Text style={[styles.btnText, { color: isDark ? '#ffffff' : '#111827' }]}>
-                  Cancel
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleAddCustomZone}
-                disabled={!canAddZone}
-                style={[
-                  styles.modalActionBtn,
-                  {
-                    backgroundColor: !canAddZone
-                      ? isDark ? '#27272a' : '#e5e7eb'
-                      : primaryColor,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.btnText,
-                    {
-                      color: !canAddZone
-                        ? isDark ? '#71717a' : '#9ca3af'
-                        : '#ffffff',
-                    },
-                  ]}
-                >
-                  Add Zone
-                </Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        isDark={isDark}
+        primaryColor={primaryColor}
+        isValidating={isValidatingCondition}
+        onCancel={() => setZoneModalVisible(false)}
+        onSubmit={handleAddCustomZone}
+      />
 
       {/* 5. MODAL: ADD CUSTOM CONDITION */}
-      <Modal
+      <AddCustomConditionModal
         visible={conditionModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          conditionDraftRef.current = '';
-          setCanAddCondition(false);
-          setConditionModalVisible(false);
+        isDark={isDark}
+        primaryColor={primaryColor}
+        isValidating={isValidatingCondition}
+        onCancel={() => setConditionModalVisible(false)}
+        onSubmit={handleAddCustomCondition}
+      />
+
+      {/* 6. MODAL: CLARIFICATION */}
+      <ClarificationModal
+        state={clarificationModal}
+        isDark={isDark}
+        primaryColor={primaryColor}
+        isValidating={isValidatingCondition}
+        onSelectSuggestion={(suggestion) => {
+          setClarificationModal((prev) => ({
+            ...prev,
+            selectedSuggestion: suggestion,
+          }));
         }}
-      >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => {
-            conditionDraftRef.current = '';
-            setCanAddCondition(false);
-            setConditionModalVisible(false);
-          }}
-        >
-          <Pressable
-            style={[
-              styles.modalCard,
-              isDark ? styles.modalCardDark : styles.modalCardLight,
-            ]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight]}>
-              Add Custom Skin Condition
-            </Text>
+        onCancel={() => setClarificationModal(INITIAL_CLARIFICATION_MODAL)}
+        onContinue={handleClarificationContinue}
+      />
 
-            <View
-              style={[
-                styles.inputCard,
-                isDark ? styles.inputCardDark : styles.inputCardLight,
-              ]}
-            >
-              <TextInput
-                key={conditionModalVisible ? 'cond-input-open' : 'cond-input-closed'}
-                style={[
-                  styles.modalInput,
-                  isDark ? styles.inputTextDark : styles.inputTextLight,
-                ]}
-                defaultValue=""
-                onChangeText={(text) => {
-                  conditionDraftRef.current = text;
-                  const hasContent = text.trim().length > 0;
-                  if (hasContent !== canAddCondition) {
-                    setCanAddCondition(hasContent);
-                  }
-                }}
-                maxLength={40}
-                multiline={false}
-                numberOfLines={1}
-                placeholder="e.g. Deep cystic bump, Whiteheads..."
-                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                autoFocus
-              />
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                onPress={() => {
-                  conditionDraftRef.current = '';
-                  setCanAddCondition(false);
-                  setConditionModalVisible(false);
-                }}
-                style={[
-                  styles.modalActionBtn,
-                  isDark ? styles.cancelBtnDark : styles.cancelBtnLight,
-                ]}
-              >
-                <Text style={[styles.btnText, { color: isDark ? '#ffffff' : '#111827' }]}>
-                  Cancel
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleAddCustomCondition}
-                disabled={!canAddCondition}
-                style={[
-                  styles.modalActionBtn,
-                  {
-                    backgroundColor: !canAddCondition
-                      ? isDark ? '#27272a' : '#e5e7eb'
-                      : primaryColor,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.btnText,
-                    {
-                      color: !canAddCondition
-                        ? isDark ? '#71717a' : '#9ca3af'
-                        : '#ffffff',
-                    },
-                  ]}
-                >
-                  Add Condition
-                </Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* 6. MODAL: EDIT / ADD SCALE LEVEL WITH CIRCULAR CHEVRONS */}
-      <Modal
+      {/* 7. MODAL: EDIT / ADD SCALE LEVEL */}
+      <CustomScaleModal
         visible={scaleModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          scaleDraftRef.current = '';
-          setCanAddScale(false);
-          setScaleModalVisible(false);
-        }}
-      >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => {
-            scaleDraftRef.current = '';
-            setCanAddScale(false);
-            setScaleModalVisible(false);
-          }}
-        >
-          <Pressable
-            style={[
-              styles.modalCard,
-              isDark ? styles.modalCardDark : styles.modalCardLight,
-            ]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            {/* Header with circular left/right chevrons */}
-            <View style={styles.scaleNavHeaderRow}>
-              <Pressable
-                disabled={editingScaleLevel <= 1}
-                onPress={() => {
-                  const prevLvl = editingScaleLevel - 1;
-                  setEditingScaleLevel(prevLvl);
-                  const existingVal = customScaleLabels[prevLvl] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === prevLvl)?.label || '';
-                  scaleDraftRef.current = existingVal;
-                  setCanAddScale(false); // Default texts are unchanged -> Save button disabled!
-                }}
-                style={({ pressed }) => [
-                  styles.chevronCircleBtn,
-                  {
-                    backgroundColor: isDark ? '#27272a' : '#ffffff',
-                    borderColor: isDark ? '#3f3f46' : '#d1d5db',
-                    borderWidth: 1.5,
-                    opacity: editingScaleLevel <= 1 ? 0.35 : (pressed ? 0.7 : 1),
-                  },
-                ]}
-              >
-                <ChevronLeft size={16} strokeWidth={2.2} color={isDark ? '#ffffff' : '#1f2937'} />
-              </Pressable>
+        isDark={isDark}
+        primaryColor={primaryColor}
+        initialLevel={editingScaleLevel}
+        maxSeverityScale={maxSeverityScale}
+        customScaleLabels={customScaleLabels}
+        isValidating={isValidatingCondition}
+        onCancel={() => setScaleModalVisible(false)}
+        onSave={handleSaveScaleLevel}
+      />
 
-              <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight, { marginBottom: 0 }]}>
-                Scale Number {editingScaleLevel}
-              </Text>
-
-              <Pressable
-                disabled={editingScaleLevel >= maxSeverityScale + 1}
-                onPress={() => {
-                  const nextLvl = editingScaleLevel + 1;
-                  setEditingScaleLevel(nextLvl);
-                  const existingVal = customScaleLabels[nextLvl] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === nextLvl)?.label || '';
-                  scaleDraftRef.current = existingVal;
-                  setCanAddScale(false); // Default texts are unchanged -> Save button disabled!
-                }}
-                style={({ pressed }) => [
-                  styles.chevronCircleBtn,
-                  {
-                    backgroundColor: isDark ? '#27272a' : '#ffffff',
-                    borderColor: isDark ? '#3f3f46' : '#d1d5db',
-                    borderWidth: 1.5,
-                    opacity: editingScaleLevel >= maxSeverityScale + 1 ? 0.35 : (pressed ? 0.7 : 1),
-                  },
-                ]}
-              >
-                <ChevronRight size={16} strokeWidth={2.2} color={isDark ? '#ffffff' : '#1f2937'} />
-              </Pressable>
-            </View>
-
-            <View
-              style={[
-                styles.inputCard,
-                isDark ? styles.inputCardDark : styles.inputCardLight,
-                { marginTop: 14 },
-              ]}
-            >
-              <TextInput
-                key={`scale-input-${editingScaleLevel}-${scaleModalVisible ? 'open' : 'closed'}`}
-                style={[
-                  styles.modalInput,
-                  isDark ? styles.inputTextDark : styles.inputTextLight,
-                ]}
-                defaultValue={customScaleLabels[editingScaleLevel] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === editingScaleLevel)?.label || ''}
-                multiline={false}
-                numberOfLines={1}
-                onChangeText={(text) => {
-                  scaleDraftRef.current = text;
-                  const curVal = (customScaleLabels[editingScaleLevel] || DEFAULT_SEVERITY_LEVELS.find((d) => d.level === editingScaleLevel)?.label || '').trim();
-                  const clean = text.trim();
-                  const isChangedAndValid = clean.length > 0 && clean !== curVal;
-                  if (isChangedAndValid !== canAddScale) {
-                    setCanAddScale(isChangedAndValid);
-                  }
-                }}
-                maxLength={40}
-                placeholder="Enter scale input..."
-                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                autoFocus
-              />
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                onPress={() => {
-                  scaleDraftRef.current = '';
-                  setCanAddScale(false);
-                  setScaleModalVisible(false);
-                }}
-                style={[
-                  styles.modalActionBtn,
-                  isDark ? styles.cancelBtnDark : styles.cancelBtnLight,
-                ]}
-              >
-                <Text style={[styles.btnText, { color: isDark ? '#ffffff' : '#111827' }]}>
-                  Cancel
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleSaveScaleLevel}
-                disabled={!canAddScale}
-                style={[
-                  styles.modalActionBtn,
-                  {
-                    backgroundColor: !canAddScale
-                      ? isDark ? '#27272a' : '#e5e7eb'
-                      : primaryColor,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.btnText,
-                    {
-                      color: !canAddScale
-                        ? isDark ? '#71717a' : '#9ca3af'
-                        : '#ffffff',
-                    },
-                  ]}
-                >
-                  {editingScaleLevel > maxSeverityScale ? 'Add Scale' : 'Save Scale'}
-                </Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Action Menu (Edit / Delete) positioned at exact touch coordinates */}
+      {/* Action Menu (Edit / Delete) */}
       <SkinItemActionMenu
         visible={actionMenu.visible}
         isDark={isDark}
@@ -1348,6 +1211,7 @@ export default function SkinExperienceQuestionView({
         primaryColor={primaryColor}
         itemType={editModal.type}
         initialValue={editModal.name}
+        isLoading={isValidatingCondition}
         onCancel={() => setEditModal((prev) => ({ ...prev, visible: false }))}
         onSave={handleSaveEdit}
       />
@@ -1370,14 +1234,6 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     marginTop: -8,
     paddingBottom: 0,
-  },
-  sectionHeaderRow: {
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    fontFamily: 'Outfit_700Bold',
   },
   errorBannerWrap: {
     width: '100%',
@@ -1483,130 +1339,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.2,
-  },
-  // Modal layout
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 380,
-    borderRadius: 24,
-    paddingTop: 18,
-    paddingBottom: 20,
-    paddingHorizontal: 22,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  modalCardLight: {
-    backgroundColor: '#FAF8F6',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  modalCardDark: {
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#27272a',
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: 'Outfit_700Bold',
-    marginBottom: 14,
-    textAlign: 'center',
-  },
-  textLight: {
-    color: '#111827',
-  },
-  textDark: {
-    color: '#ffffff',
-  },
-  inputCard: {
-    borderRadius: 999,
-    borderWidth: 1,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 5,
-    elevation: 2,
-    marginBottom: 16,
-  },
-  inputCardLight: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e7eb',
-  },
-  inputCardDark: {
-    backgroundColor: '#1c1c20',
-    borderColor: '#2b2b30',
-  },
-  modalInput: {
-    height: 48,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-  },
-  inputTextLight: {
-    color: '#111827',
-  },
-  inputTextDark: {
-    color: '#ffffff',
-  },
-  scaleNavHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 4,
-  },
-  chevronCircleBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  modalActionBtn: {
-    flex: 1,
-    paddingVertical: 13,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  cancelBtnLight: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  cancelBtnDark: {
-    backgroundColor: '#18181b',
-    borderWidth: 1,
-    borderColor: '#27272a',
-  },
-  btnText: {
-    fontSize: 14,
-    fontWeight: '700',
   },
 });

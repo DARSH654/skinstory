@@ -264,7 +264,7 @@ export function runStage3ForecastEngine(
     // Evaluate active unresolved tickets that will hit peak or linger into this future horizon
     for (const ticket of chronologicalTickets) {
       const ticketHoursAgoNow = (currentTime - ticket.loggedAt) / (1000 * 60 * 60);
-      const ticketHoursAgoAtHorizon = ticketHoursAgoNow - forwardHours;
+      const ticketHoursAgoAtHorizon = ticketHoursAgoNow + forwardHours;
 
       // If the ticket was within active impact range
       if (ticketHoursAgoAtHorizon < ticket.peakHours + ticket.halfLifeHours * 2) {

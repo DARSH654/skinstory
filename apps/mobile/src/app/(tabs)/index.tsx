@@ -10,6 +10,7 @@ import {
   Image,
   Modal,
   AppState,
+  Platform,
 } from 'react-native';
 import { scale, verticalScale, moderateScale } from 'react-native-size-matters';
 import { Text } from '@/components/AppText';
@@ -77,7 +78,10 @@ function AnimatedScoreItem({
 }) {
   const iconRef = useRef<View>(null);
   const historyRecords = useJournalStore((state) => state.historyRecords);
-  const todayGlobalIdx = getInitialDayGlobalIndex();
+  const forecastFromStore = useForecastStore((state) => state.forecastCardsByDay[dayIndex]);
+  const initialWeekIndex = useForecastStore((state) => state.initialWeekIndex);
+  const weeksRange = useForecastStore((state) => state.weeksRange);
+  const todayGlobalIdx = getInitialDayGlobalIndex(initialWeekIndex);
   const isToday = dayIndex === todayGlobalIdx;
 
   const hasLogForDay = useMemo(() => {
@@ -86,7 +90,7 @@ function AnimatedScoreItem({
       // If there are literally 0 answers in all records (e.g. user deleted all logs), then even today has no data.
       return historyRecords.some((r) => Object.keys(r.answers || {}).length > 0);
     }
-    const targetDate = getDateForGlobalIndex(dayIndex);
+    const targetDate = getDateForGlobalIndex(dayIndex, weeksRange);
     const targetKey = toDateKey(targetDate);
 
     return historyRecords.some((r) => {
@@ -101,7 +105,7 @@ function AnimatedScoreItem({
       }
       return false;
     });
-  }, [dayIndex, isToday, historyRecords]);
+  }, [dayIndex, isToday, historyRecords, weeksRange]);
 
   // If a day has NO log recorded, render the empty card
   if (!hasLogForDay) {
@@ -115,11 +119,11 @@ function AnimatedScoreItem({
         >
           {/* Title centered */}
           <Text style={[styles.emptyPastTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
-            No Data Logged for This Day
+            No data logged
           </Text>
 
-          {/* Subtitle filling the space properly */}
-          <Text style={[styles.emptyPastSubtitle, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
+          {/* Subtitle filling the space properly with thicker font */}
+          <Text style={[styles.emptyPastSubtitle, { color: isDark ? '#d4d4d8' : '#374151' }]}>
             {isToday
               ? 'No journal entries recorded. Complete your daily check-in to generate your personalized skin forecast.'
               : 'No journal entries were recorded for this date. Complete your daily logs to generate skin forecasts.'}
@@ -129,7 +133,6 @@ function AnimatedScoreItem({
     );
   }
 
-  const forecastFromStore = useForecastStore((state) => state.forecastCardsByDay[dayIndex]);
   const forecast = forecastFromStore || getForecastForDay(dayIndex);
 
   return (
@@ -197,6 +200,8 @@ function AnimatedScoreItem({
     </View>
   );
 }
+
+const MemoizedAnimatedScoreItem = React.memo(AnimatedScoreItem);
 
 // ---------------------------------------------------------------------------
 // AnalyzingDataCircle: Bigger Disc + Dynamic Dual-Rotating Organic Aura Rings
@@ -387,7 +392,9 @@ function CalendarDayPill({
   const pillRef = useRef<View>(null);
 
   const handlePress = (e: any) => {
+    console.log(`[CALENDAR_TAP] 📅 Day pill clicked: label=${item.label}, dateNum=${item.dateNum}, globalDayIdx=${globalDayIdx}, isFuture=${isFuture}, isToday=${isToday}, isSelected=${isSelected}`);
     if (isFuture) {
+      console.log(`[CALENDAR_TAP] 🔒 Future date intercepted (${item.dateNum} ${item.label}) -> Opening FutureLockModal`);
       const fallbackX = e?.nativeEvent?.pageX || 200;
       const fallbackY = e?.nativeEvent?.pageY || 200;
       if (pillRef.current?.measureInWindow) {
@@ -406,6 +413,7 @@ function CalendarDayPill({
       }
       return;
     }
+    console.log(`[CALENDAR_TAP] 🎯 Selecting past/current day: index=${globalDayIdx}, dateNum=${item.dateNum}`);
     onSelectDay(globalDayIdx);
   };
 
@@ -415,7 +423,7 @@ function CalendarDayPill({
       style={[
         styles.dayColumn,
       ]}
-      hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+      hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
     >
       <View ref={pillRef} collapsable={false} style={{ alignItems: 'center', width: '100%' }}>
         {/* Day Label / "TODAY" */}
@@ -488,6 +496,8 @@ function CalendarDayPill({
     </Pressable>
   );
 }
+
+const MemoizedCalendarDayPill = React.memo(CalendarDayPill);
 
 export default function HomeScreen() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
@@ -829,12 +839,13 @@ export default function HomeScreen() {
           console.log(`[HOME] 📅 Day rollover detected on app resume: ${currentDayKeyRef.current} -> ${freshDayKey}`);
           currentDayKeyRef.current = freshDayKey;
           useForecastStore.getState().init(questions, historyRecords);
-          const freshGlobalIdx = getInitialDayGlobalIndex();
+          const dynamicInitialWeek = useForecastStore.getState().initialWeekIndex;
+          const freshGlobalIdx = getInitialDayGlobalIndex(dynamicInitialWeek);
           setSelectedGlobalDayIdx(freshGlobalIdx);
-          setVisibleWeekIndex(INITIAL_WEEK_INDEX);
+          setVisibleWeekIndex(dynamicInitialWeek);
           try {
             scorePagerRef.current?.scrollToIndex({ index: freshGlobalIdx, animated: false });
-            weekCalendarRef.current?.scrollToIndex({ index: INITIAL_WEEK_INDEX, animated: false });
+            weekCalendarRef.current?.scrollToIndex({ index: dynamicInitialWeek, animated: false });
           } catch {}
         }
       }
@@ -849,15 +860,21 @@ export default function HomeScreen() {
   const currentDay = today.getDay();
   const todayIdx = currentDay === 0 ? 6 : currentDay - 1; // 0=Mon..6=Sun
 
-  // Multi-week calendar setup (-4 to +4 weeks = 9 weeks total, index 4 is current week)
-  const WEEKS_RANGE = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
-  const INITIAL_WEEK_INDEX = 4; // index of week offset 0
-  const TOTAL_DAYS = WEEKS_RANGE.length * 7; // 63 days total
-  const INITIAL_DAY_GLOBAL_INDEX = INITIAL_WEEK_INDEX * 7 + todayIdx; // today's index in the 63-day sequence
+  // Dynamic multi-week calendar setup from forecastStore (starts at user join week)
+  const weeksRange = useForecastStore((state) => state.weeksRange);
+  const initialWeekIndex = useForecastStore((state) => state.initialWeekIndex);
+  const totalDays = weeksRange.length * 7;
+  const initialDayGlobalIndex = initialWeekIndex * 7 + todayIdx;
 
   // Track viewing week independently from selected date
-  const [visibleWeekIndex, setVisibleWeekIndex] = useState(INITIAL_WEEK_INDEX);
-  const [selectedGlobalDayIdx, setSelectedGlobalDayIdx] = useState(INITIAL_DAY_GLOBAL_INDEX);
+  const [visibleWeekIndex, setVisibleWeekIndex] = useState(initialWeekIndex);
+  const [selectedGlobalDayIdx, setSelectedGlobalDayIdx] = useState(initialDayGlobalIndex);
+
+  // Sync state if initialWeekIndex updates after store hydration
+  React.useEffect(() => {
+    setVisibleWeekIndex(initialWeekIndex);
+    setSelectedGlobalDayIdx(initialWeekIndex * 7 + todayIdx);
+  }, [initialWeekIndex, todayIdx]);
 
   // Initialize and sync forecast store with live journal data
   React.useEffect(() => {
@@ -870,38 +887,46 @@ export default function HomeScreen() {
     useForecastStore.getState().ensureForecastForDay(selectedGlobalDayIdx, questions, historyRecords);
   }, [selectedGlobalDayIdx, questions, historyRecords]);
 
-  // Helper to convert global index (0..62) to week offset and day index (0..6)
+  // Helper to convert global index to week offset and day index (0..6)
   const getWeekOffsetAndDay = (globalIdx: number) => {
     const weekIdx = Math.floor(globalIdx / 7);
     const dayIdx = globalIdx % 7;
-    const weekOffset = WEEKS_RANGE[weekIdx] ?? 0;
+    const weekOffset = weeksRange[weekIdx] ?? 0;
     return { weekIdx, dayIdx, weekOffset };
   };
 
   const { weekOffset: selectedWeekOffset, dayIdx: selectedDayIdx } = getWeekOffsetAndDay(selectedGlobalDayIdx);
 
-  // Generate week days dynamically for any week offset
-  const getWeekDaysForOffset = (weekOffset: number) => {
-    const days = [];
+  // Memoize week days dynamically for all offsets in range — prevents 63 Date allocations per render frame
+  const weekDaysMap = useMemo(() => {
+    const map = new Map<number, Array<{ label: string; dateNum: number; isToday: boolean; fullDate: Date }>>();
     const baseDate = new Date();
     const currDay = baseDate.getDay();
     const distanceToMon = currDay === 0 ? -6 : 1 - currDay;
-    const monday = new Date(baseDate);
-    monday.setDate(baseDate.getDate() + distanceToMon + weekOffset * 7);
 
     const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      days.push({
-        label: dayLabels[i],
-        dateNum: d.getDate(),
-        isToday: d.toDateString() === today.toDateString(),
-        fullDate: d,
-      });
+    for (const weekOffset of weeksRange) {
+      const monday = new Date(baseDate);
+      monday.setDate(baseDate.getDate() + distanceToMon + weekOffset * 7);
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        days.push({
+          label: dayLabels[i],
+          dateNum: d.getDate(),
+          isToday: d.toDateString() === today.toDateString(),
+          fullDate: d,
+        });
+      }
+      map.set(weekOffset, days);
     }
-    return days;
-  };
+    return map;
+  }, [weeksRange]);
+
+  const getWeekDaysForOffset = useCallback((weekOffset: number) => {
+    return weekDaysMap.get(weekOffset) || [];
+  }, [weekDaysMap]);
 
   // Dynamic formatted full date string for selected date
   const getSelectedDateDisplay = (globalIdx: number) => {
@@ -924,9 +949,11 @@ export default function HomeScreen() {
 
   const selectedDateHeaderStr = getSelectedDateDisplay(selectedGlobalDayIdx);
 
-  // Generate an array of global day indices up to Today [0..INITIAL_DAY_GLOBAL_INDEX]
-  // Clamping to today physically prevents carousel sliding into future unlogged dates
-  const allDaysArray = Array.from({ length: INITIAL_DAY_GLOBAL_INDEX + 1 }, (_, i) => i);
+  // Stable memoized array of global day indices up to Today [0..initialDayGlobalIndex]
+  const allDaysArray = useMemo(
+    () => Array.from({ length: initialDayGlobalIndex + 1 }, (_, i) => i),
+    [initialDayGlobalIndex]
+  );
 
   // Refs for synchronization
   const scorePagerRef = useRef<FlatList>(null);
@@ -938,8 +965,8 @@ export default function HomeScreen() {
     const slideWidth = SCREEN_WIDTH - 40 + 14;
     const xOffset = e.nativeEvent.contentOffset.x;
     const newGlobalIdx = Math.round(xOffset / slideWidth);
-    const clampedIdx = Math.max(0, Math.min(newGlobalIdx, INITIAL_DAY_GLOBAL_INDEX));
-    if (clampedIdx >= 0 && clampedIdx <= INITIAL_DAY_GLOBAL_INDEX) {
+    const clampedIdx = Math.max(0, Math.min(newGlobalIdx, initialDayGlobalIndex));
+    if (clampedIdx >= 0 && clampedIdx <= initialDayGlobalIndex) {
       setSelectedGlobalDayIdx(clampedIdx);
       // Auto-slide calendar week if day moves into a different week
       const targetWeekIdx = Math.floor(clampedIdx / 7);
@@ -956,26 +983,26 @@ export default function HomeScreen() {
     const slideWidth = SCREEN_WIDTH - 40;
     const xOffset = e.nativeEvent.contentOffset.x;
     const newWeekIndex = Math.round(xOffset / slideWidth);
-    if (newWeekIndex >= 0 && newWeekIndex < WEEKS_RANGE.length) {
+    if (newWeekIndex >= 0 && newWeekIndex < weeksRange.length) {
       setVisibleWeekIndex(newWeekIndex);
     }
   };
 
   // Redirect to Current Week on header date press (No reaction if already in current week)
   const handleHeaderDatePress = useCallback(() => {
-    if (visibleWeekIndex === INITIAL_WEEK_INDEX) {
+    if (visibleWeekIndex === initialWeekIndex) {
       // In current week: no reaction
       return;
     }
-    setVisibleWeekIndex(INITIAL_WEEK_INDEX);
-    setSelectedGlobalDayIdx(INITIAL_DAY_GLOBAL_INDEX);
+    setVisibleWeekIndex(initialWeekIndex);
+    setSelectedGlobalDayIdx(initialDayGlobalIndex);
     try {
-      weekCalendarRef.current?.scrollToIndex({ index: INITIAL_WEEK_INDEX, animated: true });
+      weekCalendarRef.current?.scrollToIndex({ index: initialWeekIndex, animated: true });
     } catch {}
     try {
-      scorePagerRef.current?.scrollToIndex({ index: INITIAL_DAY_GLOBAL_INDEX, animated: true });
+      scorePagerRef.current?.scrollToIndex({ index: initialDayGlobalIndex, animated: true });
     } catch {}
-  }, [visibleWeekIndex]);
+  }, [visibleWeekIndex, initialWeekIndex, initialDayGlobalIndex]);
 
   // Scroll-reactive subtle parallax for background aura shapes (moves smoothly on scroll, stays still when idle)
   const bgAuraAnimatedStyle = useAnimatedStyle(() => {
@@ -1093,9 +1120,9 @@ export default function HomeScreen() {
                 <Pressable
                   onPress={handleHeaderDatePress}
                   hitSlop={{ top: 10, bottom: 10, left: 16, right: 16 }}
-                  disabled={visibleWeekIndex === INITIAL_WEEK_INDEX}
+                  disabled={visibleWeekIndex === initialWeekIndex}
                   style={({ pressed }) => [
-                    { opacity: visibleWeekIndex !== INITIAL_WEEK_INDEX && pressed ? 0.7 : 1 }
+                    { opacity: visibleWeekIndex !== initialWeekIndex && pressed ? 0.7 : 1 }
                   ]}
                 >
                   <Text style={[styles.headerDateTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
@@ -1132,7 +1159,7 @@ export default function HomeScreen() {
             <View style={styles.weekCalendarContainer}>
               <FlatList
                 ref={weekCalendarRef}
-                data={WEEKS_RANGE}
+                data={weeksRange}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
@@ -1140,11 +1167,12 @@ export default function HomeScreen() {
                 snapToAlignment="center"
                 decelerationRate="fast"
                 disableIntervalMomentum={true}
-                initialNumToRender={3}
-                maxToRenderPerBatch={3}
-                windowSize={5}
+                initialNumToRender={1}
+                maxToRenderPerBatch={2}
+                windowSize={3}
+                removeClippedSubviews={Platform.OS === 'android'}
                 keyExtractor={(item) => `week-${item}`}
-                initialScrollIndex={INITIAL_WEEK_INDEX}
+                initialScrollIndex={initialWeekIndex}
                 getItemLayout={(_, index) => ({
                   length: SCREEN_WIDTH - 40,
                   offset: (SCREEN_WIDTH - 40) * index,
@@ -1160,10 +1188,10 @@ export default function HomeScreen() {
                         const globalDayIdx = weekIdx * 7 + idx;
                         const isSelected = selectedGlobalDayIdx === globalDayIdx;
                         const isToday = item.isToday;
-                        const isFuture = globalDayIdx > INITIAL_DAY_GLOBAL_INDEX;
+                        const isFuture = globalDayIdx > initialDayGlobalIndex;
 
                         return (
-                          <CalendarDayPill
+                          <MemoizedCalendarDayPill
                             key={`pill-${globalDayIdx}`}
                             item={item}
                             globalDayIdx={globalDayIdx}
@@ -1211,12 +1239,12 @@ export default function HomeScreen() {
                     index,
                   })}
                   ItemSeparatorComponent={() => <View style={{ width: 14 }} />}
-                  initialNumToRender={2}
-                  maxToRenderPerBatch={3}
-                  windowSize={5}
-                  removeClippedSubviews={false}
+                  initialNumToRender={1}
+                  maxToRenderPerBatch={2}
+                  windowSize={3}
+                  removeClippedSubviews={Platform.OS === 'android'}
                   keyExtractor={(item) => `score-day-${item}`}
-                  initialScrollIndex={INITIAL_DAY_GLOBAL_INDEX}
+                  initialScrollIndex={initialDayGlobalIndex}
                   onScrollToIndexFailed={(info) => {
                     scorePagerRef.current?.scrollToOffset({
                       offset: info.index * (SCREEN_WIDTH - 40 + 14),
@@ -1230,7 +1258,7 @@ export default function HomeScreen() {
                   onMomentumScrollEnd={handleScoreScrollEnd}
                   scrollEnabled={activeScrollRef.current === null || activeScrollRef.current === 'score'}
                   renderItem={({ item: globalIndex }) => (
-                    <AnimatedScoreItem
+                    <MemoizedAnimatedScoreItem
                       dayIndex={globalIndex}
                       isDark={isDark}
                       itemWidth={SCREEN_WIDTH - 40}
@@ -1707,16 +1735,17 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
 
-  /* Empty Past Day Uplifted Card — Exact match of upliftedCardBox with 1px border */
+  /* Empty Past Day Uplifted Card — Compact centered card with top/bottom gaps */
   emptyPastForecastCard: {
-    width: '100%',
-    height: 220,
+    width: '92%',
+    maxWidth: 340,
+    height: 165,
     borderRadius: 22,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 26,
-    paddingVertical: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -1732,19 +1761,19 @@ const styles = StyleSheet.create({
     borderColor: '#27272a',
   },
   emptyPastTitle: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '800',
     letterSpacing: -0.3,
     textAlign: 'center',
     marginBottom: 8,
   },
   emptyPastSubtitle: {
-    fontSize: 13.5,
-    fontWeight: '500',
-    lineHeight: 19,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18.5,
     textAlign: 'center',
     paddingHorizontal: 8,
-    maxWidth: 290,
+    maxWidth: 275,
   },
 
   analyzingWrapper: {
@@ -1884,7 +1913,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   greetSub: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.68)',
     marginTop: 0,
@@ -1943,7 +1972,7 @@ const styles = StyleSheet.create({
     lineHeight: 128,
   },
   scoreCaption: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.58)',
     letterSpacing: 0.3,
@@ -2264,7 +2293,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   journalDayText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
   },
   journalDotSeparator: {
@@ -2273,7 +2302,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   journalAnswersCount: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
   },
   journalBadgeSlot: {
@@ -2303,7 +2332,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   upliftedViewAllText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   textLight: {

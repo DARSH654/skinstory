@@ -47,11 +47,10 @@ import {
 
 // Gemini API Configuration
 function getGeminiApiKey(): string {
-  return process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+  return process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'AIzaSyCMutQD_o7oFGp7VzZyHcGGJOBK4mpvr6k';
 }
 
-const PRIMARY_MODEL = 'gemini-2.5-flash';
-const FALLBACK_MODEL = 'gemini-flash-latest';
+const PRIMARY_MODEL = 'gemini-3.1-flash-lite';
 
 const ASYNC_STORAGE_SYNTHESIS_CACHE_KEY = 'skinstory_forecast_synthesis_cache_v1';
 
@@ -501,62 +500,44 @@ async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Pro
 
     console.log(`[STAGE 4 - AI] 🌐 Calling Gemini API (${model}). URL: ${requestUrl}`);
     const netStart = Date.now();
-    const { signal: timeoutSignal, cleanup } = createTimeoutSignal(signal, 7000);
 
-    try {
-      const response = await fetch(actualUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: timeoutSignal,
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.2, // Nuanced clinical reasoning while adhering strictly to facts
-            maxOutputTokens: 600,
-            responseMimeType: 'application/json',
-          },
-        }),
-      });
+    const response = await fetch(actualUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2, // Nuanced clinical reasoning while adhering strictly to facts
+          maxOutputTokens: 600,
+          responseMimeType: 'application/json',
+        },
+      }),
+    });
 
-      const netElapsed = Date.now() - netStart;
-      console.log(`[STAGE 4 - AI] 📡 Gemini (${model}) responded in ${netElapsed}ms with HTTP status ${response.status}`);
+    const netElapsed = Date.now() - netStart;
+    console.log(`[STAGE 4 - AI] 📡 Gemini (${model}) responded in ${netElapsed}ms with HTTP status ${response.status}`);
 
-      if (!response.ok) {
-        const errText = await response.text().catch(() => '');
-        console.warn(`[STAGE 4 - AI] ⚠️ Gemini call failed with status ${response.status}: ${errText.slice(0, 150)}`);
-        return null;
-      }
-      const data = await response.json();
-      const resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
-      if (resultText) {
-        console.log(`[STAGE 4 - AI] 📥 Received valid JSON payload from Gemini (${resultText.length} chars)`);
-      } else {
-        console.warn('[STAGE 4 - AI] ⚠️ Gemini responded with empty candidate parts');
-      }
-      return resultText;
-    } finally {
-      cleanup();
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      console.warn(`[STAGE 4 - AI] ⚠️ Gemini call failed with status ${response.status}: ${errText.slice(0, 150)}`);
+      return null;
     }
+    const data = await response.json();
+    const resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+    if (resultText) {
+      console.log(`[STAGE 4 - AI] 📥 Received valid JSON payload from Gemini (${resultText.length} chars)`);
+    } else {
+      console.warn('[STAGE 4 - AI] ⚠️ Gemini responded with empty candidate parts');
+    }
+    return resultText;
   };
 
   try {
-    // Try primary model (gemini-3.5-flash)
-    try {
-      const textPrimary = await callModel(PRIMARY_MODEL);
-      if (textPrimary) return extractJsonFromString(textPrimary);
-    } catch (e: any) {
-      console.log(`[STAGE 4 - AI] ⚠️ Primary model (${PRIMARY_MODEL}) failed: ${e?.message || e}. Attempting fallback (${FALLBACK_MODEL})...`);
-    }
-
-    // Try fallback model (gemini-flash-latest)
-    try {
-      const textFallback = await callModel(FALLBACK_MODEL);
-      if (textFallback) return extractJsonFromString(textFallback);
-    } catch (e: any) {
-      console.log(`[STAGE 4 - AI] ⚠️ Fallback model (${FALLBACK_MODEL}) failed: ${e?.message || e}`);
-    }
-  } catch (err: any) {
-    console.warn(`[STAGE 4 - AI] ⚠️ Unexpected error: ${err?.message || err}`);
+    const textPrimary = await callModel(PRIMARY_MODEL);
+    if (textPrimary) return extractJsonFromString(textPrimary);
+  } catch (e: any) {
+    console.log(`[STAGE 4 - AI] ⚠️ Gemini (${PRIMARY_MODEL}) failed: ${e?.message || e}`);
   }
 
   return null;
@@ -624,7 +605,7 @@ function mergeAiOutputWithSynthesis(
     clinicalInsight,
     horizons: updatedHorizons,
     biomarkerDeltas: deterministic.biomarkerDeltas,
-    source: 'gemini-3.8-flash',
+    source: (PRIMARY_MODEL as any) || 'gemini-3.1-flash-lite',
     computedAt: Date.now(),
   };
 }

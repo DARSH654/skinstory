@@ -25,8 +25,13 @@ import {
   resolveSkinMapTickets,
   resolveDefaultQuestionTicket,
   requiresAiIngestion,
+  DEFAULT_CONDITION_TICKETS,
 } from './stage2IngestionBridge';
-import { ingestCustomItemWithAi } from './stage2AiIngestionWorker';
+import {
+  ingestCustomItemWithAi,
+  validateCustomSkinCondition,
+  getCachedSkinConditionTicket,
+} from './stage2AiIngestionWorker';
 import { QuestionDef } from '@/store/journalStore';
 
 /**
@@ -152,12 +157,51 @@ export async function assembleStage3EnginePayload(
     const skinMapHoursAgo = Math.max(0, (now - skinMapTimestamp) / (1000 * 60 * 60));
 
     if (dayLog.hasSkinMap && dayLog.skinMapData) {
+      // Synchronous resolution: handles default conditions + already-cached custom conditions
       const skinMapTickets = resolveSkinMapTickets(
         dayLog.skinMapData,
         skinMapTimestamp,
         skinMapHoursAgo
       );
       collectedTickets.push(...skinMapTickets);
+
+      // Asynchronous ingestion for any un-cached custom conditions in historical logs:
+      const maxScale = dayLog.skinMapData.maxSeverityScale || 5;
+      for (const zone of dayLog.skinMapData.zones) {
+        const severityVal = typeof zone.severity === 'number' ? zone.severity : 3;
+        const severityMultiplier = Math.max(0.3, Math.min(1.0, severityVal / maxScale));
+        const conditionsList = Array.isArray(zone.conditions)
+          ? zone.conditions
+          : (zone as any).condition
+          ? [(zone as any).condition]
+          : [];
+        const zoneId = zone.id || (zone as any).zoneId || 'unknown';
+        const zoneName = zone.name || (zone as any).zoneName || 'Skin Zone';
+
+        for (const condition of conditionsList) {
+          if (!DEFAULT_CONDITION_TICKETS[condition] && !getCachedSkinConditionTicket(condition)) {
+            try {
+              const validated = await validateCustomSkinCondition(condition, zoneName, abortSignal);
+              if (validated.isValid && validated.category && validated.intensity != null) {
+                collectedTickets.push({
+                  id: `q_skin_custom_${zoneId}_${condition}_${skinMapTimestamp}`,
+                  sourceKey: 'q_skin_map',
+                  sourceLabel: `${zoneName}: ${condition}`,
+                  category: validated.category,
+                  intensity: Math.round(validated.intensity * severityMultiplier * 100) / 100,
+                  peakHours: validated.peakHours ?? 24,
+                  halfLifeHours: validated.halfLifeHours ?? 48,
+                  loggedAt: skinMapTimestamp,
+                  hoursAgo: skinMapHoursAgo,
+                  origin: 'ai_ingestion',
+                });
+              }
+            } catch {
+              // Ignore failure; unverified conditions will not produce corrupt tickets
+            }
+          }
+        }
+      }
     }
 
     // 2. Resolve daily answered questions

@@ -1,10 +1,9 @@
 // Gemini AI service for Skin Story Chat
 // API key is loaded from apps/mobile/.env (gitignored) via EXPO_PUBLIC_GEMINI_API_KEY
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'AIzaSyCMutQD_o7oFGp7VzZyHcGGJOBK4mpvr6k';
 
-// Primary fast & cost-efficient model with fallback
-const PRIMARY_MODEL = 'gemini-3.5-flash';
-const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+// Primary fast & cost-efficient model
+const PRIMARY_MODEL = 'gemini-3.1-flash-lite';
 
 const SYSTEM_INSTRUCTION = `CRITICAL IDENTITY AND PERSONA RULES:
 - You are the proprietary Skin Story AI Assistant, custom-built exclusively by the Skin Story engineering team.
@@ -83,31 +82,9 @@ export async function fetchGeminiChatResponse(
     if (signal?.aborted || err?.name === 'AbortError') {
       throw err;
     }
-    // Primary model failed, fall through to fallback
   }
 
-  if (signal?.aborted) {
-    const abortErr = new Error('Aborted');
-    abortErr.name = 'AbortError';
-    throw abortErr;
-  }
-
-  // Fallback to flash-lite
-  try {
-    const fallbackResult = await callModel(FALLBACK_MODEL);
-    if (fallbackResult) return fallbackResult;
-  } catch (err: any) {
-    if (signal?.aborted || err?.name === 'AbortError') {
-      throw err;
-    }
-    // Fallback model also failed
-  }
-
-  if (signal?.aborted) {
-    const abortErr = new Error('Aborted');
-    abortErr.name = 'AbortError';
-    throw abortErr;
-  }
+  return null;
 
   // If all models fail and no response was generated
   throw new Error('Unable to connect to Skin Story AI. Please check your internet connection.');

@@ -29,30 +29,99 @@ import {
 } from '@/services/stage2IngestionBridge';
 
 /**
- * Multi-week calendar sequence synchronization
- * Matches index.tsx multi-week calendar setup (-4 to +4 weeks = 9 weeks total)
+ * Dynamic Multi-week calendar synchronization
+ * Anchored to the user's start week (0 to max 4 weeks past, +4 weeks future)
  */
 export type { ForecastHeroCardData, SkinForecastSynthesis };
-
-export const CALENDAR_WEEKS_RANGE = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
-export const INITIAL_WEEK_INDEX = 4; // index of week offset 0 (Current Week)
 
 export function getTodayIdx(): number {
   const day = new Date().getDay();
   return day === 0 ? 6 : day - 1; // 0=Mon..6=Sun
 }
 
-export function getInitialDayGlobalIndex(): number {
-  return INITIAL_WEEK_INDEX * 7 + getTodayIdx();
+export function getMondayOfDate(d: Date): Date {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+export function buildWeeksRange(pastWeeks: number): number[] {
+  const clampedPast = Math.min(4, Math.max(0, pastWeeks));
+  const range: number[] = [];
+  for (let w = -clampedPast; w <= 4; w++) {
+    range.push(w);
+  }
+  return range;
+}
+
+export function calculatePastWeeksCount(
+  historyRecords: JournalHistoryRecord[],
+  storedJoinDate?: string | null
+): number {
+  let earliestDate: Date | null = null;
+
+  for (const r of historyRecords) {
+    if (!r.answers || Object.keys(r.answers).length === 0) continue;
+    const d = resolveRecordDate(r);
+    if (d && !isNaN(d.getTime())) {
+      if (!earliestDate || d < earliestDate) {
+        earliestDate = d;
+      }
+    }
+  }
+
+  if (storedJoinDate) {
+    const parts = storedJoinDate.split('-').map(Number);
+    if (parts.length === 3) {
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      d.setHours(0, 0, 0, 0);
+      if (!isNaN(d.getTime())) {
+        if (!earliestDate || d < earliestDate) {
+          earliestDate = d;
+        }
+      }
+    }
+  }
+
+  if (!earliestDate) {
+    return 0;
+  }
+
+  const today = new Date();
+  const currentMonday = getMondayOfDate(today);
+  const earliestMonday = getMondayOfDate(earliestDate);
+
+  const diffMs = currentMonday.getTime() - earliestMonday.getTime();
+  if (diffMs <= 0) {
+    return 0;
+  }
+
+  const diffWeeks = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
+  return Math.min(4, Math.max(0, diffWeeks));
+}
+
+// Fallback exports for backward compatibility
+export const CALENDAR_WEEKS_RANGE = [0, 1, 2, 3, 4];
+export const INITIAL_WEEK_INDEX = 0;
+
+export function getInitialDayGlobalIndex(initialWeekIdx?: number): number {
+  const weekIdx = initialWeekIdx !== undefined
+    ? initialWeekIdx
+    : (useForecastStore?.getState ? useForecastStore.getState().initialWeekIndex : 0);
+  return weekIdx * 7 + getTodayIdx();
 }
 
 /**
- * Converts a global day index (0..62) to the exact local calendar Date at midnight.
+ * Converts a global day index to the exact local calendar Date at midnight.
  */
-export function getDateForGlobalIndex(globalIdx: number): Date {
+export function getDateForGlobalIndex(globalIdx: number, weeksRange?: number[]): Date {
+  const activeRange = weeksRange || (useForecastStore?.getState ? useForecastStore.getState().weeksRange : [0, 1, 2, 3, 4]);
   const weekIdx = Math.floor(globalIdx / 7);
   const dayIdx = globalIdx % 7;
-  const weekOffset = CALENDAR_WEEKS_RANGE[weekIdx] ?? 0;
+  const weekOffset = activeRange[weekIdx] ?? 0;
 
   const todayDate = new Date();
   const currentDayVal = todayDate.getDay();
@@ -236,6 +305,8 @@ export function deriveBasisInfo(
 }
 
 export interface ForecastState {
+  weeksRange: number[];
+  initialWeekIndex: number;
   todaySynthesis: SkinForecastSynthesis | null;
   frozenPastSyntheses: Record<string, SkinForecastSynthesis>;
   forecastCardsByDay: Record<number, ForecastHeroCardData>;
@@ -276,6 +347,8 @@ export interface ForecastState {
 export const useForecastStore = create<ForecastState>()(
   persist(
     (set, get) => ({
+      weeksRange: [0, 1, 2, 3, 4],
+      initialWeekIndex: 0,
       todaySynthesis: null,
       frozenPastSyntheses: {},
       forecastCardsByDay: {},
@@ -288,14 +361,35 @@ export const useForecastStore = create<ForecastState>()(
 
       /**
        * Primary Initialization.
-       * 1. Checks day rollover (freezes yesterday's live forecast permanently).
-       * 2. Synchronously ensures today's card is never empty.
-       * 3. Silently launches background async forecast pipeline.
+       * 1. Dynamically resolves user's start week (0 to max 4 past weeks).
+       * 2. Checks day rollover (freezes yesterday's live forecast permanently).
+       * 3. Synchronously ensures today's card is never empty.
+       * 4. Silently launches background async forecast pipeline.
        */
       init: async (questions, historyRecords, userProfile) => {
         const todayDate = new Date();
         const todayKey = toDateKey(todayDate);
-        const todayGlobalIdx = getInitialDayGlobalIndex();
+
+        // Dynamic Start Week Calculation
+        let storedJoinDate: string | null = null;
+        try {
+          storedJoinDate = await AsyncStorage.getItem('user_first_open_date');
+          if (!storedJoinDate) {
+            await AsyncStorage.setItem('user_first_open_date', todayKey);
+            storedJoinDate = todayKey;
+          }
+        } catch {}
+
+        const pastWeeks = calculatePastWeeksCount(historyRecords, storedJoinDate);
+        const dynamicWeeksRange = buildWeeksRange(pastWeeks);
+        const dynamicInitialWeekIdx = dynamicWeeksRange.indexOf(0);
+
+        set({
+          weeksRange: dynamicWeeksRange,
+          initialWeekIndex: dynamicInitialWeekIdx,
+        });
+
+        const todayGlobalIdx = getInitialDayGlobalIndex(dynamicInitialWeekIdx);
 
         // Check day rollover: If todaySynthesis exists from a past date, freeze it permanently!
         const existingToday = get().todaySynthesis;
@@ -348,12 +442,12 @@ export const useForecastStore = create<ForecastState>()(
           return state.forecastCardsByDay[globalIndex];
         }
 
-        const todayGlobalIdx = getInitialDayGlobalIndex();
+        const todayGlobalIdx = getInitialDayGlobalIndex(state.initialWeekIndex);
         if (globalIndex === todayGlobalIdx && state.todaySynthesis) {
           return state.todaySynthesis.heroCard;
         }
 
-        const targetDate = getDateForGlobalIndex(globalIndex);
+        const targetDate = getDateForGlobalIndex(globalIndex, state.weeksRange);
         const targetKey = toDateKey(targetDate);
 
         // Check if frozen past forecast exists
@@ -382,7 +476,7 @@ export const useForecastStore = create<ForecastState>()(
        */
       ensureForecastForDay: async (globalIndex, questions, historyRecords, userProfile) => {
         const state = get();
-        const todayGlobalIdx = getInitialDayGlobalIndex();
+        const todayGlobalIdx = getInitialDayGlobalIndex(state.initialWeekIndex);
 
         // Future days are locked — do not compute
         if (globalIndex > todayGlobalIdx) {
@@ -398,7 +492,7 @@ export const useForecastStore = create<ForecastState>()(
         }
 
         // Past Day: Check if already frozen
-        const targetDate = getDateForGlobalIndex(globalIndex);
+        const targetDate = getDateForGlobalIndex(globalIndex, state.weeksRange);
         const targetKey = toDateKey(targetDate);
 
         if (state.frozenPastSyntheses[targetKey]) {
@@ -429,17 +523,18 @@ export const useForecastStore = create<ForecastState>()(
           return;
         }
 
-        // First time viewing this past day: compute and FREEZE forever
+        // First time viewing this past day: compute using instant deterministic engine (0ms, $0.00 cost) and FREEZE forever
         const pastRecords = historyRecords.filter((r) => {
           if (r.isoDate) return r.isoDate <= targetKey;
           if (r.dateStr?.toLowerCase() === 'today') return false;
           return true;
         });
 
-        const pastSynthesis = await runFullSkinForecastingPipeline(
+        const pastSynthesis = computeDeterministicInstantSynthesis(
           pastRecords,
           questions,
-          userProfile
+          userProfile,
+          true
         );
 
         const pastDateDisplay = `${targetDate.getDate()} ${targetDate.toLocaleDateString('en-US', { month: 'short' })}`;
@@ -475,7 +570,7 @@ export const useForecastStore = create<ForecastState>()(
         console.log(`[FORECAST] Input records: ${historyRecords.length}, Questions: ${questions.length}, Force AI Refresh: ${Boolean(options?.forceAiRefresh)}`);
 
         try {
-          const todayGlobalIdx = getInitialDayGlobalIndex();
+          const todayGlobalIdx = getInitialDayGlobalIndex(get().initialWeekIndex);
           const { basisLabel, logDays, isTodayLogged, hasAnyLogs } = deriveBasisInfo(historyRecords, true);
 
           if (!hasAnyLogs) {
@@ -566,6 +661,20 @@ export const useForecastStore = create<ForecastState>()(
           return;
         }
 
+        // Cold-start guard: if _previousAnswersMap does not exist yet (first hydration after app open),
+        // initialize baseline without triggering unneeded AI calls
+        if (!(state as any)._previousAnswersMap) {
+          const initialMap: Record<string, string> = {};
+          for (const r of updatedRecords) {
+            initialMap[r.id] = JSON.stringify(r.answers || {});
+          }
+          (set as any)({
+            _previousAnswersMap: initialMap,
+            lastHistoryFingerprint: currentFingerprint,
+          });
+          return;
+        }
+
         // Find which record was edited or added
         let editedRecord: JournalHistoryRecord | null = null;
         for (const rec of updatedRecords) {
@@ -603,39 +712,18 @@ export const useForecastStore = create<ForecastState>()(
         }
 
         // Edited record is within the 14-day window:
-        // 1. Recalculate today's forecast
-        await get().recalculateToday(questions, updatedRecords, userProfile);
-
-        // 2. If it was a past record that has a frozen forecast, refresh that frozen snapshot
-        const editedKey = toDateKey(recordDate);
-        if (state.frozenPastSyntheses[editedKey]) {
-          const pastRecords = updatedRecords.filter((r) => {
-            if (r.isoDate) return r.isoDate <= editedKey;
-            if (r.dateStr?.toLowerCase() === 'today') return false;
-            return true;
-          });
-
-          const updatedPastSynthesis = await runFullSkinForecastingPipeline(
-            pastRecords,
-            questions,
-            userProfile
-          );
-          const pastDateDisplay = `${recordDate.getDate()} ${recordDate.toLocaleDateString('en-US', { month: 'short' })}`;
-          updatedPastSynthesis.heroCard.meta = `Based on your log from ${pastDateDisplay}`;
-
-          set((prev) => ({
-            frozenPastSyntheses: {
-              ...prev.frozenPastSyntheses,
-              [editedKey]: updatedPastSynthesis,
-            },
-          }));
-        }
+        // 1. Recalculate ONLY today's live forecast with fresh AI
+        // 2. The past day's forecast card remains untouched as the historical archive of that day
+        // 3. The journal answers are already saved in journalStore for chat & long-term insights
+        await get().recalculateToday(questions, updatedRecords, userProfile, { forceAiRefresh: true });
       },
     }),
     {
       name: 'skinstory-forecast-storage-v1',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
+        weeksRange: state.weeksRange,
+        initialWeekIndex: state.initialWeekIndex,
         frozenPastSyntheses: state.frozenPastSyntheses,
         todaySynthesis: state.todaySynthesis,
         forecastCardsByDay: state.forecastCardsByDay,

@@ -77,10 +77,6 @@ export async function commitOnboardingToJournalAndProfile(): Promise<void> {
       timestamps['q_water'] = now;
     }
 
-    // 2d. Routine
-    mappedAnswers['q_routine'] = 'Morning & Evening';
-    timestamps['q_routine'] = now;
-
     // 3. Commit into useJournalStore historyRecords
     const currentRecords = useJournalStore.getState().historyRecords;
     let foundToday = false;

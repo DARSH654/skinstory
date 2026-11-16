@@ -20,6 +20,8 @@
 
 import { SanitizedQuestionAnswer, ParsedSkinMapAnswer } from './stage1RawDataRules';
 import { QuestionDef } from '@/store/journalStore';
+import { getCachedSkinConditionTicket, buildIngestionAiPrompt } from './stage2AiIngestionWorker';
+export { buildIngestionAiPrompt };
 
 /**
  * The 7 MECE Clinical Skin Categories
@@ -152,20 +154,27 @@ export function resolveSkinMapTickets(
           origin: 'default_fast_track',
         });
       } else {
-        // Fallback for custom user conditions added in Question 1:
-        // By default assign to inflammation with standard acute flare timeline
-        tickets.push({
-          id: `q_skin_custom_${zoneId}_${condition}_${loggedAt}`,
-          sourceKey: 'q_skin_map',
-          sourceLabel: `${zoneName}: ${condition}`,
-          category: 'inflammation',
-          intensity: Math.round(0.6 * severityMultiplier * 100) / 100,
-          peakHours: 36,
-          halfLifeHours: 48,
-          loggedAt,
-          hoursAgo,
-          origin: 'ai_ingestion',
-        });
+        // Custom condition: read from the AI classification cache.
+        // The condition was validated & classified by Gemini when the user
+        // first typed it in the UI (SkinExperienceQuestionView), so the
+        // cache is guaranteed to be warm by the time the pipeline runs.
+        const cachedTicket = getCachedSkinConditionTicket(condition);
+        if (cachedTicket) {
+          tickets.push({
+            id: `q_skin_custom_${zoneId}_${condition}_${loggedAt}`,
+            sourceKey: 'q_skin_map',
+            sourceLabel: `${zoneName}: ${condition}`,
+            category: cachedTicket.category,
+            intensity: Math.round(cachedTicket.intensity * severityMultiplier * 100) / 100,
+            peakHours: cachedTicket.peakHours,
+            halfLifeHours: cachedTicket.halfLifeHours,
+            loggedAt,
+            hoursAgo,
+            origin: 'ai_ingestion',
+          });
+        }
+        // If not in cache, this condition was never validated — skip it.
+        // No silent fallback. No fake data. Ever.
       }
     }
   }
@@ -396,41 +405,4 @@ export function requiresAiIngestion(
   }
 
   return false;
-}
-
-/**
- * Constructs the clinical prompt for Ingestion AI to translate any custom input
- * into the standardized 4-number ticket.
- */
-export function buildIngestionAiPrompt(
-  customItem: {
-    questionTitle: string;
-    userAnswer: string;
-    dataType: string;
-  }
-): string {
-  return `You are an elite clinical dermatologist and pharmacokinetic modeling system.
-Your job is to translate a user's custom skin log into exactly one 4-number biological ticket.
-
-Available Categories (select strictly ONE):
-- hydration (moisture, water loss, humidity)
-- barrier (skin barrier, lipid matrix, TEWL, acid mantle)
-- inflammation (cytokines, active acne, redness, swelling, burning)
-- sebum (oil production, pores, follicular occlusion)
-- turnover (cellular renewal, flaking, peeling, exfoliation)
-- pigmentation (melanin surge, UV damage, dark spots, PIH)
-- edema (puffiness, fluid retention, lymphatic pooling)
-
-Input:
-- Question: "${customItem.questionTitle}"
-- User Answer: "${customItem.userAnswer}"
-- Data Type: "${customItem.dataType}"
-
-Respond strictly with valid JSON conforming to this schema (no extra prose or markdown code blocks):
-{
-  "category": "hydration" | "barrier" | "inflammation" | "sebum" | "turnover" | "pigmentation" | "edema",
-  "intensity": number between -1.0 (healing/protective) and +1.0 (severe damage/stress),
-  "peakHours": number of hours from event onset until maximum biological impact (typical range: 2 to 72),
-  "halfLifeHours": number of hours until the biological effect naturally fades by 50% (typical range: 6 to 168)
-}`;
 }

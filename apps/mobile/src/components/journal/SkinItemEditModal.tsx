@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, StyleSheet, Modal, TextInput, Pressable } from 'react-native';
+import { View, StyleSheet, Modal, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/AppText';
 import { Colors } from '@/constants/theme';
 
@@ -9,6 +9,7 @@ interface SkinItemEditModalProps {
   primaryColor: string;
   itemType: 'zone' | 'condition';
   initialValue: string;
+  isLoading?: boolean;
   onCancel: () => void;
   onSave: (newValue: string) => void;
 }
@@ -19,6 +20,7 @@ export default function SkinItemEditModal({
   primaryColor,
   itemType,
   initialValue,
+  isLoading = false,
   onCancel,
   onSave,
 }: SkinItemEditModalProps) {
@@ -33,6 +35,7 @@ export default function SkinItemEditModal({
   }, [visible, initialValue]);
 
   const handleSave = () => {
+    if (isLoading) return;
     const clean = draftRef.current.trim();
     if (!clean || clean === initialValue.trim()) return;
     onSave(clean);
@@ -46,9 +49,9 @@ export default function SkinItemEditModal({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onCancel}
+      onRequestClose={isLoading ? undefined : onCancel}
     >
-      <Pressable style={styles.modalBackdrop} onPress={onCancel}>
+      <Pressable style={styles.modalBackdrop} onPress={isLoading ? undefined : onCancel}>
         <Pressable
           style={[
             styles.modalCard,
@@ -74,6 +77,7 @@ export default function SkinItemEditModal({
                 isDark ? styles.inputTextDark : styles.inputTextLight,
               ]}
               defaultValue={initialValue}
+              editable={!isLoading}
               onChangeText={(text) => {
                 draftRef.current = text;
                 const clean = text.trim();
@@ -94,11 +98,12 @@ export default function SkinItemEditModal({
           {/* Action Buttons: Cancel & Smart Save Changes matching RenameChatModal exactly */}
           <View style={styles.modalActions}>
             <Pressable
-              onPress={onCancel}
+              onPress={isLoading ? undefined : onCancel}
+              disabled={isLoading}
               style={({ pressed }) => [
                 styles.modalActionBtn,
                 isDark ? styles.cancelBtnDark : styles.cancelBtnLight,
-                { opacity: pressed ? 0.75 : 1 },
+                { opacity: isLoading ? 0.5 : (pressed ? 0.75 : 1) },
               ]}
             >
               <Text
@@ -112,30 +117,34 @@ export default function SkinItemEditModal({
             </Pressable>
 
             <Pressable
-              onPress={canSave ? handleSave : undefined}
-              disabled={!canSave}
+              onPress={canSave && !isLoading ? handleSave : undefined}
+              disabled={!canSave || isLoading}
               style={({ pressed }) => [
                 styles.modalActionBtn,
                 {
                   backgroundColor: !canSave
                     ? (isDark ? '#27272a' : '#e5e7eb')
                     : (primaryColor || Colors.light.primary),
-                  opacity: canSave && pressed ? 0.85 : 1,
+                  opacity: canSave && !isLoading && pressed ? 0.85 : 1,
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.btnText,
-                  {
-                    color: !canSave
-                      ? (isDark ? '#71717a' : '#9ca3af')
-                      : '#ffffff',
-                  },
-                ]}
-              >
-                Save Changes
-              </Text>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text
+                  style={[
+                    styles.btnText,
+                    {
+                      color: !canSave
+                        ? (isDark ? '#71717a' : '#9ca3af')
+                        : '#ffffff',
+                    },
+                  ]}
+                >
+                  Save Changes
+                </Text>
+              )}
             </Pressable>
           </View>
         </Pressable>

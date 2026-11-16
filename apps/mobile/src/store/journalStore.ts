@@ -229,137 +229,7 @@ export const getRelativeDateInfo = (daysAgo: number) => {
 const d0 = getRelativeDateInfo(0);
 const d1 = getRelativeDateInfo(1);
 
-export const DEMO_HISTORY_RECORDS: JournalHistoryRecord[] = [
-  {
-    id: 'rec-1',
-    dateStr: 'Today',
-    dayName: d0.dayName,
-    isoDate: d0.isoDate,
-    image: MOCK_SCANS[0]?.image,
-    answers: {
-      q_routine: 'Morning & Evening',
-      q_water: 'Around 2L',
-    },
-  },
-  {
-    id: 'rec-2',
-    dateStr: 'Yesterday',
-    dayName: d1.dayName,
-    isoDate: d1.isoDate,
-    image: MOCK_SCANS[1]?.image,
-    answers: {
-      q_routine: 'Morning',
-      q_water: 'Around 1.5L',
-      q_sleep: '6–7 hours, okay',
-      q_stress: 'Mild stress, manageable',
-      q_sunscreen: 'Applied once',
-    },
-  },
-  {
-    id: 'rec-3',
-    dateStr: 'Oct 15, 2026',
-    dayName: 'Wednesday',
-    isoDate: '2026-10-15',
-    image: MOCK_SCANS[2]?.image,
-    answers: {},
-  },
-  {
-    id: 'rec-4',
-    dateStr: 'Oct 12, 2026',
-    dayName: 'Sunday',
-    isoDate: '2026-10-12',
-    image: MOCK_SCANS[3]?.image,
-    answers: {
-      q_routine: 'Morning & Evening',
-      q_water: 'More than 2L',
-    },
-  },
-  {
-    id: 'rec-5',
-    dateStr: 'Oct 09, 2026',
-    dayName: 'Thursday',
-    isoDate: '2026-10-09',
-    image: MOCK_SCANS[4]?.image,
-    answers: {
-      q_routine: 'Evening',
-      q_water: 'Around 1L',
-      q_sleep: 'Less than 5 hours',
-      q_stress: 'Quite stressed today',
-      q_sunscreen: 'Applied once',
-    },
-  },
-  {
-    id: 'rec-6',
-    dateStr: 'Oct 04, 2026',
-    dayName: 'Saturday',
-    isoDate: '2026-10-04',
-    image: MOCK_SCANS[0]?.image,
-    answers: {
-      q_routine: 'Morning & Evening',
-      q_water: 'Around 2L',
-      q_sleep: '7–8 hours, good',
-    },
-  },
-  {
-    id: 'rec-7',
-    dateStr: 'Oct 01, 2026',
-    dayName: 'Wednesday',
-    isoDate: '2026-10-01',
-    image: MOCK_SCANS[1]?.image,
-    answers: {
-      q_routine: 'Morning & Evening',
-      q_water: 'More than 2L',
-      q_sleep: '8+ hours, great',
-      q_stress: 'Relaxed, no stress',
-      q_sunscreen: 'Applied twice',
-    },
-  },
-  {
-    id: 'rec-8',
-    dateStr: 'Sep 27, 2026',
-    dayName: 'Saturday',
-    isoDate: '2026-09-27',
-    image: MOCK_SCANS[2]?.image,
-    answers: {},
-  },
-  {
-    id: 'rec-9',
-    dateStr: 'Sep 23, 2026',
-    dayName: 'Tuesday',
-    isoDate: '2026-09-23',
-    image: MOCK_SCANS[3]?.image,
-    answers: {
-      q_routine: 'Evening',
-      q_water: 'Less than 1L',
-      q_sleep: '5–6 hours, tired',
-    },
-  },
-  {
-    id: 'rec-10',
-    dateStr: 'Sep 18, 2026',
-    dayName: 'Thursday',
-    isoDate: '2026-09-18',
-    image: MOCK_SCANS[4]?.image,
-    answers: {
-      q_routine: 'Morning & Evening',
-      q_water: 'Around 2L',
-      q_sleep: '7–8 hours, good',
-      q_stress: 'Mild stress, manageable',
-      q_sunscreen: 'Applied once',
-    },
-  },
-  {
-    id: 'rec-11',
-    dateStr: 'Sep 14, 2026',
-    dayName: 'Sunday',
-    isoDate: '2026-09-14',
-    image: MOCK_SCANS[0]?.image,
-    answers: {
-      q_routine: 'Morning',
-      q_water: 'Around 1.5L',
-    },
-  },
-];
+export const DEMO_HISTORY_RECORDS: JournalHistoryRecord[] = [];
 
 interface JournalState {
   questions: QuestionDef[];
@@ -396,7 +266,7 @@ export const useJournalStore = create<JournalState>()(
     (set, get) => ({
   questions: INITIAL_QUESTIONS,
   availableQuestions: INITIAL_AVAILABLE_QUESTIONS,
-  historyRecords: DEMO_HISTORY_RECORDS,
+  historyRecords: [],
   pendingReanswerKey: null,
   pendingImageCapture: null,
 
@@ -548,15 +418,20 @@ export const useJournalStore = create<JournalState>()(
         historyRecords: state.historyRecords,
       }),
       onRehydrateStorage: () => (state) => {
-        if (!state || !state.historyRecords) return;
+        if (!state) return;
         const todayInfo = getRelativeDateInfo(0);
         const yesterdayInfo = getRelativeDateInfo(1);
 
-        const hasRecordForToday = state.historyRecords.some(
+        // Automatically purge any legacy demo records (rec-1 through rec-11)
+        const baseRecords = (state.historyRecords || []).filter(
+          (r) => !/^rec-(?:[1-9]|1[0-1])$/.test(r.id)
+        );
+
+        const hasRecordForToday = baseRecords.some(
           (r) => r.isoDate === todayInfo.isoDate
         );
 
-        let updated = state.historyRecords.map((r) => {
+        let updated = baseRecords.map((r) => {
           if (r.isoDate === todayInfo.isoDate) {
             return {
               ...r,

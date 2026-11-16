@@ -34,6 +34,7 @@ import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-c
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import AuthModal from '@/components/auth/AuthModal';
+import { preloadSkinConditionCache } from '@/services/stage2AiIngestionWorker';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -42,6 +43,9 @@ export default function RootLayout() {
 
   // Authentication re-enabled with Supabase
   useEffect(() => {
+    // Preload AI skin condition classification cache into memory
+    preloadSkinConditionCache();
+
     // Initial check
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (!session) {
