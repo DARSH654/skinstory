@@ -7,6 +7,7 @@ export interface AddCustomZoneModalProps {
   isDark: boolean;
   primaryColor: string;
   isValidating: boolean;
+  isRetry?: boolean;
   onCancel: () => void;
   onSubmit: (name: string) => void;
 }
@@ -16,6 +17,7 @@ export default function AddCustomZoneModal({
   isDark,
   primaryColor,
   isValidating,
+  isRetry = false,
   onCancel,
   onSubmit,
 }: AddCustomZoneModalProps) {
@@ -50,6 +52,16 @@ export default function AddCustomZoneModal({
           ]}
           onPress={(e) => e.stopPropagation()}
         >
+          {isRetry && !isValidating && (
+            <View style={styles.errorPillWrapper}>
+              <View style={styles.errorPill}>
+                <Text style={styles.errorPillText}>
+                  Something went wrong
+                </Text>
+              </View>
+            </View>
+          )}
+
           <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight]}>
             Add Custom Face Zone
           </Text>
@@ -124,7 +136,7 @@ export default function AddCustomZoneModal({
                     },
                   ]}
                 >
-                  Add Zone
+                  {isRetry ? 'Try Again' : 'Add Zone'}
                 </Text>
               )}
             </Pressable>
@@ -171,6 +183,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'left',
     marginBottom: 12,
+  },
+  errorPillWrapper: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  errorPill: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 5,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+  },
+  errorPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
   },
   textLight: {
     color: '#111827',

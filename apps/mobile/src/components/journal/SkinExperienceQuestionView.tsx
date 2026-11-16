@@ -144,8 +144,11 @@ export default function SkinExperienceQuestionView({
 
   // Modal visibility states
   const [zoneModalVisible, setZoneModalVisible] = useState(false);
+  const [zoneRetryState, setZoneRetryState] = useState<{ isRetry: boolean; attemptCount: number }>({ isRetry: false, attemptCount: 0 });
   const [conditionModalVisible, setConditionModalVisible] = useState(false);
+  const [conditionRetryState, setConditionRetryState] = useState<{ isRetry: boolean; attemptCount: number }>({ isRetry: false, attemptCount: 0 });
   const [scaleModalVisible, setScaleModalVisible] = useState(false);
+  const [scaleRetryState, setScaleRetryState] = useState<{ isRetry: boolean; attemptCount: number }>({ isRetry: false, attemptCount: 0 });
   const [editingScaleLevel, setEditingScaleLevel] = useState<number>(6);
 
   const zoneDraftCacheRef = useRef<Record<string, { conditions: string[]; severity: number }>>({});
@@ -185,6 +188,7 @@ export default function SkinExperienceQuestionView({
     id: '',
     name: '',
   });
+  const [editRetryState, setEditRetryState] = useState<{ isRetry: boolean; attemptCount: number }>({ isRetry: false, attemptCount: 0 });
 
   // Delete Confirmation Modal State
   const [deleteModal, setDeleteModal] = useState<{
@@ -321,7 +325,7 @@ export default function SkinExperienceQuestionView({
     const clean = cleanName.trim();
     if (!clean) return;
 
-    console.log(`[SKIN_ZONE_AI] 🚀 [UI] Submitting custom zone: "${clean}"`);
+    console.log(`[SKIN_ZONE_AI] 🚀 [UI] Submitting custom zone: "${clean}" (attempt: ${zoneRetryState.attemptCount + 1})`);
     setIsValidatingCondition(true);
 
     try {
@@ -345,32 +349,44 @@ export default function SkinExperienceQuestionView({
         setSelectedZones(updated);
         setCurrentlySelectedZoneId(id);
         emitState(updated, maxSeverityScale, undefined, undefined, updatedCustomZones);
+        setZoneRetryState({ isRetry: false, attemptCount: 0 });
         setZoneModalVisible(false);
+      } else if (result.isNetworkError && zoneRetryState.attemptCount < 2) {
+        // Network / 503 error on Attempt 1 or 2: Keep modal open, show Try Again
+        console.warn(`[SKIN_ZONE_AI] ⚠️ Network error on attempt ${zoneRetryState.attemptCount + 1}. Prompting user to Try Again.`);
+        setZoneRetryState((prev) => ({ isRetry: true, attemptCount: prev.attemptCount + 1 }));
       } else {
+        // Legitimate invalid input OR 3rd failed attempt: Show clarification modal with suggestions
+        setZoneRetryState({ isRetry: false, attemptCount: 0 });
         setZoneModalVisible(false);
         setClarificationModal({
           visible: true,
           type: 'zone',
           title: "We couldn't recognize this face zone",
           userInput: clean,
-          suggestions: result.suggestions || ['Neck', 'Upper Lip', 'Jawline'],
+          suggestions: result.suggestions || ['Upper Lip', 'Eyelids', 'Behind Ears'],
           selectedSuggestion: null,
           targetZoneId: null,
           replaceOldCondition: null,
         });
       }
     } catch {
-      setZoneModalVisible(false);
-      setClarificationModal({
-        visible: true,
-        type: 'zone',
-        title: "We couldn't recognize this face zone",
-        userInput: clean,
-        suggestions: ['Neck', 'Upper Lip', 'Jawline'],
-        selectedSuggestion: null,
-        targetZoneId: null,
-        replaceOldCondition: null,
-      });
+      if (zoneRetryState.attemptCount < 2) {
+        setZoneRetryState((prev) => ({ isRetry: true, attemptCount: prev.attemptCount + 1 }));
+      } else {
+        setZoneRetryState({ isRetry: false, attemptCount: 0 });
+        setZoneModalVisible(false);
+        setClarificationModal({
+          visible: true,
+          type: 'zone',
+          title: "We couldn't recognize this face zone",
+          userInput: clean,
+          suggestions: ['Upper Lip', 'Eyelids', 'Behind Ears'],
+          selectedSuggestion: null,
+          targetZoneId: null,
+          replaceOldCondition: null,
+        });
+      }
     } finally {
       setIsValidatingCondition(false);
     }
@@ -384,7 +400,7 @@ export default function SkinExperienceQuestionView({
     const activeZone = allZones.find((z) => z.id === currentlySelectedZoneId);
     const zoneName = activeZone?.name || 'Face Zone';
 
-    console.log(`[SKIN_CONDITION_AI] 🚀 [UI] User submitted condition: "${clean}" for zone: "${zoneName}"`);
+    console.log(`[SKIN_CONDITION_AI] 🚀 [UI] User submitted condition: "${clean}" for zone: "${zoneName}" (attempt: ${conditionRetryState.attemptCount + 1})`);
     setIsValidatingCondition(true);
 
     try {
@@ -402,9 +418,15 @@ export default function SkinExperienceQuestionView({
         setCustomConditionsByZone(updatedConditionsMap);
 
         toggleCondition(finalConditionName, updatedConditionsMap);
+        setConditionRetryState({ isRetry: false, attemptCount: 0 });
         setConditionModalVisible(false);
+      } else if (result.isNetworkError && conditionRetryState.attemptCount < 2) {
+        // Network / 503 error on Attempt 1 or 2: Keep modal open, show Try Again
+        console.warn(`[SKIN_CONDITION_AI] ⚠️ Network error on attempt ${conditionRetryState.attemptCount + 1}. Prompting user to Try Again.`);
+        setConditionRetryState((prev) => ({ isRetry: true, attemptCount: prev.attemptCount + 1 }));
       } else {
-        console.log(`[SKIN_CONDITION_AI] ❓ [UI] Condition unrecognized. Opening Clarification Modal with suggestions:`, result.suggestions);
+        // Legitimate invalid input OR 3rd failed attempt: Show clarification modal with suggestions
+        setConditionRetryState({ isRetry: false, attemptCount: 0 });
         setConditionModalVisible(false);
         setClarificationModal({
           visible: true,
@@ -419,17 +441,22 @@ export default function SkinExperienceQuestionView({
       }
     } catch (e: any) {
       console.error(`[SKIN_CONDITION_AI] 💥 [UI] Exception in handleAddCustomCondition:`, e);
-      setConditionModalVisible(false);
-      setClarificationModal({
-        visible: true,
-        type: 'condition',
-        title: "We couldn't recognize this condition",
-        userInput: clean,
-        suggestions: ['Acne / Breakout', 'Dryness / Flaking', 'Redness / Irritation'],
-        selectedSuggestion: null,
-        targetZoneId: currentlySelectedZoneId,
-        replaceOldCondition: null,
-      });
+      if (conditionRetryState.attemptCount < 2) {
+        setConditionRetryState((prev) => ({ isRetry: true, attemptCount: prev.attemptCount + 1 }));
+      } else {
+        setConditionRetryState({ isRetry: false, attemptCount: 0 });
+        setConditionModalVisible(false);
+        setClarificationModal({
+          visible: true,
+          type: 'condition',
+          title: "We couldn't recognize this condition",
+          userInput: clean,
+          suggestions: ['Acne / Breakout', 'Dryness / Flaking', 'Redness / Irritation'],
+          selectedSuggestion: null,
+          targetZoneId: currentlySelectedZoneId,
+          replaceOldCondition: null,
+        });
+      }
     } finally {
       setIsValidatingCondition(false);
     }
@@ -622,12 +649,13 @@ export default function SkinExperienceQuestionView({
     if (editModal.type === 'zone') {
       const clean = newName.trim();
       if (!clean || clean === editModal.name.trim()) {
+        setEditRetryState({ isRetry: false, attemptCount: 0 });
         setEditModal({ visible: false, type: 'zone', id: '', name: '' });
         return;
       }
 
       const zoneId = editModal.id;
-      console.log(`[SKIN_ZONE_AI] 🚀 [UI] Submitting edited zone: "${clean}" (replacing "${editModal.name}")`);
+      console.log(`[SKIN_ZONE_AI] 🚀 [UI] Submitting edited zone: "${clean}" (attempt: ${editRetryState.attemptCount + 1})`);
       setIsValidatingCondition(true);
 
       try {
@@ -646,15 +674,19 @@ export default function SkinExperienceQuestionView({
           );
           setSelectedZones(updatedSelected);
           emitState(updatedSelected, maxSeverityScale, undefined, undefined, updatedCustomZones);
+          setEditRetryState({ isRetry: false, attemptCount: 0 });
           setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+        } else if (result.isNetworkError && editRetryState.attemptCount < 2) {
+          setEditRetryState((prev) => ({ isRetry: true, attemptCount: prev.attemptCount + 1 }));
         } else {
+          setEditRetryState({ isRetry: false, attemptCount: 0 });
           setEditModal({ visible: false, type: 'zone', id: '', name: '' });
           setClarificationModal({
             visible: true,
             type: 'zone',
             title: "We couldn't recognize this face zone",
             userInput: clean,
-            suggestions: result.suggestions || ['Neck', 'Upper Lip', 'Jawline'],
+            suggestions: result.suggestions || ['Upper Lip', 'Eyelids', 'Behind Ears'],
             selectedSuggestion: null,
             targetZoneId: null,
             replaceOldCondition: null,
@@ -662,18 +694,23 @@ export default function SkinExperienceQuestionView({
           });
         }
       } catch {
-        setEditModal({ visible: false, type: 'zone', id: '', name: '' });
-        setClarificationModal({
-          visible: true,
-          type: 'zone',
-          title: "We couldn't recognize this face zone",
-          userInput: clean,
-          suggestions: ['Neck', 'Upper Lip', 'Jawline'],
-          selectedSuggestion: null,
-          targetZoneId: null,
-          replaceOldCondition: null,
-          replaceOldZoneId: zoneId,
-        });
+        if (editRetryState.attemptCount < 2) {
+          setEditRetryState((prev) => ({ isRetry: true, attemptCount: prev.attemptCount + 1 }));
+        } else {
+          setEditRetryState({ isRetry: false, attemptCount: 0 });
+          setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+          setClarificationModal({
+            visible: true,
+            type: 'zone',
+            title: "We couldn't recognize this face zone",
+            userInput: clean,
+            suggestions: ['Upper Lip', 'Eyelids', 'Behind Ears'],
+            selectedSuggestion: null,
+            targetZoneId: null,
+            replaceOldCondition: null,
+            replaceOldZoneId: zoneId,
+          });
+        }
       } finally {
         setIsValidatingCondition(false);
       }
@@ -683,6 +720,7 @@ export default function SkinExperienceQuestionView({
       const clean = newName.trim();
 
       if (clean === oldName.trim()) {
+        setEditRetryState({ isRetry: false, attemptCount: 0 });
         setEditModal({ visible: false, type: 'zone', id: '', name: '' });
         return;
       }
@@ -690,6 +728,7 @@ export default function SkinExperienceQuestionView({
       const activeZone = allZones.find((z) => z.id === pZone);
       const zoneName = activeZone?.name || 'Face Zone';
 
+      console.log(`[SKIN_CONDITION_AI] 🚀 [UI] Submitting edited condition: "${clean}" (attempt: ${editRetryState.attemptCount + 1})`);
       setIsValidatingCondition(true);
 
       try {
@@ -713,8 +752,12 @@ export default function SkinExperienceQuestionView({
           });
           setSelectedZones(updatedSelected);
           emitState(updatedSelected, maxSeverityScale, undefined, updatedCustomConditions);
+          setEditRetryState({ isRetry: false, attemptCount: 0 });
           setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+        } else if (result.isNetworkError && editRetryState.attemptCount < 2) {
+          setEditRetryState((prev) => ({ isRetry: true, attemptCount: prev.attemptCount + 1 }));
         } else {
+          setEditRetryState({ isRetry: false, attemptCount: 0 });
           setEditModal({ visible: false, type: 'zone', id: '', name: '' });
           setClarificationModal({
             visible: true,
@@ -728,17 +771,22 @@ export default function SkinExperienceQuestionView({
           });
         }
       } catch {
-        setEditModal({ visible: false, type: 'zone', id: '', name: '' });
-        setClarificationModal({
-          visible: true,
-          type: 'condition',
-          title: "We couldn't recognize this condition",
-          userInput: clean,
-          suggestions: ['Acne / Breakout', 'Dryness / Flaking', 'Redness / Irritation'],
-          selectedSuggestion: null,
-          targetZoneId: pZone,
-          replaceOldCondition: oldName,
-        });
+        if (editRetryState.attemptCount < 2) {
+          setEditRetryState((prev) => ({ isRetry: true, attemptCount: prev.attemptCount + 1 }));
+        } else {
+          setEditRetryState({ isRetry: false, attemptCount: 0 });
+          setEditModal({ visible: false, type: 'zone', id: '', name: '' });
+          setClarificationModal({
+            visible: true,
+            type: 'condition',
+            title: "We couldn't recognize this condition",
+            userInput: clean,
+            suggestions: ['Acne / Breakout', 'Dryness / Flaking', 'Redness / Irritation'],
+            selectedSuggestion: null,
+            targetZoneId: pZone,
+            replaceOldCondition: oldName,
+          });
+        }
       } finally {
         setIsValidatingCondition(false);
       }
@@ -785,7 +833,7 @@ export default function SkinExperienceQuestionView({
     const clean = label.trim();
     if (!clean) return;
 
-    console.log(`[SKIN_SEVERITY_AI] 🚀 [UI] Submitting custom severity: "${clean}" for level ${level}`);
+    console.log(`[SKIN_SEVERITY_AI] 🚀 [UI] Submitting custom severity: "${clean}" for level ${level} (attempt: ${scaleRetryState.attemptCount + 1})`);
     setIsValidatingCondition(true);
 
     try {
@@ -805,8 +853,15 @@ export default function SkinExperienceQuestionView({
           setMaxSeverityScale(newMax);
         }
         emitState(selectedZones, newMax, newCustoms);
+        setScaleRetryState({ isRetry: false, attemptCount: 0 });
         setScaleModalVisible(false);
+      } else if (result.isNetworkError && scaleRetryState.attemptCount < 2) {
+        // Network / 503 error on Attempt 1 or 2: Keep modal open, show Try Again
+        console.warn(`[SKIN_SEVERITY_AI] ⚠️ Network error on attempt ${scaleRetryState.attemptCount + 1}. Prompting user to Try Again.`);
+        setScaleRetryState((prev) => ({ isRetry: true, attemptCount: prev.attemptCount + 1 }));
       } else {
+        // Legitimate invalid input OR 3rd failed attempt: Show clarification modal with suggestions
+        setScaleRetryState({ isRetry: false, attemptCount: 0 });
         setScaleModalVisible(false);
         setClarificationModal({
           visible: true,
@@ -819,16 +874,21 @@ export default function SkinExperienceQuestionView({
         });
       }
     } catch {
-      setScaleModalVisible(false);
-      setClarificationModal({
-        visible: true,
-        type: 'severity',
-        title: "We couldn't recognize this severity label",
-        userInput: clean,
-        suggestions: ['Moderate discomfort', 'Severe flare-up', 'Mild irritation'],
-        selectedSuggestion: null,
-        scaleLevel: level,
-      });
+      if (scaleRetryState.attemptCount < 2) {
+        setScaleRetryState((prev) => ({ isRetry: true, attemptCount: prev.attemptCount + 1 }));
+      } else {
+        setScaleRetryState({ isRetry: false, attemptCount: 0 });
+        setScaleModalVisible(false);
+        setClarificationModal({
+          visible: true,
+          type: 'severity',
+          title: "We couldn't recognize this severity label",
+          userInput: clean,
+          suggestions: ['Moderate discomfort', 'Severe flare-up', 'Mild irritation'],
+          selectedSuggestion: null,
+          scaleLevel: level,
+        });
+      }
     } finally {
       setIsValidatingCondition(false);
     }
@@ -1150,7 +1210,11 @@ export default function SkinExperienceQuestionView({
         isDark={isDark}
         primaryColor={primaryColor}
         isValidating={isValidatingCondition}
-        onCancel={() => setZoneModalVisible(false)}
+        isRetry={zoneRetryState.isRetry}
+        onCancel={() => {
+          setZoneRetryState({ isRetry: false, attemptCount: 0 });
+          setZoneModalVisible(false);
+        }}
         onSubmit={handleAddCustomZone}
       />
 
@@ -1160,7 +1224,11 @@ export default function SkinExperienceQuestionView({
         isDark={isDark}
         primaryColor={primaryColor}
         isValidating={isValidatingCondition}
-        onCancel={() => setConditionModalVisible(false)}
+        isRetry={conditionRetryState.isRetry}
+        onCancel={() => {
+          setConditionRetryState({ isRetry: false, attemptCount: 0 });
+          setConditionModalVisible(false);
+        }}
         onSubmit={handleAddCustomCondition}
       />
 
@@ -1189,7 +1257,11 @@ export default function SkinExperienceQuestionView({
         maxSeverityScale={maxSeverityScale}
         customScaleLabels={customScaleLabels}
         isValidating={isValidatingCondition}
-        onCancel={() => setScaleModalVisible(false)}
+        isRetry={scaleRetryState.isRetry}
+        onCancel={() => {
+          setScaleRetryState({ isRetry: false, attemptCount: 0 });
+          setScaleModalVisible(false);
+        }}
         onSave={handleSaveScaleLevel}
       />
 
@@ -1212,7 +1284,11 @@ export default function SkinExperienceQuestionView({
         itemType={editModal.type}
         initialValue={editModal.name}
         isLoading={isValidatingCondition}
-        onCancel={() => setEditModal((prev) => ({ ...prev, visible: false }))}
+        isRetry={editRetryState.isRetry}
+        onCancel={() => {
+          setEditRetryState({ isRetry: false, attemptCount: 0 });
+          setEditModal((prev) => ({ ...prev, visible: false }));
+        }}
         onSave={handleSaveEdit}
       />
 

@@ -67,6 +67,7 @@ export interface GenericValidationResult {
   isValid: boolean;
   resolvedName?: string;
   suggestions?: string[];
+  isNetworkError?: boolean;
 }
 
 /**
@@ -80,6 +81,7 @@ export interface SkinConditionValidationResult {
   peakHours?: number;
   halfLifeHours?: number;
   suggestions?: string[];
+  isNetworkError?: boolean;
 }
 
 // In-memory cache synced with AsyncStorage
@@ -564,11 +566,12 @@ export async function validateCustomSkinCondition(
   }
 
   // 4. AI call failed or returned unparseable data — treat as network error,
-  //    do NOT silently accept. Return invalid with generic suggestions.
+  //    do NOT silently accept. Return invalid with generic suggestions and flag isNetworkError.
   console.warn(`[SKIN_CONDITION_AI] ⚠️ [Worker] AI call failed or returned null. Returning fallback suggestions.`);
   return {
     isValid: false,
     suggestions: ['Acne / Breakout', 'Dryness / Flaking', 'Redness / Irritation'],
+    isNetworkError: true,
   };
 }
 
@@ -642,7 +645,7 @@ If invalid: {"isValid":false,"suggestions":["suggestion 1","suggestion 2","sugge
     const res: GenericValidationResult = {
       isValid: Boolean(rawResult.isValid),
       resolvedName: typeof rawResult.resolvedName === 'string' ? rawResult.resolvedName.trim() : zoneText.trim(),
-      suggestions: Array.isArray(rawResult.suggestions) ? rawResult.suggestions.slice(0, 3) : ['Neck', 'Upper Lip', 'Jawline'],
+      suggestions: Array.isArray(rawResult.suggestions) ? rawResult.suggestions.slice(0, 3) : ['Upper Lip', 'Eyelids', 'Behind Ears'],
     };
     try {
       cache[cacheKey] = res;
@@ -652,7 +655,7 @@ If invalid: {"isValid":false,"suggestions":["suggestion 1","suggestion 2","sugge
     return res;
   }
 
-  return { isValid: false, suggestions: ['Neck', 'Upper Lip', 'Jawline'] };
+  return { isValid: false, suggestions: ['Upper Lip', 'Eyelids', 'Behind Ears'], isNetworkError: true };
 }
 
 /**
@@ -702,5 +705,5 @@ If invalid: {"isValid":false,"suggestions":["suggestion 1","suggestion 2","sugge
     return res;
   }
 
-  return { isValid: false, suggestions: ['Moderate discomfort', 'Severe flare-up', 'Mild irritation'] };
+  return { isValid: false, suggestions: ['Moderate discomfort', 'Severe flare-up', 'Mild irritation'], isNetworkError: true };
 }

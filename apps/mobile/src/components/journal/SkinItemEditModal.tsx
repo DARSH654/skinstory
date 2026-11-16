@@ -10,6 +10,7 @@ interface SkinItemEditModalProps {
   itemType: 'zone' | 'condition';
   initialValue: string;
   isLoading?: boolean;
+  isRetry?: boolean;
   onCancel: () => void;
   onSave: (newValue: string) => void;
 }
@@ -21,6 +22,7 @@ export default function SkinItemEditModal({
   itemType,
   initialValue,
   isLoading = false,
+  isRetry = false,
   onCancel,
   onSave,
 }: SkinItemEditModalProps) {
@@ -59,6 +61,16 @@ export default function SkinItemEditModal({
           ]}
           onPress={(e) => e.stopPropagation()}
         >
+          {isRetry && !isLoading && (
+            <View style={styles.errorPillWrapper}>
+              <View style={styles.errorPill}>
+                <Text style={styles.errorPillText}>
+                  Something went wrong
+                </Text>
+              </View>
+            </View>
+          )}
+
           <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight]}>
             {title}
           </Text>
@@ -142,7 +154,7 @@ export default function SkinItemEditModal({
                     },
                   ]}
                 >
-                  Save Changes
+                  {isRetry ? 'Try Again' : 'Save Changes'}
                 </Text>
               )}
             </Pressable>
@@ -183,6 +195,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#121212',
     borderWidth: 1,
     borderColor: '#2b2b30',
+  },
+  errorPillWrapper: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  errorPill: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 5,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+  },
+  errorPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
   },
   modalTitle: {
     fontSize: 18,

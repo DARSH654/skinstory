@@ -12,6 +12,7 @@ export interface CustomScaleModalProps {
   maxSeverityScale: number;
   customScaleLabels: Record<number, string>;
   isValidating: boolean;
+  isRetry?: boolean;
   onCancel: () => void;
   onSave: (level: number, label: string) => void;
 }
@@ -24,6 +25,7 @@ export default function CustomScaleModal({
   maxSeverityScale,
   customScaleLabels,
   isValidating,
+  isRetry = false,
   onCancel,
   onSave,
 }: CustomScaleModalProps) {
@@ -68,6 +70,16 @@ export default function CustomScaleModal({
           ]}
           onPress={(e) => e.stopPropagation()}
         >
+          {isRetry && !isValidating && (
+            <View style={styles.errorPillWrapper}>
+              <View style={styles.errorPill}>
+                <Text style={styles.errorPillText}>
+                  Something went wrong
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Header with circular left/right chevrons */}
           <View style={styles.scaleNavHeaderRow}>
             <Pressable
@@ -180,7 +192,7 @@ export default function CustomScaleModal({
                     },
                   ]}
                 >
-                  {editingLevel > maxSeverityScale ? 'Add Scale' : 'Save Scale'}
+                  {isRetry ? 'Try Again' : (editingLevel > maxSeverityScale ? 'Add Scale' : 'Save Scale')}
                 </Text>
               )}
             </Pressable>
@@ -221,6 +233,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#121212',
     borderWidth: 1,
     borderColor: '#2b2b30',
+  },
+  errorPillWrapper: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  errorPill: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 5,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+  },
+  errorPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
   },
   modalTitle: {
     fontSize: 18,
