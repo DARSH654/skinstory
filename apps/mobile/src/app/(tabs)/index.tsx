@@ -1222,7 +1222,7 @@ export default function HomeScreen() {
             </View>
 
             {/* Center Area: Animated Analyzing Data Disc AND Slideable Score Block with smooth transition */}
-            <View style={{ height: 240, width: SCREEN_WIDTH - 40, alignSelf: 'center', marginBottom: 0, alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+            <View style={{ height: 240, width: SCREEN_WIDTH - 40, alignSelf: 'center', marginBottom: 0, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
               {/* Score / Forecast Slideable block across all days */}
               <Animated.View 
                 style={[{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, scoreBlockAnimStyle]}
@@ -1279,7 +1279,7 @@ export default function HomeScreen() {
                 <Animated.View 
                   style={[
                     StyleSheet.absoluteFill, 
-                    { alignItems: 'center', justifyContent: 'center', zIndex: 10 },
+                    { alignItems: 'center', justifyContent: 'center', zIndex: 10, overflow: 'visible' },
                     analyzingCircleAnimStyle
                   ]}
                   pointerEvents="none"
