@@ -162,7 +162,7 @@ export const styles = StyleSheet.create({
   historyMetaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 5,
   },
   historyRowSubDate: {
     fontSize: 13,
@@ -199,9 +199,9 @@ export const styles = StyleSheet.create({
     paddingLeft: 8,
   },
   statusCircleBadge: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 43,
+    height: 43,
+    borderRadius: 21.5,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,

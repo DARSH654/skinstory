@@ -319,9 +319,18 @@ export const useJournalStore = create<JournalState>()(
   addQuestion: (q) =>
     set((state) => {
       console.log(`[JOURNAL_STORE] ➕ addQuestion: added "${q.subtitle}" (key: ${q.key}, type: ${q.dataType})`);
-      return {
-        questions: [q, ...state.questions.filter((item) => item.key !== q.key)],
-      };
+      // Always keep q_skin_map locked at index 0.
+      // New custom questions must land at index 1 (immediately after the locked question),
+      // so they appear as the topmost editable question every time.
+      const withoutQ = state.questions.filter((item) => item.key !== q.key);
+      const skinMapIndex = withoutQ.findIndex((item) => item.key === 'q_skin_map');
+      if (skinMapIndex !== -1) {
+        const updated = [...withoutQ];
+        updated.splice(skinMapIndex + 1, 0, q);
+        return { questions: updated };
+      }
+      // Fallback (q_skin_map not present): prepend
+      return { questions: [q, ...withoutQ] };
     }),
 
   updateQuestion: (key, newTitle, newOptions, extraMeta) =>

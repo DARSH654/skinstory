@@ -852,12 +852,17 @@ export default function DailyJournalScreen() {
                   const answeredCount = questions.filter((q) => Boolean(item.answers?.[q.key])).length;
                   const totalQuestions = questions.length;
                   
-                  // Only 3 statuses: 'Completed', 'In Progress', 'Missed'
-                  let statusText: 'Completed' | 'In Progress' | 'Missed' = 'Completed';
+                  // 4 statuses: 'Completed', 'In Progress', 'Log Now', 'Missed'
+                  // 'Log Now'  → today's record, nothing answered yet (day is still open)
+                  // 'Missed'   → a past day's record with nothing answered (window is closed)
+                  const isToday =
+                    item.dateStr?.toLowerCase() === 'today' ||
+                    item.isoDate === new Date().toISOString().slice(0, 10);
+                  let statusText: 'Completed' | 'In Progress' | 'Log Now' | 'Missed' = 'Completed';
                   if (answeredCount >= totalQuestions && totalQuestions > 0) {
                     statusText = 'Completed';
                   } else if (answeredCount === 0) {
-                    statusText = 'Missed';
+                    statusText = isToday ? 'Log Now' : 'Missed';
                   } else {
                     statusText = 'In Progress';
                   }
@@ -942,6 +947,25 @@ export default function DailyJournalScreen() {
                         )}
 
                         {statusText === 'In Progress' && (
+                          <View
+                            style={[
+                              styles.statusCircleBadge,
+                              {
+                                backgroundColor: isDark ? 'rgba(168, 85, 247, 0.16)' : 'rgba(124, 58, 237, 0.10)',
+                                borderColor: isDark ? '#c084fc' : primaryColor,
+                                borderStyle: 'dashed',
+                              },
+                            ]}
+                          >
+                            <Check 
+                              size={20} 
+                              color={isDark ? '#c084fc' : primaryColor} 
+                              strokeWidth={3} 
+                            />
+                          </View>
+                        )}
+
+                        {statusText === 'Log Now' && (
                           <View
                             style={[
                               styles.statusCircleBadge,
@@ -1164,14 +1188,12 @@ export default function DailyJournalScreen() {
                           style={[
                             styles.actionIconCircle,
                             {
-                              backgroundColor: q.key === 'q_skin_map'
-                                ? (isDark ? '#27272a' : '#e4e4e7')
-                                : primaryColor,
+                              backgroundColor: primaryColor,
                             },
                           ]}
                         >
                           {q.key === 'q_skin_map' ? (
-                            <Lock size={12} color={isDark ? '#a1a1aa' : '#52525b'} strokeWidth={2.4} />
+                            <Lock size={14} color="#ffffff" strokeWidth={3} />
                           ) : (
                             <Minus size={14} color="#ffffff" strokeWidth={3} />
                           )}
