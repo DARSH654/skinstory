@@ -218,12 +218,12 @@ export function buildIngestionAiPrompt(
   if (isImage) {
     rules = `Rules:
 1. Face selfie: isRelevant:false, intensity:0, category:"none", visualSummary:"Face / skin selfie".
-2. Skincare product: isRelevant:true, visualSummary:2-5 word name, classify biological impact.
-3. Food/Drink: isRelevant:true, visualSummary:2-4 word food, classify skin impact.
-4. Unrelated/Object: isRelevant:false, intensity:0, category:"none", visualSummary:2-4 word object.`;
+2. Skincare: isRelevant:true, visualSummary:2-5 words, classify biological impact.
+3. Food/Drink: isRelevant:true, visualSummary:2-4 words, classify skin impact.
+4. Unrelated: isRelevant:false, intensity:0, category:"none", visualSummary:2-4 words.`;
   } else if (isMultiSelect) {
     rules = `Rules:
-1. Multiple items selected. Scale intensity to COUNT and harshness: 1 item=0.2-0.4, 2-3 items=0.5-0.7, 4+ items=0.75-0.85 (cap: 0.85). Protective items=negative.
+1. Multiple items. Scale intensity by count & potency: 1 item=0.2-0.4, 2-3 items=0.5-0.7, 4+ items=0.75-0.85 (cap: 0.85). Protective items=negative.
 2. Gibberish/no impact: isRelevant:false, intensity:0, category:"none".`;
   } else if (isScale) {
     rules = `Rules:
@@ -231,14 +231,14 @@ export function buildIngestionAiPrompt(
 2. Invalid/gibberish: isRelevant:false, intensity:0, category:"none".`;
   } else {
     rules = `Rules:
-1. Correlate factor to skin impact (isRelevant:true).
+1. Correlate factor to skin impact (isRelevant:true, non-zero intensity).
 2. Gibberish/unrelated/zero impact: isRelevant:false, intensity:0, category:"none".`;
   }
 
   const inputLine = isImage
-    ? `Input: "${customItem.questionTitle}" | [Attached Image] (Type: image)`
+    ? `Input: "${customItem.questionTitle}" | [Attached Image]`
     : isScale
-    ? `Input: "${customItem.questionTitle}" | Rating: Level ${customItem.semanticScale?.level || customItem.userAnswer} of ${customItem.semanticScale?.range || '1-5'} ("${customItem.semanticScale?.label || ''}") (Type: scale)`
+    ? `Input: "${customItem.questionTitle}" | Rating: Level ${customItem.semanticScale?.level || customItem.userAnswer} of ${customItem.semanticScale?.range || '1-5'} ("${customItem.semanticScale?.label || ''}")`
     : `Input: "${customItem.questionTitle}" | Answer: "${customItem.userAnswer}" (Type: ${customItem.dataType})`;
 
   return `Skin biology classifier. Translate log into 1 biological ticket.
@@ -518,13 +518,11 @@ export async function preloadSkinConditionCache(): Promise<void> {
  * Highly token-optimized for low latency and minimal input costs at scale.
  */
 function buildSkinConditionValidationPrompt(conditionText: string, zoneName: string): string {
-  return `Skin validator. Input: "${conditionText}" | Zone: "${zoneName}".
-Rules:
-1. VALID: Real skin symptom/issue on any body zone. Keep exact phrasing in "resolvedName". Pick 1 category & kinetics.
-2. INVALID: Gibberish, non-skin words, bad typos. Give 3 closest real suggestions for "${zoneName}".
-JSON format:
-Valid: {"isValid":true,"resolvedName":"${conditionText}","category":"hydration"|"barrier"|"inflammation"|"sebum"|"turnover"|"pigmentation"|"edema","intensity":0.1-1.0,"peakHours":2-72,"halfLifeHours":6-168}
-Invalid: {"isValid":false,"suggestions":["s1","s2","s3"]}`;
+  return `Skin validator. Term: "${conditionText}" | Zone: "${zoneName}".
+1. Real skin issue: set category, kinetics & exact resolvedName.
+2. Gibberish/unrelated: 3 close suggestions for "${zoneName}".
+JSON:
+{"isValid":true,"resolvedName":"${conditionText}","category":"hydration"|"barrier"|"inflammation"|"sebum"|"turnover"|"pigmentation"|"edema","intensity":0.1-1.0,"peakHours":2-72,"halfLifeHours":6-168} OR {"isValid":false,"suggestions":["s1","s2","s3"]}`;
 }
 
 /**
@@ -671,13 +669,11 @@ export async function validateCustomSkinZone(
     return cache[cacheKey];
   }
 
-  const prompt = `Skin zone validator. Input: "${zoneText}".
-Rules:
-1. VALID: Any human body skin area. Keep exact phrasing in "resolvedName".
-2. INVALID: Non-anatomical words, objects, food, gibberish. Give 3 real zone suggestions.
+  const prompt = `Skin zone validator. Zone: "${zoneText}".
+1. Real body skin zone: exact resolvedName.
+2. Gibberish/unrelated: 3 real zone suggestions.
 JSON:
-Valid: {"isValid":true,"resolvedName":"${zoneText}"}
-Invalid: {"isValid":false,"suggestions":["s1","s2","s3"]}`;
+{"isValid":true,"resolvedName":"${zoneText}"} OR {"isValid":false,"suggestions":["s1","s2","s3"]}`;
 
   let rawResult: any = null;
   if (getGeminiApiKey()) {
