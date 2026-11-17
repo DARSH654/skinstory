@@ -74,7 +74,7 @@ function AnimatedScoreItem({
   dayIndex: number;
   isDark: boolean;
   itemWidth: number;
-  onInfoPress: (logDays: number, origin: { x: number; y: number }) => void;
+  onInfoPress: (logDays: number, origin: { x: number; y: number }, customLabel?: string) => void;
 }) {
   const iconRef = useRef<View>(null);
   const historyRecords = useJournalStore((state) => state.historyRecords);
@@ -156,7 +156,7 @@ function AnimatedScoreItem({
               styles.forecastBigNumber, 
               { 
                 color: isDark ? '#ffffff' : '#000000',
-                fontSize: forecast.highlight.length > 14 ? 26 : (forecast.highlight.length > 10 ? 30 : (forecast.highlight.length > 7 ? 38 : 46)),
+                fontSize: forecast.highlight.length > 14 ? 30 : (forecast.highlight.length > 10 ? 36 : (forecast.highlight.length > 7 ? 44 : 52)),
               }
             ]}
             numberOfLines={1}
@@ -174,27 +174,45 @@ function AnimatedScoreItem({
 
         <View style={styles.forecastMetaRow}>
           <Text style={[styles.forecastMetaText, { color: isDark ? '#9ca3af' : '#4b5563' }]}>
-            {forecast.meta}
-          </Text>
-          <View ref={iconRef} collapsable={false}>
-            <Pressable 
-              onPress={() => {
-                iconRef.current?.measureInWindow((x, y, width, height) => {
-                  onInfoPress(forecast.logDays, {
-                    x: x + width / 2,
-                    y: y + height / 2,
+            {forecast.meta}{' '}
+            <View ref={iconRef} collapsable={false} style={{ transform: [{ translateY: 2 }] }}>
+              <Pressable 
+                onPress={() => {
+                  iconRef.current?.measureInWindow((x, y, width, height) => {
+                    let label = '';
+                    const todayDateKey = toDateKey(new Date());
+                    const yesterdayDateKey = toDateKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
+                    const hasToday = historyRecords.some((r) => (r.isoDate === todayDateKey || r.dateStr?.toLowerCase() === 'today') && Object.keys(r.answers || {}).length > 0);
+                    const hasYesterday = historyRecords.some((r) => (r.isoDate === yesterdayDateKey || r.dateStr?.toLowerCase() === 'yesterday') && Object.keys(r.answers || {}).length > 0);
+
+                    if (hasToday && hasYesterday) {
+                      label = 'Based on logs from today and yesterday';
+                    } else if (hasToday && forecast.logDays === 1) {
+                      label = "Based on today's log";
+                    } else if (hasYesterday && forecast.logDays === 1) {
+                      label = "Based on yesterday's log";
+                    } else if (forecast.logDays === 1) {
+                      label = 'Based on your log from 1 day';
+                    } else {
+                      label = `Based on logs from the past ${forecast.logDays} days`;
+                    }
+
+                    onInfoPress(forecast.logDays, {
+                      x: x + width / 2,
+                      y: y + height / 2,
+                    }, label);
                   });
-                });
-              }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={({ pressed }) => [
-                styles.forecastInfoCircle, 
-                { borderColor: isDark ? '#9ca3af' : '#4b5563', opacity: pressed ? 0.6 : 1 }
-              ]}
-            >
-              <Text style={[styles.forecastInfoText, { color: isDark ? '#9ca3af' : '#4b5563' }]}>i</Text>
-            </Pressable>
-          </View>
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={({ pressed }) => [
+                  styles.forecastInfoCircle, 
+                  { borderColor: isDark ? '#9ca3af' : '#4b5563', opacity: pressed ? 0.6 : 1 }
+                ]}
+              >
+                <Text style={[styles.forecastInfoText, { color: isDark ? '#9ca3af' : '#4b5563' }]}>i</Text>
+              </Pressable>
+            </View>
+          </Text>
         </View>
       </View>
     </View>
@@ -532,12 +550,18 @@ export default function HomeScreen() {
   const [userProfile, setUserProfile] = useState<{ name: string; avatarUri: string | null } | null>(null);
   const [forecastModalVisible, setForecastModalVisible] = useState(false);
   const [forecastModalDays, setForecastModalDays] = useState(7);
+  const [forecastModalLabel, setForecastModalLabel] = useState<string>('');
   const [modalOrigin, setModalOrigin] = useState({ x: 0, y: 0 });
   const modalProgress = useSharedValue(0);
 
-  const openForecastModal = useCallback((days: number, origin: { x: number; y: number }) => {
+  const openForecastModal = useCallback((days: number, origin: { x: number; y: number }, customLabel?: string) => {
     setModalOrigin(origin);
     setForecastModalDays(days);
+    if (customLabel) {
+      setForecastModalLabel(customLabel);
+    } else {
+      setForecastModalLabel('');
+    }
     setForecastModalVisible(true);
     modalProgress.value = 0;
     modalProgress.value = withTiming(1, {
@@ -1386,11 +1410,14 @@ export default function HomeScreen() {
                     const answeredCount = questions.filter((q) => Boolean(item.answers?.[q.key])).length;
                     const totalQuestions = questions.length;
 
-                    let statusText: 'Completed' | 'In Progress' | 'Missed' = 'Completed';
+                    let statusText: 'Completed' | 'In Progress' | 'Log Now' | 'Missed' = 'Completed';
+                    const isToday =
+                      item.dateStr?.toLowerCase() === 'today' ||
+                      item.isoDate === new Date().toISOString().slice(0, 10);
                     if (answeredCount >= totalQuestions && totalQuestions > 0) {
                       statusText = 'Completed';
                     } else if (answeredCount === 0) {
-                      statusText = 'Missed';
+                      statusText = isToday ? 'Log Now' : 'Missed';
                     } else {
                       statusText = 'In Progress';
                     }
@@ -1462,6 +1489,21 @@ export default function HomeScreen() {
                           )}
 
                           {statusText === 'In Progress' && (
+                            <View
+                              style={[
+                                styles.journalStatusCircle,
+                                {
+                                  backgroundColor: isDark ? 'rgba(168, 85, 247, 0.16)' : 'rgba(124, 58, 237, 0.10)',
+                                  borderColor: isDark ? '#c084fc' : Colors.light.primary,
+                                  borderStyle: 'dashed',
+                                },
+                              ]}
+                            >
+                              <Check size={20} color={isDark ? '#c084fc' : Colors.light.primary} strokeWidth={3} />
+                            </View>
+                          )}
+
+                          {statusText === 'Log Now' && (
                             <View
                               style={[
                                 styles.journalStatusCircle,
@@ -1605,6 +1647,7 @@ export default function HomeScreen() {
         ref={journalSheetRef}
         onClosed={(didChange) => {
           if (didChange) {
+            useForecastStore.getState().setPendingAnalyzingAnimation(false);
             console.log('[HOME_UI] 🔔 Sheet closed with changes -> triggering forecast recalculation with analyzing animation');
             runForecastWithAnalyzing();
           } else {
@@ -1637,7 +1680,7 @@ export default function HomeScreen() {
                   styles.forecastModalText,
                   { color: isDark ? '#ffffff' : '#000000' }
                 ]}>
-                  Based on logs from the past {forecastModalDays === 1 ? '1 day' : `${forecastModalDays} days`}
+                  {forecastModalLabel || (forecastModalDays === 1 ? "Based on today's log" : `Based on logs from the past ${forecastModalDays} days`)}
                 </Text>
               </Pressable>
             </Animated.View>
@@ -1701,29 +1744,32 @@ const styles = StyleSheet.create({
 
   /* Forecast Placeholder Typography */
   forecastSubTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 19,
+    fontWeight: '800',
     textAlign: 'center',
     letterSpacing: -0.2,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   forecastBigNumber: {
-    fontSize: 50,
+    fontSize: 54,
     fontWeight: '900',
     textAlign: 'center',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
     includeFontPadding: false,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
   forecastMetaRow: {
-    flexDirection: 'row',
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    paddingHorizontal: 20,
+    marginTop: 4,
   },
   forecastMetaText: {
-    fontSize: 14,
+    fontSize: 16.5,
     fontWeight: '700',
+    lineHeight: 23,
+    textAlign: 'center',
     letterSpacing: -0.2,
   },
   forecastInfoCircle: {

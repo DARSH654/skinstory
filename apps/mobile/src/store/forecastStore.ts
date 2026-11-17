@@ -263,10 +263,13 @@ export function deriveBasisInfo(
   const hasTodayAnswers = Boolean(todayRecord && Object.keys(todayRecord.answers || {}).length > 0);
 
   if (isToday) {
+    const uniqueDaysLogged = new Set(validLoggedRecords.map((r) => r.isoDate || r.dateStr)).size;
+    const distinctDays = Math.max(1, uniqueDaysLogged);
+
     if (hasTodayAnswers) {
       return {
         basisLabel: "Based on today's log",
-        logDays: Math.min(14, validLoggedRecords.length),
+        logDays: distinctDays,
         isTodayLogged: true,
         hasAnyLogs: true,
       };
@@ -282,7 +285,7 @@ export function deriveBasisInfo(
       const dateName = isYesterday ? 'yesterday' : (lastLogged.dateStr || lastLogged.isoDate || 'recent logs');
       return {
         basisLabel: isYesterday ? "Based on yesterday's log" : `Based on your log from ${dateName}`,
-        logDays: Math.min(14, validLoggedRecords.length),
+        logDays: distinctDays,
         isTodayLogged: false,
         hasAnyLogs: true,
       };
@@ -290,15 +293,16 @@ export function deriveBasisInfo(
 
     return {
       basisLabel: 'Based on recent logs',
-      logDays: Math.min(14, validLoggedRecords.length),
+      logDays: distinctDays,
       isTodayLogged: false,
       hasAnyLogs: true,
     };
   }
 
+  const uniqueDaysLogged = new Set(validLoggedRecords.map((r) => r.isoDate || r.dateStr)).size;
   return {
     basisLabel: 'Based on your logs',
-    logDays: Math.min(14, validLoggedRecords.length),
+    logDays: Math.max(1, uniqueDaysLogged),
     isTodayLogged: false,
     hasAnyLogs: true,
   };
@@ -423,7 +427,6 @@ export const useForecastStore = create<ForecastState>()(
 
         if (!currentCards[todayGlobalIdx] || dayRolledOver || !get().todaySynthesis) {
           const instant = computeDeterministicInstantSynthesis(historyRecords, questions, userProfile, isTodayLogged);
-          instant.heroCard.meta = basisLabel;
           instant.heroCard.logDays = logDays;
 
           currentCards[todayGlobalIdx] = instant.heroCard;
@@ -594,7 +597,6 @@ export const useForecastStore = create<ForecastState>()(
 
           // Instant 0ms baseline update so UI flips between Pre-Log and Post-Log immediately
           const instant = computeDeterministicInstantSynthesis(historyRecords, questions, userProfile, isTodayLogged);
-          instant.heroCard.meta = basisLabel;
           instant.heroCard.logDays = logDays;
           set((prev) => ({
             todaySynthesis: instant,
@@ -617,8 +619,6 @@ export const useForecastStore = create<ForecastState>()(
               isTodayLogged,
             }
           );
-
-          synthesis.heroCard.meta = basisLabel;
           synthesis.heroCard.logDays = logDays;
 
           const fingerprint = JSON.stringify(
@@ -751,12 +751,10 @@ export function initJournalForecastSync() {
   isJournalSyncAttached = true;
 
   useJournalStore.subscribe((journalState) => {
-    if (useForecastStore.getState().isJournalSheetActive) {
-      console.log('[FORECAST_SYNC] ⏸️ Journal sheet is open. Forecast calculation stays quiet and deferred until sheet close.');
+    const fState = useForecastStore.getState();
+    if (fState.isJournalSheetActive || fState.pendingAnalyzingAnimation || fState.isCalculating) {
       return;
     }
-    useForecastStore
-      .getState()
-      .handleJournalRecordsChanged(journalState.historyRecords, journalState.questions);
+    fState.handleJournalRecordsChanged(journalState.historyRecords, journalState.questions);
   });
 }

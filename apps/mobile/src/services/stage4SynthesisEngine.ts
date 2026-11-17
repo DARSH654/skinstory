@@ -74,11 +74,11 @@ function createTimeoutSignal(externalSignal?: AbortSignal, timeoutMs = 8000): { 
  * UI-Ready Contract for the Home Screen & Forecast Views
  */
 export interface ForecastHeroCardData {
-  prefix: string;        // e.g. "Peak glow and clarity expected in" or "Barrier recovery expected in"
-  highlight: string;     // e.g. "Tomorrow morning", "48 hours", "1 day", "7 days"
-  suffix?: string;       // e.g. "by 9 AM" or undefined
-  meta: string;          // e.g. "Ceramide lipid lamellae restoring (+24%)"
-  logDays: number;       // Number of days of journal logs factored in
+  prefix: string;        // Line 1: Short bold event title (e.g. "Barrier Recovery Peak")
+  highlight: string;     // Line 2: Time window (e.g. "Tomorrow Morning")
+  suffix?: string;       // Optional
+  meta: string;          // Line 3: Causal story + action (max 8-10 words)
+  logDays: number;       // Actual non-hardcoded count of logged days
 }
 
 export interface HorizonSummaryData {
@@ -347,10 +347,14 @@ export function buildDeterministicSynthesis(
 
   return {
     heroCard: {
-      prefix,
-      highlight,
-      suffix,
-      meta,
+      prefix: `${info.title} ${direction === 'worsening' ? 'Alert' : 'Peak'}`,
+      highlight: isTodayLogged ? winningForecast.horizonDisplay : 'This Morning',
+      suffix: undefined,
+      meta: direction === 'improving'
+        ? `${dominantAxis} recovering from active care; lock in hydration.`
+        : direction === 'worsening'
+        ? `Elevated ${dominantAxis} stress; keep routine gentle tonight.`
+        : `${dominantAxis} balanced at baseline; maintain standard routine.`,
       logDays: Math.max(1, Math.min(14, Math.round(stage3Result.totalTicketsEvaluated / 2))),
     },
     clinicalInsight: {
@@ -381,40 +385,18 @@ function buildStage4AiPrompt(
   userProfile?: UserSkinProfile,
   isTodayLogged: boolean = true
 ): string {
-  const { currentStateVector, baselineVector, winningForecast } = stage3Result;
+  const { winningForecast } = stage3Result;
+  const driversList = (winningForecast.activeDrivers || []).map(d => d.sourceLabel).filter(Boolean).join(", ") || "daily factors";
 
-  const temporal = isTodayLogged
-    ? "User logged today. Project forward into tomorrow based on triggers."
-    : "Morning pre-log. Status from decaying 24-72h history. heroCard.highlight MUST be 'This Morning'.";
+  return `Synthesize skin forecast in 3 lines.
+Axis: ${winningForecast.dominantAxis} (${winningForecast.direction}, ${winningForecast.severityScore}).
+Triggers: ${driversList}.
 
-  const driversList = (winningForecast.activeDrivers || []).map(d => d.sourceLabel).filter(Boolean).join(", ") || "homeostatic baseline";
-
-  return `Dermatologist skin forecast synthesizer.
-${temporal}
-Tone: Clinical, empathetic, concise. Reference real biology (cytokines, ceramides, sebum, barrier).
-User Context: SkinType=${userProfile?.skinType || 'combination'}, Concerns=${(userProfile?.concerns || ['barrier']).join(", ")}.
-State Space Data:
-Current: ${JSON.stringify(currentStateVector)}
-Baseline: ${JSON.stringify(baselineVector)}
-Winning Forecast: Axis=${winningForecast.dominantAxis}, Horizon=${winningForecast.horizonDisplay}, Direction=${winningForecast.direction}, SeverityScore=${winningForecast.severityScore}
-Active Drivers: ${driversList}
-
-Respond strictly in valid JSON:
+Output JSON:
 {
-  "heroCard": {
-    "prefix": "Short lead-in text (e.g. 'Potential inflammatory window' or 'Optimal barrier recovery in')",
-    "highlight": "${isTodayLogged ? winningForecast.horizonDisplay : 'This Morning'}",
-    "suffix": "",
-    "meta": "One crisp clinical takeaway metric (e.g. 'Inflammation markers +75% vs baseline')"
-  },
-  "clinicalInsight": {
-    "title": "3-5 word clinical headline",
-    "summary": "2 concise sentences explaining WHY based on active drivers.",
-    "actionTip": "1 ultra-specific routine recommendation."
-  },
-  "tomorrowMorningSummary": "One crisp sentence on morning outlook",
-  "in48HoursSummary": "One crisp sentence on 48h outlook",
-  "in7DaysSummary": "One crisp sentence on 7d outlook"
+  "eventTitle": "2-4 word event title",
+  "timeWindow": "${isTodayLogged ? winningForecast.horizonDisplay : 'This Morning'}",
+  "causalStory": "10-14 words: trigger cause then 1 routine action"
 }`;
 }
 
@@ -515,17 +497,23 @@ function mergeAiOutputWithSynthesis(
   // In Pre-Log mode, highlight MUST always be "This Morning"
   const highlight = isTodayLogged ? rawHighlight : 'This Morning';
 
+  const prefix = typeof aiData.eventTitle === 'string' && aiData.eventTitle.trim()
+    ? aiData.eventTitle.trim()
+    : (typeof aiData.heroCard?.prefix === 'string' ? aiData.heroCard.prefix.trim() : deterministic.heroCard.prefix);
+
+  const windowText = typeof aiData.timeWindow === 'string' && aiData.timeWindow.trim()
+    ? aiData.timeWindow.trim()
+    : (typeof aiData.heroCard?.highlight === 'string' ? aiData.heroCard.highlight.trim() : highlight);
+
+  const causalStory = typeof aiData.causalStory === 'string' && aiData.causalStory.trim()
+    ? aiData.causalStory.trim()
+    : (typeof aiData.heroCard?.meta === 'string' ? aiData.heroCard.meta.trim() : deterministic.heroCard.meta);
+
   const heroCard: ForecastHeroCardData = {
-    prefix: typeof aiData.heroCard?.prefix === 'string' && aiData.heroCard.prefix.trim()
-      ? aiData.heroCard.prefix.trim()
-      : deterministic.heroCard.prefix,
-    highlight,
-    suffix: typeof aiData.heroCard?.suffix === 'string' && aiData.heroCard.suffix.trim()
-      ? aiData.heroCard.suffix.trim()
-      : undefined,
-    meta: typeof aiData.heroCard?.meta === 'string' && aiData.heroCard.meta.trim()
-      ? aiData.heroCard.meta.trim()
-      : deterministic.heroCard.meta,
+    prefix,
+    highlight: isTodayLogged ? windowText : 'This Morning',
+    suffix: undefined,
+    meta: causalStory,
     logDays: deterministic.heroCard.logDays,
   };
 
