@@ -234,6 +234,7 @@ export function runStage3ForecastEngine(
 ): Stage3ForecastResult {
   const { currentState, baseline } = computeCurrentSkinState(payload);
   const { chronologicalTickets, currentTime } = payload;
+  console.log(`[STAGE 3 - ODE ENGINE] ⚙️ Running continuous-time Bateman ODE trajectory across ${chronologicalTickets.length} biological tickets (SkinType: ${payload.baselineProfile.skinType})...`);
 
   const horizons: Record<ForecastHorizonKey, ProjectedSkinHorizon> = {} as any;
   const horizonKeys: ForecastHorizonKey[] = [
@@ -404,16 +405,24 @@ export function runStage3ForecastEngine(
       break;
   }
 
-  // Active contributing drivers (last 72 hours)
+  // Active contributing drivers (last 72 hours with measurable physiological impact)
   const activeDrivers = chronologicalTickets
-    .filter((t) => (currentTime - t.loggedAt) / (1000 * 60 * 60) <= 72)
+    .filter(
+      (t) =>
+        (currentTime - t.loggedAt) / (1000 * 60 * 60) <= 72 &&
+        t.isRelevant !== false &&
+        Math.abs(t.intensity) >= 0.05
+    )
     .slice(-5)
     .map((t) => ({
-      sourceLabel: t.sourceLabel,
+      sourceLabel: t.visualSummary || t.sourceLabel,
       category: t.category,
       hoursAgo: Math.round(((currentTime - t.loggedAt) / (1000 * 60 * 60)) * 10) / 10,
       intensity: t.intensity,
     }));
+
+  console.log(`[STAGE 3 - ODE ENGINE] 🏆 Calculated Winning Forecast: Axis="${winningAxis}", Horizon="${winningHorizon.displayLabel}", Direction="${isWorsening ? 'worsening' : isImproving ? 'improving' : 'stable'}", Score=${Math.min(1.0, Math.round(maxSalienceScore * 100) / 100)}`);
+  console.log(`[STAGE 3 - ODE ENGINE] 📝 Engine Headline: "${headline}"`);
 
   return {
     currentStateVector: currentState,

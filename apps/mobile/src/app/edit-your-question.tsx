@@ -265,6 +265,14 @@ export default function EditYourQuestionScreen() {
       finalOptions = [placeholderText.trim() || 'Notes logged'];
     }
 
+    const isDefault = params.key.startsWith('q_');
+    console.log(`[QUESTION_EDIT] ✏️ User saved edits for question:`);
+    console.log(`  -> Key: ${params.key}`);
+    console.log(`  -> Type: ${isDefault ? 'DEFAULT SYSTEM QUESTION' : 'CUSTOM USER QUESTION'}`);
+    console.log(`  -> New Title: "${questionTitle.trim()}"`);
+    console.log(`  -> New Options:`, JSON.stringify(finalOptions));
+    console.log(`  -> Status: Updated in journalStore. (AI is NOT called at edit time)`);
+
     updateQuestion(params.key, questionTitle.trim(), finalOptions, {
       dataType: dataType as any,
       placeholderText,

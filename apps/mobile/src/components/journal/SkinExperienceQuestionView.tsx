@@ -362,9 +362,9 @@ export default function SkinExperienceQuestionView({
         setClarificationModal({
           visible: true,
           type: 'zone',
-          title: "We couldn't recognize this face zone",
+          title: "We couldn't recognize this skin zone",
           userInput: clean,
-          suggestions: result.suggestions || ['Upper Lip', 'Eyelids', 'Behind Ears'],
+          suggestions: result.suggestions || ['Neck', 'Chest', 'Hands'],
           selectedSuggestion: null,
           targetZoneId: null,
           replaceOldCondition: null,
@@ -379,9 +379,9 @@ export default function SkinExperienceQuestionView({
         setClarificationModal({
           visible: true,
           type: 'zone',
-          title: "We couldn't recognize this face zone",
+          title: "We couldn't recognize this skin zone",
           userInput: clean,
-          suggestions: ['Upper Lip', 'Eyelids', 'Behind Ears'],
+          suggestions: ['Neck', 'Chest', 'Hands'],
           selectedSuggestion: null,
           targetZoneId: null,
           replaceOldCondition: null,
@@ -398,7 +398,7 @@ export default function SkinExperienceQuestionView({
     if (!clean || !currentlySelectedZoneId) return;
 
     const activeZone = allZones.find((z) => z.id === currentlySelectedZoneId);
-    const zoneName = activeZone?.name || 'Face Zone';
+    const zoneName = activeZone?.name || 'Skin Zone';
 
     console.log(`[SKIN_CONDITION_AI] 🚀 [UI] User submitted condition: "${clean}" for zone: "${zoneName}" (attempt: ${conditionRetryState.attemptCount + 1})`);
     setIsValidatingCondition(true);
@@ -533,7 +533,7 @@ export default function SkinExperienceQuestionView({
     if (!targetZone) return;
 
     const activeZone = allZones.find((z) => z.id === targetZone);
-    const zoneName = activeZone?.name || 'Face Zone';
+    const zoneName = activeZone?.name || 'Skin Zone';
     const oldCond = clarificationModal.replaceOldCondition;
 
     console.log(`[SKIN_CONDITION_AI] 🔄 [UI] Clarification chosen: "${selected}" for zone: "${zoneName}" (replace: ${oldCond || 'none'})`);
@@ -684,9 +684,9 @@ export default function SkinExperienceQuestionView({
           setClarificationModal({
             visible: true,
             type: 'zone',
-            title: "We couldn't recognize this face zone",
+            title: "We couldn't recognize this skin zone",
             userInput: clean,
-            suggestions: result.suggestions || ['Upper Lip', 'Eyelids', 'Behind Ears'],
+            suggestions: result.suggestions || ['Neck', 'Chest', 'Hands'],
             selectedSuggestion: null,
             targetZoneId: null,
             replaceOldCondition: null,
@@ -702,9 +702,9 @@ export default function SkinExperienceQuestionView({
           setClarificationModal({
             visible: true,
             type: 'zone',
-            title: "We couldn't recognize this face zone",
+            title: "We couldn't recognize this skin zone",
             userInput: clean,
-            suggestions: ['Upper Lip', 'Eyelids', 'Behind Ears'],
+            suggestions: ['Neck', 'Chest', 'Hands'],
             selectedSuggestion: null,
             targetZoneId: null,
             replaceOldCondition: null,
@@ -726,7 +726,7 @@ export default function SkinExperienceQuestionView({
       }
 
       const activeZone = allZones.find((z) => z.id === pZone);
-      const zoneName = activeZone?.name || 'Face Zone';
+      const zoneName = activeZone?.name || 'Skin Zone';
 
       console.log(`[SKIN_CONDITION_AI] 🚀 [UI] Submitting edited condition: "${clean}" (attempt: ${editRetryState.attemptCount + 1})`);
       setIsValidatingCondition(true);
@@ -868,7 +868,7 @@ export default function SkinExperienceQuestionView({
           type: 'severity',
           title: "We couldn't recognize this severity label",
           userInput: clean,
-          suggestions: result.suggestions || ['Moderate discomfort', 'Severe flare-up', 'Mild irritation'],
+          suggestions: result.suggestions || ['Moderate discomfort', 'Mild irritation', 'Severe flare-up'],
           selectedSuggestion: null,
           scaleLevel: level,
         });
@@ -884,7 +884,7 @@ export default function SkinExperienceQuestionView({
           type: 'severity',
           title: "We couldn't recognize this severity label",
           userInput: clean,
-          suggestions: ['Moderate discomfort', 'Severe flare-up', 'Mild irritation'],
+          suggestions: ['Moderate discomfort', 'Mild irritation', 'Severe flare-up'],
           selectedSuggestion: null,
           scaleLevel: level,
         });

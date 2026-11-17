@@ -317,12 +317,16 @@ export const useJournalStore = create<JournalState>()(
     set({ pendingReanswerKey: key }),
 
   addQuestion: (q) =>
-    set((state) => ({
-      questions: [q, ...state.questions.filter((item) => item.key !== q.key)],
-    })),
+    set((state) => {
+      console.log(`[JOURNAL_STORE] ➕ addQuestion: added "${q.subtitle}" (key: ${q.key}, type: ${q.dataType})`);
+      return {
+        questions: [q, ...state.questions.filter((item) => item.key !== q.key)],
+      };
+    }),
 
   updateQuestion: (key, newTitle, newOptions, extraMeta) =>
     set((state) => {
+      console.log(`[JOURNAL_STORE] 🔄 updateQuestion: updated "${newTitle}" (key: ${key}, isDefault: ${key.startsWith('q_')})`);
       const transformQuestion = (q: QuestionDef) => {
         if (q.key !== key) return q;
         return {

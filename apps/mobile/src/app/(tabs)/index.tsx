@@ -825,6 +825,12 @@ export default function HomeScreen() {
           currentDayKeyRef.current = freshDayKey;
           useForecastStore.getState().init(questions, historyRecords);
         }
+
+        // Check if user just closed journal sheet from Daily Journal page and needs analyzing animation
+        if (useForecastStore.getState().pendingAnalyzingAnimation) {
+          useForecastStore.getState().setPendingAnalyzingAnimation(false);
+          runForecastWithAnalyzing();
+        }
       };
       loadData();
     }, [questions, historyRecords])

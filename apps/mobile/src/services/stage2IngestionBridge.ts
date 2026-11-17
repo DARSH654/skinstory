@@ -18,7 +18,11 @@
  *    and formats the clinical prompt to obtain the 4-number ticket.
  */
 
-import { SanitizedQuestionAnswer, ParsedSkinMapAnswer } from './stage1RawDataRules';
+import {
+  SanitizedQuestionAnswer,
+  ParsedSkinMapAnswer,
+  isDefaultQuestionEdited,
+} from './stage1RawDataRules';
 import { QuestionDef } from '@/store/journalStore';
 import { getCachedSkinConditionTicket, buildIngestionAiPrompt } from './stage2AiIngestionWorker';
 export { buildIngestionAiPrompt };
@@ -34,6 +38,7 @@ export type SkinAxisCategory =
   | 'turnover'
   | 'pigmentation'
   | 'edema';
+
 
 /**
  * The Standardized 4-Number Clinical Ticket
@@ -54,6 +59,10 @@ export interface ClinicalTriggerTicket {
   hoursAgo: number;
   // Source classification
   origin: 'default_fast_track' | 'ai_ingestion';
+  // Loophole 1: Explicit relevance flag (false for gibberish / non-skin noise / observational selfies)
+  isRelevant?: boolean;
+  // Loophole 2: One-time visual caption for images and products
+  visualSummary?: string;
 }
 
 /**
@@ -397,12 +406,16 @@ export function requiresAiIngestion(
 
   // Check if a default question was customized by the user
   const qDef = allKnownQuestions.find((q) => q.key === answer.questionKey);
-  if (!qDef) return true;
+  if (qDef && isDefaultQuestionEdited(qDef)) {
+    return true;
+  }
 
-  // If question has custom free-form text
+  // If question has custom free-form text or image
   if (answer.dataType === 'text' || answer.dataType === 'image') {
     return true;
   }
 
   return false;
 }
+
+export type IngestionAiCategory = SkinAxisCategory | 'none';

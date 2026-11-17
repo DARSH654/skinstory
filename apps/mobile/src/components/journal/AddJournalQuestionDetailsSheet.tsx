@@ -871,6 +871,7 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
   useImperativeHandle(ref, () => ({
     present: () => {
       mountStartTimeRef.current = performance.now();
+      console.log(`[CUSTOM_QUESTION_CREATE] 📂 AddQuestionDetailsSheet OPENED. Active DataType: "${activeType}". Initial Draft Title: "${draftsRef.current[activeType]?.title || '(empty)'}"`);
       setIsOpen(true);
       requestAnimationFrame(() => {
         sheetRef.current?.show();
@@ -966,6 +967,13 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
     setResetVersion((v) => v + 1);
 
     // Close UI immediately so the dismiss animation gets absolute priority on the JS thread
+    console.log(`[CUSTOM_QUESTION_CREATE] 💾 User clicked Save! Creating new custom question:`);
+    console.log(`  -> Key: ${newQuestion.key}`);
+    console.log(`  -> Title: "${newQuestion.subtitle}"`);
+    console.log(`  -> DataType: "${newQuestion.dataType}"`);
+    console.log(`  -> Options (${newQuestion.options.length}):`, JSON.stringify(newQuestion.options.map((o) => o.label)));
+    console.log(`  -> Status: Saved to local journalStore. (AI is NOT called at creation time)`);
+
     Keyboard.dismiss();
     sheetRef.current?.hide();
     setIsOpen(false);
@@ -984,6 +992,7 @@ export const AddJournalQuestionDetailsSheet = forwardRef<
 
   // Stable callbacks for modal and sheet events
   const handleSheetClose = useCallback(() => {
+    console.log(`[CUSTOM_QUESTION_CREATE] 🚪 AddQuestionDetailsSheet CLOSED. Navigating back to questionnaire.`);
     setIsOpen(false);
     setIsContentReady(false);
     onDismiss?.();

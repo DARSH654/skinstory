@@ -63,7 +63,7 @@ export default function AddCustomZoneModal({
           )}
 
           <Text style={[styles.modalTitle, isDark ? styles.textDark : styles.textLight]}>
-            Add Custom Face Zone
+            Add Custom Zone
           </Text>
 
           <View
@@ -90,7 +90,7 @@ export default function AddCustomZoneModal({
               maxLength={40}
               multiline={false}
               numberOfLines={1}
-              placeholder="e.g. Between lips & nose, Neck..."
+              placeholder="e.g. Neck, Chest, Hands, Back..."
               placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
               autoFocus
             />

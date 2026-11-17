@@ -64,6 +64,7 @@ import Animated, {
 import { Colors } from '@/constants/theme';
 import { MOCK_SCANS } from '@/constants/mockScans';
 import { useJournalStore, QuestionDef } from '@/store/journalStore';
+import { useForecastStore } from '@/store/forecastStore';
 import { styles } from '@/styles/daily-journal.styles';
 
 // Static Reanimated transitions defined at module level for optimal 60fps performance
@@ -1300,7 +1301,20 @@ export default function DailyJournalScreen() {
         />
       )}
 
-      {isJournalReady && <JournalQuestionSheet ref={journalSheetRef} />}
+      {isJournalReady && (
+        <JournalQuestionSheet
+          ref={journalSheetRef}
+          onClosed={(didChange) => {
+            if (didChange) {
+              console.log('[DAILY_JOURNAL] 🔔 Sheet closed with changes -> triggering forecast recalculation and redirecting to Home forecast');
+              useForecastStore.getState().setPendingAnalyzingAnimation(true);
+              router.navigate('/(tabs)');
+            } else {
+              console.log('[DAILY_JOURNAL] ℹ️ Sheet closed without changes -> no forecast recalculation');
+            }
+          }}
+        />
+      )}
 
       {/* Floating Context Menu Popup on Long Press */}
       <Modal

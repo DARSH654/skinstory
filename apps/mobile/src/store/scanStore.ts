@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import * as FileSystem from 'expo-file-system/legacy';
 
 // ── Gemini Vision API ──────────────────────────────────────────────────────
-const GEMINI_API_KEY = 'AIzaSyBEZAMuBRSRyHD3w-wh_jUmMFE5mVj7oec';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
+const getGeminiApiKey = () => process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+const getGeminiEndpoint = () =>
+  `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${getGeminiApiKey()}`;
 
 const SKIN_ANALYSIS_PROMPT = `You are an expert dermatologist and skin analysis AI. Analyze this face photo and provide a structured JSON skin analysis report.
 
@@ -106,7 +107,7 @@ export const useScanStore = create<ScanState>((set, get) => ({
       };
 
       // ── Step 3: Call Gemini API ───────────────────────────────────────
-      const response = await fetch(GEMINI_ENDPOINT, {
+      const response = await fetch(getGeminiEndpoint(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),

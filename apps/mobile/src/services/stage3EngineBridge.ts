@@ -207,18 +207,42 @@ export async function assembleStage3EnginePayload(
     // 2. Resolve daily answered questions
     for (const answer of dayLog.sanitizedAnswers) {
       // Use the exact per-question answeredAt / hoursAgo computed in Stage 1
-      if (requiresAiIngestion(answer, allKnownQuestions)) {
+      const isCustom = requiresAiIngestion(answer, allKnownQuestions);
+      console.log(`[STAGE 2 - BRIDGE] 🔍 Evaluating answer for "${answer.subtitle}" (${answer.questionKey}): Value="${answer.rawString}", DataType="${answer.dataType}". Route: ${isCustom ? '🤖 AI Ingestion Worker (Custom/Edited)' : '⚡ Fast-Track Clinical Table (Default)'}`);
+
+      if (isCustom) {
         try {
           const aiTicket = await ingestCustomItemWithAi(answer, abortSignal);
-          collectedTickets.push(aiTicket);
+          if (!aiTicket) {
+            console.log(`[STAGE 2 - NETWORK ERROR] ⚠️ AI unreachable for "${answer.subtitle}". Zero fake tickets created - skipped.`);
+          } else if (aiTicket.isRelevant === false || Math.abs(aiTicket.intensity) < 0.01) {
+            console.log(`[STAGE 2 - FILTER] 🛡️ Filtered out non-relevant ticket for "${answer.subtitle}" (isRelevant: false, intensity: ${aiTicket.intensity}) - skipped Stage 3 ODE ingestion.`);
+          } else {
+            collectedTickets.push(aiTicket);
+          }
         } catch {
-          // Worker already has internal offline fallback, but guard against unhandled rejection
+          // Guard against unhandled rejection
         }
       } else {
         // Fast-track pre-calibrated code table (0ms, Zero AI)
         const fastTrackTicket = resolveDefaultQuestionTicket(answer);
         if (fastTrackTicket) {
+          console.log(`[STAGE 2 - FAST TRACK] ⚡ Fast-track match for "${answer.questionKey}" -> Category=${fastTrackTicket.category}, Intensity=${fastTrackTicket.intensity}`);
           collectedTickets.push(fastTrackTicket);
+        } else {
+          // Safety Net: if an edited default question's options didn't match the pre-calibrated table,
+          // seamlessly route to Stage 2 AI Ingestion so the user's custom edit is NEVER dropped!
+          console.log(`[STAGE 2 - BRIDGE] 🔄 Default question "${answer.questionKey}" option "${answer.rawString}" was edited by user. Auto-routing to Stage 2 AI Ingestion Worker...`);
+          try {
+            const aiTicket = await ingestCustomItemWithAi(answer, abortSignal);
+            if (!aiTicket) {
+              console.log(`[STAGE 2 - NETWORK ERROR] ⚠️ AI unreachable for edited "${answer.questionKey}". Zero fake tickets created - skipped.`);
+            } else if (aiTicket.isRelevant === false || Math.abs(aiTicket.intensity) < 0.01) {
+              console.log(`[STAGE 2 - FILTER] 🛡️ Filtered out non-relevant ticket for edited "${answer.questionKey}" (isRelevant: false) - skipped Stage 3 ODE ingestion.`);
+            } else {
+              collectedTickets.push(aiTicket);
+            }
+          } catch {}
         }
       }
     }

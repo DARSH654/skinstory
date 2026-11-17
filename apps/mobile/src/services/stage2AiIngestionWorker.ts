@@ -18,6 +18,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import type {
   ClinicalTriggerTicket,
   SkinAxisCategory,
@@ -26,7 +27,7 @@ import { SanitizedQuestionAnswer } from './stage1RawDataRules';
 
 // Gemini API Key from environment
 function getGeminiApiKey(): string {
-  return process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'AIzaSyCMutQD_o7oFGp7VzZyHcGGJOBK4mpvr6k';
+  return process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 }
 
 const PRIMARY_MODEL = 'gemini-3.1-flash-lite';
@@ -148,12 +149,14 @@ function extractJsonFromString(text: string): any {
  * Validates and clamps the 4 clinical numbers returned by AI
  */
 function sanitizeAiResponse(parsed: any): {
+  isRelevant: boolean;
+  visualSummary?: string;
   category: SkinAxisCategory;
   intensity: number;
   peakHours: number;
   halfLifeHours: number;
 } | null {
-  const validCategories: SkinAxisCategory[] = [
+  const validCategories: (SkinAxisCategory | 'none')[] = [
     'hydration',
     'barrier',
     'inflammation',
@@ -161,23 +164,33 @@ function sanitizeAiResponse(parsed: any): {
     'turnover',
     'pigmentation',
     'edema',
+    'none',
   ];
 
   if (!parsed || typeof parsed !== 'object') return null;
 
-  const category = String(parsed.category || '').toLowerCase().trim() as SkinAxisCategory;
+  const rawCat = String(parsed.category || '').toLowerCase().trim();
+  const category = (rawCat === 'none' || rawCat === 'null' || !rawCat ? 'none' : rawCat) as SkinAxisCategory;
   if (!validCategories.includes(category)) return null;
 
-  let intensity = typeof parsed.intensity === 'number' ? parsed.intensity : 0.5;
+  let intensity = typeof parsed.intensity === 'number' ? parsed.intensity : 0.0;
   intensity = Math.max(-1.0, Math.min(1.0, intensity));
 
+  const isRelevant = parsed.isRelevant !== false && Math.abs(intensity) >= 0.01 && (category as any) !== 'none';
+
   let peakHours = typeof parsed.peakHours === 'number' ? parsed.peakHours : 24;
-  peakHours = Math.max(1, Math.min(168, peakHours));
+  peakHours = Math.max(0, Math.min(168, peakHours));
 
   let halfLifeHours = typeof parsed.halfLifeHours === 'number' ? parsed.halfLifeHours : 48;
-  halfLifeHours = Math.max(2, Math.min(336, halfLifeHours));
+  halfLifeHours = Math.max(0, Math.min(336, halfLifeHours));
+
+  const visualSummary = typeof parsed.visualSummary === 'string' && parsed.visualSummary.trim().length > 0
+    ? parsed.visualSummary.trim()
+    : undefined;
 
   return {
+    isRelevant,
+    visualSummary,
     category,
     intensity: Math.round(intensity * 100) / 100,
     peakHours: Math.round(peakHours),
@@ -194,38 +207,57 @@ export function buildIngestionAiPrompt(
     questionTitle: string;
     userAnswer: string;
     dataType: string;
+    semanticScale?: { level: number; label: string; range: string };
   }
 ): string {
-  return `You are an elite clinical dermatologist and pharmacokinetic modeling system.
-Your job is to translate a user's custom skin log into exactly one 4-number biological ticket.
+  const isImage = customItem.dataType === 'image';
+  const isMultiSelect = customItem.dataType === 'multi_select';
+  const isScale = customItem.dataType === 'scale';
 
-Available Categories (select strictly ONE):
-- hydration (moisture, water loss, humidity)
-- barrier (skin barrier, lipid matrix, TEWL, acid mantle)
-- inflammation (cytokines, active acne, redness, swelling, burning)
-- sebum (oil production, pores, follicular occlusion)
-- turnover (cellular renewal, flaking, peeling, exfoliation)
-- pigmentation (melanin surge, UV damage, dark spots, PIH)
-- edema (puffiness, fluid retention, lymphatic pooling)
+  let rules = "";
+  if (isImage) {
+    rules = `Rules:
+1. Face selfie: isRelevant:false, intensity:0, category:"none", visualSummary:"Face / skin selfie".
+2. Skincare product: isRelevant:true, visualSummary:2-5 word name, classify biological impact.
+3. Food/Drink: isRelevant:true, visualSummary:2-4 word food, classify skin impact.
+4. Unrelated/Object: isRelevant:false, intensity:0, category:"none", visualSummary:2-4 word object.`;
+  } else if (isMultiSelect) {
+    rules = `Rules:
+1. Multiple items selected. Scale intensity to COUNT and harshness: 1 item=0.2-0.4, 2-3 items=0.5-0.7, 4+ items=0.75-0.85 (cap: 0.85). Protective items=negative.
+2. Gibberish/no impact: isRelevant:false, intensity:0, category:"none".`;
+  } else if (isScale) {
+    rules = `Rules:
+1. Scaled rating. Position: low=0.05-0.15, mid=0.35-0.5, peak=0.7-0.9.
+2. Invalid/gibberish: isRelevant:false, intensity:0, category:"none".`;
+  } else {
+    rules = `Rules:
+1. Correlate factor to skin impact (isRelevant:true).
+2. Gibberish/unrelated/zero impact: isRelevant:false, intensity:0, category:"none".`;
+  }
 
-Input:
-- Question: "${customItem.questionTitle}"
-- User Answer: "${customItem.userAnswer}"
-- Data Type: "${customItem.dataType}"
+  const inputLine = isImage
+    ? `Input: "${customItem.questionTitle}" | [Attached Image] (Type: image)`
+    : isScale
+    ? `Input: "${customItem.questionTitle}" | Rating: Level ${customItem.semanticScale?.level || customItem.userAnswer} of ${customItem.semanticScale?.range || '1-5'} ("${customItem.semanticScale?.label || ''}") (Type: scale)`
+    : `Input: "${customItem.questionTitle}" | Answer: "${customItem.userAnswer}" (Type: ${customItem.dataType})`;
 
-Respond strictly with valid JSON conforming to this schema (no extra prose or markdown code blocks):
-{
-  "category": "hydration" | "barrier" | "inflammation" | "sebum" | "turnover" | "pigmentation" | "edema",
-  "intensity": number between -1.0 (healing/protective) and +1.0 (severe damage/stress),
-  "peakHours": number of hours from event onset until maximum biological impact (typical range: 2 to 72),
-  "halfLifeHours": number of hours until the biological effect naturally fades by 50% (typical range: 6 to 168)
-}`;
+  return `Skin biology classifier. Translate log into 1 biological ticket.
+Categories: hydration, barrier, inflammation, sebum, turnover, pigmentation, edema, none.
+${rules}
+${inputLine}
+JSON:
+{"isRelevant":true|false,"visualSummary":"2-5 words or empty","category":"hydration"|"barrier"|"inflammation"|"sebum"|"turnover"|"pigmentation"|"edema"|"none","intensity":-1.0 to 1.0,"peakHours":2-72,"halfLifeHours":6-168}`;
 }
 
+
 /**
- * Calls Gemini directly with fallback model support
+ * Calls Gemini directly with fallback model support and multimodal image support
  */
-async function callGeminiForTicket(prompt: string, signal?: AbortSignal): Promise<any> {
+async function callGeminiForTicket(
+  prompt: string,
+  signal?: AbortSignal,
+  imagePayload?: { base64: string; mimeType: string } | null
+): Promise<any> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     console.error('[SKIN_CONDITION_AI] ❌ API Key is missing! Check EXPO_PUBLIC_GEMINI_API_KEY.');
@@ -234,19 +266,29 @@ async function callGeminiForTicket(prompt: string, signal?: AbortSignal): Promis
 
   const callModel = async (model: string): Promise<string | null> => {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    console.log(`[SKIN_CONDITION_AI] 📡 Network: Dispatching request to Gemini (${model})...`);
+    console.log(`[SKIN_CONDITION_AI] 📡 Network: Dispatching request to Gemini (${model})${imagePayload ? ' with attached image' : ''}...`);
     console.log(`[SKIN_CONDITION_AI] 📝 ==================== EXACT PROMPT SENT TO GEMINI ====================\n${prompt}\n========================================================================`);
     // Each attempt gets its own independent 15s timeout
     const { signal: timeoutSignal, cleanup } = createTimeoutSignal(signal, 15000);
 
     try {
+      const parts: any[] = [{ text: prompt }];
+      if (imagePayload?.base64) {
+        parts.push({
+          inlineData: {
+            mimeType: imagePayload.mimeType,
+            data: imagePayload.base64,
+          },
+        });
+      }
+
       const startTime = Date.now();
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: timeoutSignal,
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          contents: [{ role: 'user', parts }],
           generationConfig: {
             temperature: 0.1, // Near-deterministic clinical precision
             maxOutputTokens: 250,
@@ -283,37 +325,6 @@ async function callGeminiForTicket(prompt: string, signal?: AbortSignal): Promis
 }
 
 /**
- * Offline / Safe Rule-Based Heuristic Fallback
- */
-function computeOfflineFallbackTicket(userAnswer: string): {
-  category: SkinAxisCategory;
-  intensity: number;
-  peakHours: number;
-  halfLifeHours: number;
-} {
-  const lower = userAnswer.toLowerCase();
-
-  if (lower.includes('water') || lower.includes('drink') || lower.includes('hydrat')) {
-    return { category: 'hydration', intensity: 0.5, peakHours: 3, halfLifeHours: 8 };
-  }
-  if (lower.includes('oil') || lower.includes('sebum') || lower.includes('greas') || lower.includes('pore')) {
-    return { category: 'sebum', intensity: 0.6, peakHours: 8, halfLifeHours: 24 };
-  }
-  if (lower.includes('peel') || lower.includes('acid') || lower.includes('retin') || lower.includes('burn')) {
-    return { category: 'barrier', intensity: 0.75, peakHours: 24, halfLifeHours: 72 };
-  }
-  if (lower.includes('sun') || lower.includes('tan') || lower.includes('dark spot') || lower.includes('pigment')) {
-    return { category: 'pigmentation', intensity: 0.65, peakHours: 48, halfLifeHours: 168 };
-  }
-  if (lower.includes('puff') || lower.includes('eye') || lower.includes('swell') || lower.includes('alcohol')) {
-    return { category: 'edema', intensity: 0.7, peakHours: 4, halfLifeHours: 12 };
-  }
-
-  // Default fallback: general acute inflammatory response
-  return { category: 'inflammation', intensity: 0.5, peakHours: 24, halfLifeHours: 48 };
-}
-
-/**
  * ============================================================================
  * MAIN EXPORT: Translate Custom Item into ClinicalTriggerTicket
  * ============================================================================
@@ -321,17 +332,18 @@ function computeOfflineFallbackTicket(userAnswer: string): {
 export async function ingestCustomItemWithAi(
   answer: SanitizedQuestionAnswer,
   signal?: AbortSignal
-): Promise<ClinicalTriggerTicket> {
+): Promise<ClinicalTriggerTicket | null> {
   const cacheKey = `${answer.questionKey}:::${answer.rawString.trim().toLowerCase()}`;
   const cache = await loadTicketCache();
 
   // 1. Check persistent local cache first (0ms, zero network)
   if (cache[cacheKey]) {
     const cached = cache[cacheKey];
+    console.log(`[STAGE 2 - AI INGESTION] ⚡ Cache HIT for "${cacheKey}". Reusing locally saved numbers: Category=${cached.category}, Intensity=${cached.intensity}, Peak=${cached.peakHours}h, HalfLife=${cached.halfLifeHours}h (0 AI calls, 0ms)`);
     return {
       id: `${answer.questionKey}_ai_${answer.answeredAt}`,
       sourceKey: answer.questionKey,
-      sourceLabel: answer.subtitle,
+      sourceLabel: (cached.visualSummary && answer.dataType === 'image') ? cached.visualSummary : (answer.subtitle || answer.questionKey),
       category: cached.category,
       intensity: cached.intensity,
       peakHours: cached.peakHours,
@@ -339,18 +351,51 @@ export async function ingestCustomItemWithAi(
       loggedAt: answer.answeredAt,
       hoursAgo: answer.hoursAgo,
       origin: 'ai_ingestion',
+      isRelevant: cached.isRelevant,
+      visualSummary: cached.visualSummary,
     };
   }
 
-  // 2. Build prompt using Stage 2 Bridge contract
+  console.log(`[STAGE 2 - AI INGESTION] 🌐 Cache MISS for "${cacheKey}". Custom Question: "${answer.subtitle}", User Answer: "${answer.rawString}". Calling Gemini to convert to biological numbers...`);
+
+  // 2. Prepare image payload if image dataType
+  let imagePayload: { base64: string; mimeType: string } | null = null;
+  if (answer.dataType === 'image' && answer.rawString) {
+    try {
+      const cleanUri = answer.rawString.trim();
+      const ext = cleanUri.split('.').pop()?.toLowerCase();
+      const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      const base64 = await FileSystem.readAsStringAsync(cleanUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      if (base64) {
+        imagePayload = { base64, mimeType };
+      }
+    } catch (err: any) {
+      console.warn(`[STAGE 2 - AI INGESTION] ⚠️ Could not read image file for vision ingestion:`, err?.message || err);
+    }
+  }
+
+  // Guard against visual hallucination: If this is an image question but the file
+  // could not be loaded into memory, NEVER call Gemini with an empty picture payload.
+  if (answer.dataType === 'image' && !imagePayload) {
+    console.warn(`[STAGE 2 - AI INGESTION] 🚫 Image payload is missing or unreadable for "${answer.subtitle}". Skipping AI call to prevent hallucination.`);
+    return null;
+  }
+
+  // 3. Build prompt using Stage 2 Bridge contract
   const prompt = buildIngestionAiPrompt({
     questionTitle: answer.subtitle || answer.questionKey,
     userAnswer: answer.rawString,
     dataType: answer.dataType || 'text',
+    semanticScale: answer.semanticPayload?.scale,
   });
+  console.log(`[STAGE 2 - AI INGESTION] 📝 ==================== EXACT PROMPT SENT TO GEMINI (STAGE 2) ====================\n${prompt}\n========================================================================`);
 
-  // 3. Call Gemini
+  // 4. Call Gemini
   let ticketData: {
+    isRelevant: boolean;
+    visualSummary?: string;
     category: SkinAxisCategory;
     intensity: number;
     peakHours: number;
@@ -358,24 +403,28 @@ export async function ingestCustomItemWithAi(
   } | null = null;
 
   if (getGeminiApiKey()) {
-    const rawAiResult = await callGeminiForTicket(prompt, signal);
+    const rawAiResult = await callGeminiForTicket(prompt, signal, imagePayload);
     if (rawAiResult) {
+      console.log(`[STAGE 2 - AI INGESTION] 📜 ==================== RAW GEMINI ANSWER RECEIVED (STAGE 2) ====================\n${JSON.stringify(rawAiResult, null, 2)}\n========================================================================`);
       ticketData = sanitizeAiResponse(rawAiResult);
     }
   }
 
-  // 4. If AI call failed, use robust offline fallback
-  if (!ticketData) {
-    ticketData = computeOfflineFallbackTicket(answer.rawString);
+  // 5. Strict Zero-Fallback Policy: If network fails, Gemini is unreachable,
+  // or input was classified as non-skin / irrelevant ("none"), return null.
+  if (!ticketData || !ticketData.isRelevant || ticketData.category === ("none" as any)) {
+    console.warn(`[STAGE 2 - AI INGESTION] 🚫 Ignored ticket (irrelevant, "none" category, or network failure) for "${answer.subtitle}".`);
+    return null;
   }
 
-  // 5. Persist to cache locally for all future runs
+  console.log(`[STAGE 2 - AI INGESTION] ✅ [Worker] Ingested biological ticket: Category=${ticketData.category}, Intensity=${ticketData.intensity}, Relevant=${ticketData.isRelevant}, VisualSummary="${ticketData.visualSummary || ''}". Saving to AsyncStorage...`);
+  // 6. Persist verified AI tickets to cache locally for all future runs
   await saveTicketToCache(cacheKey, ticketData);
 
   return {
     id: `${answer.questionKey}_ai_${answer.answeredAt}`,
     sourceKey: answer.questionKey,
-    sourceLabel: answer.subtitle,
+    sourceLabel: (ticketData.visualSummary && answer.dataType === 'image') ? ticketData.visualSummary : (answer.subtitle || answer.questionKey),
     category: ticketData.category,
     intensity: ticketData.intensity,
     peakHours: ticketData.peakHours,
@@ -383,6 +432,8 @@ export async function ingestCustomItemWithAi(
     loggedAt: answer.answeredAt,
     hoursAgo: answer.hoursAgo,
     origin: 'ai_ingestion',
+    isRelevant: ticketData.isRelevant,
+    visualSummary: ticketData.visualSummary,
   };
 }
 
@@ -467,18 +518,13 @@ export async function preloadSkinConditionCache(): Promise<void> {
  * Highly token-optimized for low latency and minimal input costs at scale.
  */
 function buildSkinConditionValidationPrompt(conditionText: string, zoneName: string): string {
-  return `Clinical skin validator.
-Input: "${conditionText}" | Face Zone: "${zoneName}".
-
+  return `Skin validator. Input: "${conditionText}" | Zone: "${zoneName}".
 Rules:
-1. VALID: Real skin concern/symptom/condition (e.g. wrinkles, dryness, acne, redness, milia).
-   Retain the user's exact phrasing and casing in "resolvedName". Classify biological axis & kinetics.
-2. INVALID: Gibberish, random letters, non-skin words, or severe typos.
-   Generate 3 contextual suggestions based on closest phonetic/typo match or common conditions for "${zoneName}". Do NOT return generic placeholders.
-
-Respond strictly in JSON:
-If valid: {"isValid":true,"resolvedName":"${conditionText}","category":"hydration"|"barrier"|"inflammation"|"sebum"|"turnover"|"pigmentation"|"edema","intensity":0.1-1.0,"peakHours":2-72,"halfLifeHours":6-168}
-If invalid: {"isValid":false,"suggestions":["suggestion 1","suggestion 2","suggestion 3"]}`;
+1. VALID: Real skin symptom/issue on any body zone. Keep exact phrasing in "resolvedName". Pick 1 category & kinetics.
+2. INVALID: Gibberish, non-skin words, bad typos. Give 3 closest real suggestions for "${zoneName}".
+JSON format:
+Valid: {"isValid":true,"resolvedName":"${conditionText}","category":"hydration"|"barrier"|"inflammation"|"sebum"|"turnover"|"pigmentation"|"edema","intensity":0.1-1.0,"peakHours":2-72,"halfLifeHours":6-168}
+Invalid: {"isValid":false,"suggestions":["s1","s2","s3"]}`;
 }
 
 /**
@@ -625,16 +671,13 @@ export async function validateCustomSkinZone(
     return cache[cacheKey];
   }
 
-  const prompt = `Anatomical zone validator. Input: "${zoneText}".
+  const prompt = `Skin zone validator. Input: "${zoneText}".
 Rules:
-1. VALID: Human face, head, neck, or skin area (e.g. Neck, Hairline, Upper Lip).
-   Retain user's exact phrasing/casing in "resolvedName".
-2. INVALID: Non-body words, gibberish, animals, objects.
-   Generate 3 real skin/face zone suggestions. Do NOT use generic placeholders.
-
-Respond strictly in JSON:
-If valid: {"isValid":true,"resolvedName":"${zoneText}"}
-If invalid: {"isValid":false,"suggestions":["suggestion 1","suggestion 2","suggestion 3"]}`;
+1. VALID: Any human body skin area. Keep exact phrasing in "resolvedName".
+2. INVALID: Non-anatomical words, objects, food, gibberish. Give 3 real zone suggestions.
+JSON:
+Valid: {"isValid":true,"resolvedName":"${zoneText}"}
+Invalid: {"isValid":false,"suggestions":["s1","s2","s3"]}`;
 
   let rawResult: any = null;
   if (getGeminiApiKey()) {
@@ -645,7 +688,7 @@ If invalid: {"isValid":false,"suggestions":["suggestion 1","suggestion 2","sugge
     const res: GenericValidationResult = {
       isValid: Boolean(rawResult.isValid),
       resolvedName: typeof rawResult.resolvedName === 'string' ? rawResult.resolvedName.trim() : zoneText.trim(),
-      suggestions: Array.isArray(rawResult.suggestions) ? rawResult.suggestions.slice(0, 3) : ['Upper Lip', 'Eyelids', 'Behind Ears'],
+      suggestions: Array.isArray(rawResult.suggestions) ? rawResult.suggestions.slice(0, 3) : ['Neck', 'Chest', 'Hands'],
     };
     try {
       cache[cacheKey] = res;
@@ -655,7 +698,7 @@ If invalid: {"isValid":false,"suggestions":["suggestion 1","suggestion 2","sugge
     return res;
   }
 
-  return { isValid: false, suggestions: ['Upper Lip', 'Eyelids', 'Behind Ears'], isNetworkError: true };
+  return { isValid: false, suggestions: ['Neck', 'Chest', 'Hands'], isNetworkError: true };
 }
 
 /**
@@ -675,16 +718,13 @@ export async function validateCustomSkinSeverity(
     return cache[cacheKey];
   }
 
-  const prompt = `Skin severity label validator. Input: "${severityText}" | Scale Level: ${level}.
+  const prompt = `Skin symptom severity validator. Input: "${severityText}" | Level: ${level}.
 Rules:
-1. VALID: Real symptom, sensation, or severity description (e.g. Mild itch, Severe stinging, Bleeding).
-   Retain user's exact phrasing/casing in "resolvedName".
-2. INVALID: Non-symptom words, gibberish, objects.
-   Generate 3 real severity/symptom suggestions for scale level ${level}. Do NOT use generic placeholders.
-
-Respond strictly in JSON:
-If valid: {"isValid":true,"resolvedName":"${severityText}"}
-If invalid: {"isValid":false,"suggestions":["suggestion 1","suggestion 2","suggestion 3"]}`;
+1. VALID: Real skin symptom, sensation, or discomfort. Keep exact phrasing in "resolvedName".
+2. INVALID: Non-symptom words, objects, gibberish. Give 3 real symptom suggestions for level ${level}.
+JSON:
+Valid: {"isValid":true,"resolvedName":"${severityText}"}
+Invalid: {"isValid":false,"suggestions":["s1","s2","s3"]}`;
 
   let rawResult: any = null;
   if (getGeminiApiKey()) {
@@ -695,7 +735,7 @@ If invalid: {"isValid":false,"suggestions":["suggestion 1","suggestion 2","sugge
     const res: GenericValidationResult = {
       isValid: Boolean(rawResult.isValid),
       resolvedName: typeof rawResult.resolvedName === 'string' ? rawResult.resolvedName.trim() : severityText.trim(),
-      suggestions: Array.isArray(rawResult.suggestions) ? rawResult.suggestions.slice(0, 3) : ['Moderate discomfort', 'Severe flare-up', 'Mild irritation'],
+      suggestions: Array.isArray(rawResult.suggestions) ? rawResult.suggestions.slice(0, 3) : ['Moderate discomfort', 'Mild irritation', 'Severe flare-up'],
     };
     try {
       cache[cacheKey] = res;
@@ -705,5 +745,5 @@ If invalid: {"isValid":false,"suggestions":["suggestion 1","suggestion 2","sugge
     return res;
   }
 
-  return { isValid: false, suggestions: ['Moderate discomfort', 'Severe flare-up', 'Mild irritation'], isNetworkError: true };
+  return { isValid: false, suggestions: ['Moderate discomfort', 'Mild irritation', 'Severe flare-up'], isNetworkError: true };
 }

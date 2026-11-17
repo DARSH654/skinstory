@@ -316,6 +316,8 @@ export interface ForecastState {
   lastHistoryFingerprint: string;
   isJournalSheetActive: boolean;
   setJournalSheetActive: (active: boolean) => void;
+  pendingAnalyzingAnimation: boolean;
+  setPendingAnalyzingAnimation: (pending: boolean) => void;
 
   // Actions
   init: (
@@ -358,6 +360,8 @@ export const useForecastStore = create<ForecastState>()(
       lastHistoryFingerprint: '',
       isJournalSheetActive: false,
       setJournalSheetActive: (active: boolean) => set({ isJournalSheetActive: active }),
+      pendingAnalyzingAnimation: false,
+      setPendingAnalyzingAnimation: (pending: boolean) => set({ pendingAnalyzingAnimation: pending }),
 
       /**
        * Primary Initialization.

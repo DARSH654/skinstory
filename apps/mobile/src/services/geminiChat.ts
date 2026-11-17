@@ -1,6 +1,6 @@
 // Gemini AI service for Skin Story Chat
 // API key is loaded from apps/mobile/.env (gitignored) via EXPO_PUBLIC_GEMINI_API_KEY
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'AIzaSyCMutQD_o7oFGp7VzZyHcGGJOBK4mpvr6k';
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 
 // Primary fast & cost-efficient model
 const PRIMARY_MODEL = 'gemini-3.1-flash-lite';
@@ -83,8 +83,6 @@ export async function fetchGeminiChatResponse(
       throw err;
     }
   }
-
-  return null;
 
   // If all models fail and no response was generated
   throw new Error('Unable to connect to Skin Story AI. Please check your internet connection.');

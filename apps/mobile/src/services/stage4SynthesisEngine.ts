@@ -47,7 +47,7 @@ import {
 
 // Gemini API Configuration
 function getGeminiApiKey(): string {
-  return process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'AIzaSyCMutQD_o7oFGp7VzZyHcGGJOBK4mpvr6k';
+  return process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 }
 
 const PRIMARY_MODEL = 'gemini-3.1-flash-lite';
@@ -381,88 +381,41 @@ function buildStage4AiPrompt(
   userProfile?: UserSkinProfile,
   isTodayLogged: boolean = true
 ): string {
-  const { currentStateVector, baselineVector, winningForecast, horizons, totalTicketsEvaluated } = stage3Result;
+  const { currentStateVector, baselineVector, winningForecast } = stage3Result;
 
-  const clinicalInstructions = isTodayLogged
-    ? `You are a Board-Certified Clinical Dermatologist and Director of Dermatological Data Science.
-Analyze the provided continuous-time skin state space vectors (scale 0.0 to 1.0) and write a succinct, empowering, highly personalized skin forecast for the user's mobile app.
+  const temporal = isTodayLogged
+    ? "User logged today. Project forward into tomorrow based on triggers."
+    : "Morning pre-log. Status from decaying 24-72h history. heroCard.highlight MUST be 'This Morning'.";
 
-TEMPORAL CONTEXT:
-The user has logged today's activities. Project forward into tomorrow and subsequent days based on today's logged triggers.
+  const driversList = (winningForecast.activeDrivers || []).map(d => d.sourceLabel).filter(Boolean).join(", ") || "homeostatic baseline";
 
-Tone: Clinical yet warm, deeply empathetic, highly precise. Avoid generic clichés. Directly reference biological mechanisms (e.g., ceramide lipid lamellae, cytokine clearance, sebaceous homeostasis, transepidermal water loss).
+  return `Dermatologist skin forecast synthesizer.
+${temporal}
+Tone: Clinical, empathetic, concise. Reference real biology (cytokines, ceramides, sebum, barrier).
+User Context: SkinType=${userProfile?.skinType || 'combination'}, Concerns=${(userProfile?.concerns || ['barrier']).join(", ")}.
+State Space Data:
+Current: ${JSON.stringify(currentStateVector)}
+Baseline: ${JSON.stringify(baselineVector)}
+Winning Forecast: Axis=${winningForecast.dominantAxis}, Horizon=${winningForecast.horizonDisplay}, Direction=${winningForecast.direction}, SeverityScore=${winningForecast.severityScore}
+Active Drivers: ${driversList}
 
-Format Requirement: Return ONLY valid RFC-8259 JSON matching this exact structure:
+Respond strictly in valid JSON:
 {
   "heroCard": {
-    "prefix": "Short lead-in text (e.g. 'Peak barrier recovery expected in' or 'Potential sebum elevation window')",
-    "highlight": "Time horizon (e.g. 'Tomorrow morning', '48 hours', '3 days')",
-    "suffix": "Optional suffix or empty string",
-    "meta": "One crisp clinical takeaway metric (e.g. 'Ceramide lipid synthesis up 24%')"
+    "prefix": "Short lead-in text (e.g. 'Potential inflammatory window' or 'Optimal barrier recovery in')",
+    "highlight": "${isTodayLogged ? winningForecast.horizonDisplay : 'This Morning'}",
+    "suffix": "",
+    "meta": "One crisp clinical takeaway metric (e.g. 'Inflammation markers +75% vs baseline')"
   },
   "clinicalInsight": {
-    "title": "3-5 word clinical headline (e.g. 'Epidermal Barrier Restoration Phase')",
-    "summary": "2 clear sentences explaining WHY this is happening, linking their recent logged actions directly to the forecasted skin state.",
-    "actionTip": "1 ultra-specific, practical routine recommendation for today."
+    "title": "3-5 word clinical headline",
+    "summary": "2 concise sentences explaining WHY based on active drivers.",
+    "actionTip": "1 ultra-specific routine recommendation."
   },
-  "tomorrowMorningSummary": "One crisp sentence on tomorrow morning's state",
-  "in48HoursSummary": "One crisp sentence on the 48-hour outlook",
-  "in7DaysSummary": "One crisp sentence on the 7-day outlook"
-}`
-    : `You are a Board-Certified Clinical Dermatologist and Director of Dermatological Data Science.
-Analyze the provided continuous-time skin state space vectors (scale 0.0 to 1.0) and write a succinct, empowering, highly personalized morning skin status for the user's mobile app.
-
-IMPORTANT TEMPORAL CONTEXT:
-The user has opened the app THIS MORNING, and has NOT yet logged today's activities. This evaluation is based on the lingering and decaying biological effects from their past 24-72 hours of logs (e.g. yesterday's sleep, routines, or stress).
-CRITICAL RULES FOR MORNING PRE-LOG EVALUATION:
-1. Short-lived events (such as drinking water or caffeine yesterday, half-life ~8h) have ALREADY CLEARED by this morning. DO NOT say "you had water yesterday" or lecture them about yesterday's water.
-2. Focus on ACTIVE medium-to-long recovery processes (such as skin barrier lipid lamellae repair from sleep debt, lingering inflammation clearance, or sebaceous stabilization) that are physically occurring in their skin THIS MORNING.
-3. heroCard.highlight MUST be "This Morning".
-4. heroCard.prefix MUST describe the active morning phase (e.g. "Active barrier recovery phase" or "Active inflammatory resolution").
-5. clinicalInsight.actionTip MUST be an ultra-specific morning routine recommendation for today.
-
-Tone: Clinical yet warm, deeply empathetic, highly precise. Avoid generic clichés. Directly reference biological mechanisms.
-
-Format Requirement: Return ONLY valid RFC-8259 JSON matching this exact structure:
-{
-  "heroCard": {
-    "prefix": "Short lead-in text (e.g. 'Active barrier recovery phase' or 'Active inflammatory resolution')",
-    "highlight": "This Morning",
-    "suffix": "Optional suffix or empty string",
-    "meta": "One crisp clinical takeaway metric (e.g. 'Ceramide lipid synthesis up 24%')"
-  },
-  "clinicalInsight": {
-    "title": "3-5 word clinical headline (e.g. 'Morning Barrier Recovery Window')",
-    "summary": "2 clear sentences explaining the skin state active this morning based on the biological clearance of recent logged days.",
-    "actionTip": "1 ultra-specific, practical morning routine recommendation for today."
-  },
-  "tomorrowMorningSummary": "One crisp sentence on the morning outlook",
-  "in48HoursSummary": "One crisp sentence on the 48-hour outlook",
-  "in7DaysSummary": "One crisp sentence on the 7-day outlook"
+  "tomorrowMorningSummary": "One crisp sentence on morning outlook",
+  "in48HoursSummary": "One crisp sentence on 48h outlook",
+  "in7DaysSummary": "One crisp sentence on 7d outlook"
 }`;
-
-  const promptObj = {
-    clinical_instructions: clinicalInstructions,
-    user_context: {
-      skin_type: userProfile?.skinType || 'combination',
-      primary_concerns: userProfile?.concerns || ['barrier health', 'glow'],
-      user_name: userProfile?.firstName || 'User',
-      total_history_logs_analyzed: totalTicketsEvaluated,
-    },
-    state_space_data: {
-      current_vector: currentStateVector,
-      baseline_vector: baselineVector,
-      winning_forecast: winningForecast,
-      horizon_projections: {
-        tomorrow_morning_14h: horizons.tomorrow_morning,
-        in_48_hours: horizons.in_48_hours,
-        in_7_days: horizons.in_7_days,
-        in_1_month: horizons.in_1_month,
-      },
-    },
-  };
-
-  return JSON.stringify(promptObj, null, 2);
 }
 
 /**
@@ -499,6 +452,7 @@ async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Pro
     const actualUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     console.log(`[STAGE 4 - AI] 🌐 Calling Gemini API (${model}). URL: ${requestUrl}`);
+    console.log(`[STAGE 4 - AI] 📝 ==================== EXACT PROMPT SENT TO GEMINI (STAGE 4 FORECAST) ====================\n${prompt}\n========================================================================`);
     const netStart = Date.now();
 
     const response = await fetch(actualUrl, {
@@ -527,6 +481,7 @@ async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Pro
     const resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
     if (resultText) {
       console.log(`[STAGE 4 - AI] 📥 Received valid JSON payload from Gemini (${resultText.length} chars)`);
+      console.log(`[STAGE 4 - AI] 📜 ==================== RAW GEMINI ANSWER RECEIVED (STAGE 4 FORECAST) ====================\n${resultText}\n========================================================================`);
     } else {
       console.warn('[STAGE 4 - AI] ⚠️ Gemini responded with empty candidate parts');
     }

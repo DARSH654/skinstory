@@ -48,6 +48,7 @@ import {
 } from 'lucide-react-native';
 import { useChats, ChatMeta } from '@/hooks/useChats';
 import RenameChatModal from '@/components/chat/RenameChatModal';
+import ZoomableImageModal from '@/components/ui/ZoomableImageModal';
 import { MOCK_SCANS } from '@/constants/mockScans';
 
 // Reusable Circular Progress Icon Component with Primary + Secondary Gradient Arc
@@ -345,80 +346,18 @@ export default function ProgressScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header title="Progress Reports" />
 
-      {/* ── Fullscreen Scan Modal — blurred overlay ── */}
-      <Modal
+      {/* ── Fullscreen Scan Modal — Billion-Dollar Viewport-Contained & Zoomable ── */}
+      <ZoomableImageModal
         visible={modalVisible}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <BlurView
-          intensity={60}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        />
-        {/* Dark overlay on top of blur for more depth */}
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
-
-        {/* Modal content — centered card */}
-        <View style={styles.modalFullscreen}>
-          {/* Card wrapper — image + X + chevrons together */}
-          <View style={styles.modalCardWrapper}>
-
-            {/* X close — top-right corner of card, hidden while holding */}
-            {chromeVisible && (
-              <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setModalVisible(false)}
-                activeOpacity={0.8}
-              >
-                <X size={18} color="#ffffff" strokeWidth={2.5} />
-              </TouchableOpacity>
-            )}
-
-            {/* Portrait image card (9:16) with gesture handling */}
-            <View style={styles.modalImageContainer} {...modalImagePanResponder.panHandlers}>
-              <Image
-                source={modalScans[modalIndex].image}
-                style={styles.modalImage}
-                resizeMode="cover"
-              />
-
-              {/* Bottom-left date pill (e.g. Before (01 Aug) / After (15 Aug)) with rounded edges — disappears on hold */}
-              {chromeVisible && (
-                <View style={styles.modalDatePillBottomLeft}>
-                  <Text style={styles.modalDatePillText}>
-                    {modalIndex === 0 ? `Before (${beforeScan.date})` : `After (${afterScan.date})`}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Left chevron — hidden while holding */}
-            {chromeVisible && modalIndex === 1 && (
-              <TouchableOpacity
-                style={[styles.modalChevronBtn, styles.modalChevronLeft]}
-                onPress={() => switchImage(0)}
-                activeOpacity={0.8}
-              >
-                <ChevronLeft size={26} color="#ffffff" strokeWidth={2.5} />
-              </TouchableOpacity>
-            )}
-
-            {/* Right chevron — hidden while holding */}
-            {chromeVisible && modalIndex === 0 && (
-              <TouchableOpacity
-                style={[styles.modalChevronBtn, styles.modalChevronRight]}
-                onPress={() => switchImage(1)}
-                activeOpacity={0.8}
-              >
-                <ChevronRightIcon size={26} color="#ffffff" strokeWidth={2.5} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setModalVisible(false)}
+        imageSource={modalScans[modalIndex].image}
+        isDark={isDark}
+        badgeLabel={modalIndex === 0 ? `Before (${beforeScan.date})` : `After (${afterScan.date})`}
+        hasPrevious={modalIndex === 1}
+        hasNext={modalIndex === 0}
+        onPrevious={() => switchImage(0)}
+        onNext={() => switchImage(1)}
+      />
 
       <ScrollView 
         ref={mainScrollRef}

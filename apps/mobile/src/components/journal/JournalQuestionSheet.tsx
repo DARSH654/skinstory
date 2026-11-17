@@ -46,6 +46,7 @@ import { useJournalStore, JournalHistoryRecord, QuestionDef } from '@/store/jour
 import { useForecastStore } from '@/store/forecastStore';
 import { DraggableScrollDownCircle, useDraggableScroll } from '@/components/ui/draggable-scroll-down-circle';
 import SkinExperienceQuestionView from './SkinExperienceQuestionView';
+import ZoomableImageModal from '@/components/ui/ZoomableImageModal';
 
 export interface JournalQuestionSheetRef {
   present: (record: JournalHistoryRecord, reanswerKey?: string) => void;
@@ -867,9 +868,17 @@ const ImageResultView = memo(function ImageResultView({
   onRetake,
   onContinue,
 }: ImageResultViewProps) {
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+
   return (
     <View style={styles.imageResultContainer}>
-      <View style={styles.imageResultSquare}>
+      <Pressable
+        onPress={() => setIsZoomOpen(true)}
+        style={({ pressed }) => [
+          styles.imageResultSquare,
+          { opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
+        ]}
+      >
         <View
           style={[
             styles.imageResultSquareInner,
@@ -883,7 +892,15 @@ const ImageResultView = memo(function ImageResultView({
             </Text>
           </View>
         </View>
-      </View>
+      </Pressable>
+
+      <ZoomableImageModal
+        visible={isZoomOpen}
+        onClose={() => setIsZoomOpen(false)}
+        imageSource={uri}
+        isDark={isDark}
+        badgeLabel={source === 'camera' ? 'Daily Selfie' : 'Uploaded Photo'}
+      />
 
       <View style={styles.imageResultActions}>
         <Pressable
@@ -1075,6 +1092,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
       }
       // Defer sheetRef.show() to next frame so all React state updates (isOpen, answers, currentIndex)
       // complete their render and layout pass before the ActionSheet starts measuring and animating
+      console.log(`[JOURNAL_LOGGING] 📖 Journal sheet OPENED for record: "${record?.id || 'unknown'}". Total questions: ${questions.length}. (Forecast engine stays paused/deferred while sheet is active)`);
       requestAnimationFrame(() => {
         sheetRef.current?.show();
       });
@@ -1094,6 +1112,9 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
   const commitAnswerToRecord = useCallback(
     (qKey: string, val: string, updatedAnswersMap: Record<string, string>) => {
       if (!activeRecordId) return;
+      const qDef = questions.find((q) => q.key === qKey);
+      const isCustom = !qKey.startsWith('q_');
+      console.log(`[JOURNAL_LOGGING] ✍️ User logged answer for "${qDef?.subtitle || qKey}" (Key: ${qKey}, Type: ${qDef?.dataType || 'unknown'}, isCustom: ${isCustom}): Value="${val}". (AI is NOT running during logging)`);
       const now = Date.now();
       const todayDate = new Date();
       const todayIso = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
@@ -1489,7 +1510,7 @@ export const JournalQuestionSheet = forwardRef<JournalQuestionSheetRef, JournalQ
     const currentRec = useJournalStore.getState().historyRecords.find((r) => r.id === activeRecordId);
     const currentAnswersStr = JSON.stringify(currentRec?.answers || {});
     const didChange = initialAnswersRef.current !== null && initialAnswersRef.current !== currentAnswersStr;
-    console.log(`[JOURNAL_SHEET] 📕 Sheet closed. Answers changed: ${didChange}`);
+    console.log(`[JOURNAL_LOGGING] 📕 Sheet closed. Answers changed: ${didChange}. Saved to AsyncStorage local storage. (Waking up background forecast pipeline...)`);
     onClosed?.(didChange);
   }, [activeRecordId, onClosed]);
 

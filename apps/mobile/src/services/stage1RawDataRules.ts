@@ -13,7 +13,49 @@
  * - RULE 4: Granular Question-Level Timestamp & Edit Anchor Rule
  */
 
-import { JournalHistoryRecord, QuestionDef } from '@/store/journalStore';
+import {
+  JournalHistoryRecord,
+  QuestionDef,
+  INITIAL_QUESTIONS,
+  INITIAL_AVAILABLE_QUESTIONS,
+} from '@/store/journalStore';
+
+/**
+ * Checks if a default question has been customized by the user:
+ * - Subtitle / wording edited
+ * - Options added, removed, or changed
+ * - Data type changed
+ */
+export function isDefaultQuestionEdited(qDef?: QuestionDef): boolean {
+  if (!qDef || !qDef.key.startsWith('q_')) return false;
+  if (qDef.key === 'q_skin_map') return false; // Skin map has its own separate condition customizer
+
+  const allDefaults = [...INITIAL_QUESTIONS, ...INITIAL_AVAILABLE_QUESTIONS];
+  const template = allDefaults.find((d) => d.key === qDef.key);
+  if (!template) return true; // Starts with q_ but not a default template -> user custom
+
+  // 1. Check if title/subtitle was changed
+  if (qDef.subtitle && qDef.subtitle.trim() !== template.subtitle.trim()) {
+    return true;
+  }
+
+  // 2. Check if data type was changed
+  if (qDef.dataType && qDef.dataType !== template.dataType) {
+    return true;
+  }
+
+  // 3. Check if options were modified (length or values)
+  if (Array.isArray(qDef.options) && Array.isArray(template.options)) {
+    if (qDef.options.length !== template.options.length) return true;
+    const templateVals = template.options.map((o) => (o.value || o.label || '').trim().toLowerCase()).sort();
+    const currentVals = qDef.options.map((o) => (o.value || o.label || '').trim().toLowerCase()).sort();
+    for (let i = 0; i < templateVals.length; i++) {
+      if (templateVals[i] !== currentVals[i]) return true;
+    }
+  }
+
+  return false;
+}
 
 /**
  * Parsed structure for Question 1 (Skin Map)
@@ -147,12 +189,15 @@ export function sanitizeQuestionAnswer(
   switch (dataType) {
     case 'scale': {
       const parsedNum = parseInt(rawVal, 10);
-      const level = !isNaN(parsedNum) ? parsedNum : 3;
+      const isInvalidNum = isNaN(parsedNum);
+      const level = !isInvalidNum ? parsedNum : 0;
       const range = qDef?.scaleRange || '1-5';
       const label =
-        qDef?.stepLabels && qDef.stepLabels[level - 1]
+        !isInvalidNum && qDef?.stepLabels && qDef.stepLabels[level - 1]
           ? qDef.stepLabels[level - 1]
-          : `Level ${level}`;
+          : !isInvalidNum
+          ? `Level ${level}`
+          : 'Invalid scale rating';
       result.semanticPayload.scale = { level, label, range };
       break;
     }
@@ -295,6 +340,9 @@ export function extractStage1HistoryLogs(
 
         const sanitized = sanitizeQuestionAnswer(qKey, val, qDef, questionTimestamp);
         sanitizedAnswers.push(sanitized);
+        const isEdited = isDefaultQuestionEdited(qDef);
+        const isCustom = !qKey.startsWith('q_');
+        console.log(`[STAGE 1 - RAW RULES] 📋 Day "${record.dateStr}": Extracted answer "${qDef?.subtitle || qKey}" (key: ${qKey}, isCustom: ${isCustom}, isEditedDefault: ${isEdited}) -> "${val}"`);
       }
     }
 
