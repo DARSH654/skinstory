@@ -387,16 +387,21 @@ function buildStage4AiPrompt(
 ): string {
   const { winningForecast } = stage3Result;
   const driversList = (winningForecast.activeDrivers || []).map(d => d.sourceLabel).filter(Boolean).join(", ") || "daily factors";
+  const peakHours = typeof winningForecast.peakHoursFromNow === 'number' ? winningForecast.peakHoursFromNow : 14;
 
-  return `Synthesize skin forecast in 3 lines using natural, everyday human conversation language. Avoid clinical or medical jargon.
+  const now = new Date();
+  const currentDayTime = now.toLocaleDateString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+
+  return `Skin forecast in 3 natural lines. No medical jargon.
 Focus: ${winningForecast.dominantAxis} (${winningForecast.direction}, ${winningForecast.severityScore}).
 Triggers: ${driversList}.
+Peak: in ${peakHours}h (Current: ${currentDayTime}).
 
 Output JSON:
 {
-  "eventTitle": "2-4 word natural title (how people talk, e.g. Breakout Alert, Glow Window, Dryness Check)",
-  "timeWindow": "${isTodayLogged ? winningForecast.horizonDisplay : 'This Morning'}",
-  "causalStory": "10-14 words natural sentence: trigger cause then 1 practical routine action"
+  "eventTitle": "2-4 word natural title",
+  "timeWindow": "Conversational time window from now + ${peakHours}h (clock time or natural period)",
+  "causalStory": "10-14 words: trigger cause then 1 routine action"
 }`;
 }
 

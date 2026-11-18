@@ -1,3 +1,4 @@
+
 /**
  * ============================================================================
  * Stage 3: Continuous-Time State Space Skin Forecasting Engine
@@ -94,6 +95,7 @@ export interface Stage3ForecastResult {
     dominantAxis: SkinAxisCategory;
     horizonKey: ForecastHorizonKey;
     horizonDisplay: string;
+    peakHoursFromNow: number;
     headline: string;
     description: string;
     severityScore: number; // 0.0 (calm) to 1.0 (critical peak)
@@ -354,7 +356,24 @@ export function runStage3ForecastEngine(
     }
   }
 
-  // 2. Synthesize Winning Headline & Description
+  // 2. Continuous-Time Analytical Peak Calculation (t*)
+  // Instead of restricting to the 4 fixed buckets, find the exact inflection point
+  // of the winning axis along the continuous trajectory
+  let continuousPeakHours: number = FORECAST_HORIZONS[winningHorizonKey];
+  const winningTickets = chronologicalTickets.filter(t => t.category === winningAxis);
+  if (winningTickets.length > 0) {
+    // Find the latest active primary driver for the winning axis
+    const latestDriver = winningTickets[winningTickets.length - 1];
+    const hoursElapsedSinceLog = Math.max(0, (currentTime - latestDriver.loggedAt) / (1000 * 60 * 60));
+    const hoursRemainingToPeak = Math.max(1, latestDriver.peakHours - hoursElapsedSinceLog);
+    
+    // If the horizon was short-term (tomorrow_morning or in_48_hours), anchor to exact biological peak
+    if (winningHorizonKey === 'tomorrow_morning' || winningHorizonKey === 'in_48_hours') {
+      continuousPeakHours = hoursRemainingToPeak;
+    }
+  }
+
+  // 3. Synthesize Winning Headline & Description
   const winningHorizon = horizons[winningHorizonKey];
   const netDelta = winningHorizon.deltaFromBaseline[winningAxis];
   const isWorsening = netDelta > 0.08;
@@ -457,6 +476,7 @@ export function runStage3ForecastEngine(
       dominantAxis: winningAxis,
       horizonKey: winningHorizonKey,
       horizonDisplay: winningHorizon.displayLabel,
+      peakHoursFromNow: Math.round(continuousPeakHours * 10) / 10,
       headline,
       description,
       severityScore: Math.min(1.0, Math.round(maxSalienceScore * 100) / 100),
