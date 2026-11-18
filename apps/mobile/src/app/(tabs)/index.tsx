@@ -456,7 +456,7 @@ function CalendarDayPill({
                 : isDark
                 ? '#a1a1aa'
                 : '#6b7280',
-              fontWeight: isToday ? '800' : '600',
+              fontWeight: isToday ? '900' : '700',
               fontSize: isToday ? 10 : 12,
             },
           ]}
@@ -503,7 +503,7 @@ function CalendarDayPill({
                   : isDark
                   ? '#ffffff'
                   : '#111827',
-                fontWeight: isSelected ? '800' : '600',
+                fontWeight: isSelected ? '800' : '700',
               },
             ]}
           >
@@ -1510,7 +1510,7 @@ export default function HomeScreen() {
                                 {
                                   backgroundColor: isDark ? 'rgba(168, 85, 247, 0.16)' : 'rgba(124, 58, 237, 0.10)',
                                   borderColor: isDark ? '#c084fc' : Colors.light.primary,
-                                  borderStyle: 'dashed',
+                                  borderStyle: 'solid',
                                 },
                               ]}
                             >
@@ -2322,7 +2322,7 @@ const styles = StyleSheet.create({
   },
   journalDateText: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
   journalStatusPill: {

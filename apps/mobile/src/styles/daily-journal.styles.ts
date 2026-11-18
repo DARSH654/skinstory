@@ -156,7 +156,7 @@ export const styles = StyleSheet.create({
   },
   historyRowDate: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
   historyMetaContainer: {

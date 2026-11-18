@@ -972,7 +972,7 @@ export default function DailyJournalScreen() {
                               {
                                 backgroundColor: isDark ? 'rgba(168, 85, 247, 0.16)' : 'rgba(124, 58, 237, 0.10)',
                                 borderColor: isDark ? '#c084fc' : primaryColor,
-                                borderStyle: 'dashed',
+                                borderStyle: 'solid',
                               },
                             ]}
                           >
