@@ -315,17 +315,42 @@ export function runStage3ForecastEngine(
       dominantDelta: maxAbsDelta,
     };
 
-    // Track overall winning forecast across all horizons
-    // Apply clinical weighting: acute inflammation/barrier peaks have high immediate salience,
-    // while sustained 1-month collagen/turnover has high long-term milestone salience
-    const salienceWeight =
-      hKey === 'in_48_hours' || hKey === 'tomorrow_morning' ? 1.2 : 1.0;
-    const weightedSalience = maxAbsDelta * salienceWeight;
+    // Multi-Scale Horizon Scaling Factors (prevents acute 14h curves from permanently suffocating 48h and 7d milestones)
+    const HORIZON_SCALES: Record<ForecastHorizonKey, number> = {
+      tomorrow_morning: 1.0,
+      in_48_hours: 1.25,
+      in_7_days: 1.6,
+      in_1_month: 2.2,
+    };
 
-    if (weightedSalience > maxSalienceScore) {
-      maxSalienceScore = weightedSalience;
-      winningHorizonKey = hKey;
-      winningAxis = dominantAxisForHorizon;
+    // Calculate normalized salience across all axes for this horizon
+    for (const axis of axes) {
+      const rawDelta = Math.abs((projectedState[axis] - baseline[axis]));
+
+      // Clinical Priority Multipliers (Acute distress, breakouts, barrier compromise take precedence over background baseline)
+      let clinicalPriority = 1.0;
+      if (axis === 'inflammation' || axis === 'barrier') {
+        clinicalPriority = 1.35;
+      } else if (axis === 'sebum' || axis === 'pigmentation') {
+        clinicalPriority = 1.2;
+      } else if (axis === 'hydration') {
+        clinicalPriority = 1.15;
+      }
+
+      // Count past consecutive occurrences of this category in tickets to apply Diminishing Returns Penalty (anti-monopoly)
+      let recentTicketsForAxis = 0;
+      for (const t of chronologicalTickets) {
+        if (t.category === axis) recentTicketsForAxis++;
+      }
+      const habitDiminishingPenalty = 1.0 / (1.0 + 0.15 * Math.max(0, recentTicketsForAxis - 1));
+
+      const normalizedSalience = rawDelta * clinicalPriority * habitDiminishingPenalty * HORIZON_SCALES[hKey];
+
+      if (normalizedSalience > maxSalienceScore) {
+        maxSalienceScore = normalizedSalience;
+        winningHorizonKey = hKey;
+        winningAxis = axis;
+      }
     }
   }
 

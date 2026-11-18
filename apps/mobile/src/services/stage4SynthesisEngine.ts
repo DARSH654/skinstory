@@ -388,15 +388,15 @@ function buildStage4AiPrompt(
   const { winningForecast } = stage3Result;
   const driversList = (winningForecast.activeDrivers || []).map(d => d.sourceLabel).filter(Boolean).join(", ") || "daily factors";
 
-  return `Synthesize skin forecast in 3 lines.
-Axis: ${winningForecast.dominantAxis} (${winningForecast.direction}, ${winningForecast.severityScore}).
+  return `Synthesize skin forecast in 3 lines using natural, everyday human conversation language. Avoid clinical or medical jargon.
+Focus: ${winningForecast.dominantAxis} (${winningForecast.direction}, ${winningForecast.severityScore}).
 Triggers: ${driversList}.
 
 Output JSON:
 {
-  "eventTitle": "2-4 word event title",
+  "eventTitle": "2-4 word natural title (how people talk, e.g. Breakout Alert, Glow Window, Dryness Check)",
   "timeWindow": "${isTodayLogged ? winningForecast.horizonDisplay : 'This Morning'}",
-  "causalStory": "10-14 words: trigger cause then 1 routine action"
+  "causalStory": "10-14 words natural sentence: trigger cause then 1 practical routine action"
 }`;
 }
 
@@ -445,7 +445,7 @@ async function callGeminiForSynthesis(prompt: string, signal?: AbortSignal): Pro
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.2, // Nuanced clinical reasoning while adhering strictly to facts
-          maxOutputTokens: 600,
+          maxOutputTokens: 120,
           responseMimeType: 'application/json',
         },
       }),
@@ -517,36 +517,10 @@ function mergeAiOutputWithSynthesis(
     logDays: deterministic.heroCard.logDays,
   };
 
-  const clinicalInsight = {
-    title: typeof aiData.clinicalInsight?.title === 'string' && aiData.clinicalInsight.title.trim()
-      ? aiData.clinicalInsight.title.trim()
-      : deterministic.clinicalInsight.title,
-    summary: typeof aiData.clinicalInsight?.summary === 'string' && aiData.clinicalInsight.summary.trim()
-      ? aiData.clinicalInsight.summary.trim()
-      : deterministic.clinicalInsight.summary,
-    actionTip: typeof aiData.clinicalInsight?.actionTip === 'string' && aiData.clinicalInsight.actionTip.trim()
-      ? aiData.clinicalInsight.actionTip.trim()
-      : deterministic.clinicalInsight.actionTip,
-    dominantAxis: deterministic.clinicalInsight.dominantAxis,
-    direction: deterministic.clinicalInsight.direction,
-    severityScore: deterministic.clinicalInsight.severityScore,
-  };
-
-  const updatedHorizons = { ...deterministic.horizons };
-  if (typeof aiData.tomorrowMorningSummary === 'string' && aiData.tomorrowMorningSummary.trim()) {
-    updatedHorizons.tomorrow_morning.keyChangeText = aiData.tomorrowMorningSummary.trim();
-  }
-  if (typeof aiData.in48HoursSummary === 'string' && aiData.in48HoursSummary.trim()) {
-    updatedHorizons.in_48_hours.keyChangeText = aiData.in48HoursSummary.trim();
-  }
-  if (typeof aiData.in7DaysSummary === 'string' && aiData.in7DaysSummary.trim()) {
-    updatedHorizons.in_7_days.keyChangeText = aiData.in7DaysSummary.trim();
-  }
-
   return {
     heroCard,
-    clinicalInsight,
-    horizons: updatedHorizons,
+    clinicalInsight: deterministic.clinicalInsight,
+    horizons: deterministic.horizons,
     biomarkerDeltas: deterministic.biomarkerDeltas,
     source: (PRIMARY_MODEL as any) || 'gemini-3.1-flash-lite',
     computedAt: Date.now(),
@@ -629,8 +603,9 @@ export async function synthesizeSkinForecast(
 }
 
 function winningKey(stage3Result: Stage3ForecastResult): string {
-  const { dominantAxis, horizonKey, direction } = stage3Result.winningForecast;
-  return `${dominantAxis}_${horizonKey}_${direction}_${Math.round(stage3Result.computedAt / (1000 * 60 * 30))}`;
+  const { dominantAxis, horizonKey, direction, activeDrivers } = stage3Result.winningForecast;
+  const triggersHash = (activeDrivers || []).map(d => d.sourceLabel).filter(Boolean).sort().join('|');
+  return `${dominantAxis}_${horizonKey}_${direction}_${triggersHash}`;
 }
 
 /**
