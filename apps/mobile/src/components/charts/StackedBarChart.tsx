@@ -23,6 +23,7 @@ import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
 import Svg, { Rect, Line, ClipPath, G, Defs } from 'react-native-svg';
+import ChartCardHeader from './ChartCardHeader';
 
 export type StackedBarDatum = {
   label: string;
@@ -71,19 +72,23 @@ export default function StackedBarChart({
 
   const scrollRef = useRef<ScrollView>(null);
 
-  // Exact same geometry as BarChart
+  // Dynamic Y-axis width based on maxSteps digits (no hardcoded clipping)
+  const maxDigits = String(maxSteps).length;
+  const yAxisWidth = Math.max(Math.round(maxDigits * 7.5), 18);
+
   const cardInnerWidth = SCREEN_WIDTH - 40 - 32;
-  const visiblePlotWidth = cardInnerWidth - Y_AXIS_WIDTH - Y_AXIS_GAP - 2;
+  const visiblePlotWidth = cardInnerWidth - yAxisWidth - Y_AXIS_GAP - 2;
 
-  const minColumnWidth = 54;
-  const plotWidth =
-    data.length <= 7
-      ? visiblePlotWidth
-      : Math.max(visiblePlotWidth, data.length * minColumnWidth);
+  // Dynamic column width: generous breathing room, ~5 days visible on screen, Sat/Sun scroll naturally
+  const maxLabelLen = Math.max(...data.map((d) => (d.label || '').length), 3);
+  const minColForContent = Math.max(maxLabelLen * 8 + 12, 56);
+  const columnWidth = data.length > 0
+    ? Math.max(visiblePlotWidth / 5.2, minColForContent)
+    : 64;
+  const plotWidth = data.length * columnWidth;
 
-  const columnWidth = plotWidth / data.length;
-  // Exact same barWidth formula as BarChart
-  const barWidth = Math.min(columnWidth * 0.62, 36);
+  // Proportional bar width: scales with column width for consistent visual rhythm
+  const barWidth = Math.min(Math.max(columnWidth * 0.44, 20), 32);
   const axisY = PLOT_TOP + BAR_MAX_HEIGHT;
   const svgHeight = axisY + 28;
 
@@ -143,20 +148,13 @@ export default function StackedBarChart({
         },
       ]}
     >
-      {/* Card Header */}
-      <View style={styles.cardHeader}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
-        {unit ? (
-          <View style={[styles.unitPill, { backgroundColor: isDark ? '#27272a' : '#f4f4f5' }]}>
-            <Text style={[styles.unitText, { color: colors.textSecondary }]}>{unit}</Text>
-          </View>
-        ) : null}
-      </View>
+      {/* Card Header (Dynamic single-line / multi-line with unit pill below) */}
+      <ChartCardHeader title={title} unit={unit} isDark={isDark} colors={colors} />
 
       {/* Chart Row: Left Y-Axis + Scrollable Bar Plot */}
       <View style={styles.chartRow}>
         {/* Y-Axis Column (Numeric Only, left-aligned, inside bounds with equal intervals) */}
-        <View style={[styles.yAxisContainer, { height: BAR_MAX_HEIGHT + PLOT_TOP }]}>
+        <View style={[styles.yAxisContainer, { width: yAxisWidth, height: BAR_MAX_HEIGHT + PLOT_TOP }]}>
           {yAxisTicks.map((tick, i) => {
             const labelTop = labelTopMin + i * labelInterval;
             return (
@@ -203,18 +201,16 @@ export default function StackedBarChart({
           >
             <Svg width={plotWidth} height={svgHeight}>
               <Defs>
-                {/* ClipPath for each column so the stacked layers form a unified pill with ZERO gap */}
+                {/* Mathematical ClipPath for each column matching the exact capsule rail boundary */}
                 {data.map((_, col) => {
                   const x = col * columnWidth + (columnWidth - barWidth) / 2;
-                  const total = dailyTotals[col];
-                  const totalH = Math.max((total / maxSteps) * BAR_MAX_HEIGHT, 8);
                   return (
                     <ClipPath key={`clip-${col}`} id={`stackClip-${col}`}>
                       <Rect
                         x={x}
-                        y={axisY - totalH}
+                        y={PLOT_TOP}
                         width={barWidth}
-                        height={totalH}
+                        height={BAR_MAX_HEIGHT}
                         rx={barWidth / 2}
                         ry={barWidth / 2}
                       />
@@ -270,6 +266,8 @@ export default function StackedBarChart({
 
               {/* Stacked capsules: Touching seamlessly with ZERO gap inside pill clip */}
               {data.map((d, col) => {
+                const total = dailyTotals[col];
+                if (total <= 0) return null;
                 const x = col * columnWidth + (columnWidth - barWidth) / 2;
                 const isSelected = col === activeIndex;
                 const layers = [d.layer1, d.layer2, d.layer3];
@@ -389,15 +387,19 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
   },
   cardTitle: {
+    flex: 1,
+    marginRight: 10,
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   unitPill: {
+    flexShrink: 0,
+    marginTop: 2,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,

@@ -38,12 +38,7 @@ const SLICE_COLORS = ['#937abd', '#a992c9', '#bfaedb', '#d6cbe8'];
 // ─── Geometry ─────────────────────────────────────────────────────────────────
 const H_PADDING_LEFT = 14;
 const H_PADDING_RIGHT = 20;
-const SIZE = 190;
-const THICKNESS = 26;
-const MID_R = (SIZE - THICKNESS) / 2;
-const C = 2 * Math.PI * MID_R;
 const VISUAL_GAP = 5;
-const DASH_GAP = VISUAL_GAP + THICKNESS; // round caps add THICKNESS to visible length
 const TOOLTIP_W = 56;
 const TOOLTIP_H = 38;
 
@@ -53,16 +48,24 @@ export default function DonutChart({ data = DONUT_DATA }: { data?: DonutDatum[] 
   const isDark = scheme === 'dark';
   const colors = isDark ? Colors.dark : Colors.light;
 
+  // Dynamic geometry: adapts smoothly to screen width without hardcoding
+  const cardInnerWidth = SCREEN_WIDTH - 40 - 32;
+  const size = Math.min(Math.max(cardInnerWidth * 0.58, 170), 220);
+  const thickness = Math.round(size * 0.14);
+  const midR = (size - thickness) / 2;
+  const c = 2 * Math.PI * midR;
+  const dashGap = VISUAL_GAP + thickness; // round caps add thickness to visible length
+  const center = size / 2;
+
   const [activeIndex, setActiveIndex] = useState(0);
 
   const total = data.reduce((sum, d) => sum + d.value, 0) || 1;
-  const center = SIZE / 2;
 
   // Pre-compute each slice's dash length + start offset (in circumference units)
   let acc = 0;
   const slices = data.map((d, i) => {
-    const raw = (d.value / total) * C;
-    const len = Math.max(raw - DASH_GAP, 0.01);
+    const raw = (d.value / total) * c;
+    const len = Math.max(raw - dashGap, 0.01);
     const start = acc;
     acc += raw;
     return { len, start, color: SLICE_COLORS[i % SLICE_COLORS.length] };
@@ -73,8 +76,8 @@ export default function DonutChart({ data = DONUT_DATA }: { data?: DonutDatum[] 
     const dx = locationX - center;
     const dy = locationY - center;
     const dist = Math.hypot(dx, dy);
-    const innerR = MID_R - THICKNESS / 2;
-    const outerR = MID_R + THICKNESS / 2;
+    const innerR = midR - thickness / 2;
+    const outerR = midR + thickness / 2;
     if (dist < innerR || dist > outerR) return; // touch missed the ring
 
     let deg = (Math.atan2(dy, dx) * 180) / Math.PI + 90; // 0° = top, clockwise
@@ -98,15 +101,15 @@ export default function DonutChart({ data = DONUT_DATA }: { data?: DonutDatum[] 
     <View style={styles.chartSection}>
       {/* Donut + centred readout */}
       <View style={{ alignItems: 'center' }}>
-        <View style={{ width: SIZE, height: SIZE, position: 'relative' }}>
+        <View style={{ width: size, height: size, position: 'relative' }}>
           <Pressable onPress={handleTouch}>
-            <Svg width={SIZE} height={SIZE}>
+            <Svg width={size} height={size}>
               <Circle
                 cx={center}
                 cy={center}
-                r={MID_R}
+                r={midR}
                 stroke={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'}
-                strokeWidth={THICKNESS}
+                strokeWidth={thickness}
                 fill="none"
               />
               {slices.map((s, i) => (
@@ -114,10 +117,10 @@ export default function DonutChart({ data = DONUT_DATA }: { data?: DonutDatum[] 
                   key={i}
                   cx={center}
                   cy={center}
-                  r={MID_R}
+                  r={midR}
                   stroke={s.color}
-                  strokeWidth={THICKNESS}
-                  strokeDasharray={[s.len, C - s.len]}
+                  strokeWidth={thickness}
+                  strokeDasharray={[s.len, c - s.len]}
                   strokeDashoffset={-s.start}
                   strokeLinecap="round"
                   fill="none"

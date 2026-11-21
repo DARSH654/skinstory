@@ -83,7 +83,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
     <View 
       style={[
         styles.container, 
-        { paddingBottom: insets.bottom },
+        { 
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
         isDark ? styles.tabBarDark : styles.tabBarLight
       ]}
     >
@@ -204,12 +208,21 @@ const styles = StyleSheet.create({
 });
 
 export default function AppTabs() {
+  const insets = useSafeAreaInsets();
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
+
   return (
     <Tabs
       backBehavior="history"
       tabBar={props => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
+        sceneStyle: {
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+          backgroundColor: isDark ? '#121212' : '#F5F5F7',
+        },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Home' }} />

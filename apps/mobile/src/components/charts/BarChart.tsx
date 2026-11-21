@@ -21,7 +21,8 @@ import {
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
-import Svg, { Rect, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Rect, Line, Defs, LinearGradient, Stop, ClipPath, G } from 'react-native-svg';
+import ChartCardHeader from './ChartCardHeader';
 
 export type BarChartDatum = { label: string; value: number };
 
@@ -62,16 +63,24 @@ export default function BarChart({
 
   const scrollRef = useRef<ScrollView>(null);
 
+  // Dynamic Y-axis width based on digit count of maxValue (no hardcoded clipping)
+  const maxDigits = String(maxValue).length;
+  const yAxisWidth = Math.max(Math.round(maxDigits * 7.5), 18);
+
   // Card geometry: margin 20 on each side, padding 16 on each side
   const cardInnerWidth = SCREEN_WIDTH - 40 - 32;
-  const visiblePlotWidth = cardInnerWidth - Y_AXIS_WIDTH - Y_AXIS_GAP - 2;
+  const visiblePlotWidth = cardInnerWidth - yAxisWidth - Y_AXIS_GAP - 2;
 
-  // Generous column width matching paired bar chart: larger bar size and comfortable gap
-  const columnWidth = Math.max(visiblePlotWidth / data.length, 64);
+  // Dynamic column width: generous breathing room, ~5 days visible on screen, Sat/Sun scroll naturally
+  const maxLabelLen = Math.max(...data.map((d) => (d.label || '').length), 3);
+  const minColForContent = Math.max(maxLabelLen * 8 + 12, 56);
+  const columnWidth = data.length > 0
+    ? Math.max(visiblePlotWidth / 5.2, minColForContent)
+    : 64;
   const plotWidth = data.length * columnWidth;
 
-  // Thick, increased bar size matching paired chart
-  const barWidth = 36;
+  // Proportional bar width: scales with column width for consistent visual rhythm
+  const barWidth = Math.min(Math.max(columnWidth * 0.44, 20), 32);
   const axisY = PLOT_TOP + BAR_MAX_HEIGHT;
   const svgHeight = axisY + 28;
 
@@ -88,7 +97,7 @@ export default function BarChart({
   });
 
   const barHeights = data.map((d) =>
-    Math.max((d.value / maxValue) * BAR_MAX_HEIGHT, 8)
+    Math.max((d.value / maxValue) * BAR_MAX_HEIGHT, 6)
   );
 
   const handleTouch = (evt: GestureResponderEvent) => {
@@ -139,20 +148,13 @@ export default function BarChart({
         },
       ]}
     >
-      {/* Card Header */}
-      <View style={styles.cardHeader}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
-        {unit ? (
-          <View style={[styles.unitPill, { backgroundColor: isDark ? '#27272a' : '#f4f4f5' }]}>
-            <Text style={[styles.unitText, { color: colors.textSecondary }]}>{unit}</Text>
-          </View>
-        ) : null}
-      </View>
+      {/* Card Header (Dynamic single-line / multi-line with unit pill below) */}
+      <ChartCardHeader title={title} unit={unit} isDark={isDark} colors={colors} />
 
       {/* Chart Row: Left Y-Axis + Scrollable Bar Plot */}
       <View style={styles.chartRow}>
         {/* Y-Axis Column (Numeric Only, left-aligned, inside bounds with equal intervals) */}
-        <View style={[styles.yAxisContainer, { height: BAR_MAX_HEIGHT + PLOT_TOP }]}>
+        <View style={[styles.yAxisContainer, { width: yAxisWidth, height: BAR_MAX_HEIGHT + PLOT_TOP }]}>
           {yAxisTicks.map((tick, i) => {
             const labelTop = labelTopMin + i * labelInterval;
             return (
@@ -203,6 +205,22 @@ export default function BarChart({
                   <Stop offset="0" stopColor="#937abd" stopOpacity="1" />
                   <Stop offset="1" stopColor="#d6cbe8" stopOpacity="1" />
                 </LinearGradient>
+                {/* Mathematical clipping path matching the exact capsule rail boundary for each column */}
+                {data.map((_, i) => {
+                  const x = i * columnWidth + (columnWidth - barWidth) / 2;
+                  return (
+                    <ClipPath key={`barClip-${i}`} id={`barClip-${i}`}>
+                      <Rect
+                        x={x}
+                        y={PLOT_TOP}
+                        width={barWidth}
+                        height={BAR_MAX_HEIGHT}
+                        rx={barWidth / 2}
+                        ry={barWidth / 2}
+                      />
+                    </ClipPath>
+                  );
+                })}
               </Defs>
 
               {/* Horizontal dashed grid lines across the entire plot */}
@@ -250,23 +268,25 @@ export default function BarChart({
                 );
               })}
 
-              {/* Rounded thick pill bars */}
+              {/* Rounded thick pill bars — strictly constrained inside rail capsule clip path */}
               {data.map((_, i) => {
-                const x = i * columnWidth + (columnWidth - barWidth) / 2;
                 const h = barHeights[i];
+                if (h <= 0) return null;
+                const x = i * columnWidth + (columnWidth - barWidth) / 2;
                 const isSelected = i === activeIndex;
                 return (
-                  <Rect
-                    key={`bar-${i}`}
-                    x={x}
-                    y={axisY - h}
-                    width={barWidth}
-                    height={h}
-                    rx={barWidth / 2}
-                    ry={barWidth / 2}
-                    fill="url(#barGrad)"
-                    opacity={isSelected ? 1 : 0.4}
-                  />
+                  <G key={`bar-group-${i}`} clipPath={`url(#barClip-${i})`}>
+                    <Rect
+                      x={x}
+                      y={axisY - h}
+                      width={barWidth}
+                      height={h}
+                      rx={barWidth / 2}
+                      ry={barWidth / 2}
+                      fill="url(#barGrad)"
+                      opacity={isSelected ? 1 : 0.4}
+                    />
+                  </G>
                 );
               })}
 
@@ -364,15 +384,19 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
   },
   cardTitle: {
+    flex: 1,
+    marginRight: 10,
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   unitPill: {
+    flexShrink: 0,
+    marginTop: 2,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,

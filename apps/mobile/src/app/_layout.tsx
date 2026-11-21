@@ -29,12 +29,43 @@ const CustomDarkTheme = {
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import AuthModal from '@/components/auth/AuthModal';
 import { preloadSkinConditionCache } from '@/services/stage2AiIngestionWorker';
+
+function RootStack({ isDark }: { isDark: boolean }) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        navigationBarColor: isDark ? '#000000' : '#F5F5F7',
+        contentStyle: {
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+          backgroundColor: isDark ? '#121212' : '#F5F5F7',
+        },
+      }}
+    >
+      <Stack.Screen name="(tabs)" options={{ contentStyle: { paddingLeft: 0, paddingRight: 0 } }} />
+      <Stack.Screen name="camera" />
+      <Stack.Screen name="insight" />
+      <Stack.Screen name="select-scans" />
+      <Stack.Screen name="scan/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="streak" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="badges" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="daily-journal" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="add-journal-question" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="new-chat" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="chart-landscape" options={{ headerShown: false, animation: 'fade' }} />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -85,24 +116,14 @@ export default function RootLayout() {
     return <View style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#121212' : '#F5F5F7' }} />;
   }
 
+  const isDark = colorScheme === 'dark';
+
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <BottomSheetModalProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
-            <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right', navigationBarColor: colorScheme === 'dark' ? '#000000' : '#F5F5F7' }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="camera" />
-              <Stack.Screen name="insight" />
-              <Stack.Screen name="select-scans" />
-              <Stack.Screen name="scan/[id]" options={{ headerShown: false }} />
-              <Stack.Screen name="streak" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-              <Stack.Screen name="badges" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="daily-journal" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="add-journal-question" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="new-chat" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="chart-landscape" options={{ headerShown: false, animation: 'fade' }} />
-            </Stack>
+          <ThemeProvider value={isDark ? CustomDarkTheme : CustomLightTheme}>
+            <RootStack isDark={isDark} />
             <AuthModal
               visible={showAuthModal}
               onClose={() => setShowAuthModal(false)}

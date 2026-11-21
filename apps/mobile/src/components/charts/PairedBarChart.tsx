@@ -21,7 +21,8 @@ import {
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
-import Svg, { Rect, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Rect, Line, Defs, LinearGradient, Stop, ClipPath, G } from 'react-native-svg';
+import ChartCardHeader from './ChartCardHeader';
 
 export type PairedBarDatum = {
   label: string;
@@ -70,20 +71,25 @@ export default function PairedBarChart({
 
   const scrollRef = useRef<ScrollView>(null);
 
+  // Dynamic Y-axis width based on digit count of maxValue (no hardcoded clipping)
+  const maxDigits = String(maxValue).length;
+  const yAxisWidth = Math.max(Math.round(maxDigits * 7.5), 18);
+
   // Card geometry: margin 20 each side, padding 16 each side
   const cardInnerWidth = SCREEN_WIDTH - 40 - 32;
-  const visiblePlotWidth = cardInnerWidth - Y_AXIS_WIDTH - Y_AXIS_GAP - 2;
+  const visiblePlotWidth = cardInnerWidth - yAxisWidth - Y_AXIS_GAP - 2;
 
-  const minColumnWidth = 64;
-  const plotWidth =
-    data.length <= 5
-      ? visiblePlotWidth
-      : Math.max(visiblePlotWidth, data.length * minColumnWidth);
+  // Dynamic column width: generous breathing room, ~5 days visible on screen, Sat/Sun scroll naturally
+  const maxLabelLen = Math.max(...data.map((d) => (d.label || '').length), 3);
+  const minColForContent = Math.max(maxLabelLen * 8 + 12, 56);
+  const columnWidth = data.length > 0
+    ? Math.max(visiblePlotWidth / 5.2, minColForContent)
+    : 64;
+  const plotWidth = data.length * columnWidth;
 
-  const columnWidth = plotWidth / data.length;
-  // Two thick pill bars side-by-side
-  const singleBarWidth = Math.min((columnWidth - 14) / 2, 18);
-  const barGap = 4;
+  // Dynamically sized bar pairs proportional to column width
+  const singleBarWidth = Math.min(Math.max((columnWidth - 14) / 2.4, 15), 24);
+  const barGap = Math.max(singleBarWidth * 0.22, 3);
   const pairWidth = singleBarWidth * 2 + barGap;
   const axisY = PLOT_TOP + BAR_MAX_HEIGHT;
   const svgHeight = axisY + 28;
@@ -144,25 +150,34 @@ export default function PairedBarChart({
         },
       ]}
     >
-      {/* Card Header & Legend */}
-      <View style={styles.cardHeader}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
-        <View style={styles.legendRow}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#937abd' }]} />
-            <Text style={[styles.legendText, { color: colors.textSecondary }]}>AM</Text>
+      {/* Card Header & Legend (Dynamic single-line / multi-line with legend below) */}
+      <ChartCardHeader
+        title={title}
+        isDark={isDark}
+        colors={colors}
+        rightElement={
+          <View style={styles.legendRow}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#937abd' }]} />
+              <Text style={[styles.legendText, { color: colors.textSecondary }]}>AM</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#d6cbe8' }]} />
+              <Text style={[styles.legendText, { color: colors.textSecondary }]}>PM</Text>
+            </View>
+            {unit ? (
+              <View style={[styles.unitPill, { backgroundColor: isDark ? '#27272a' : '#f4f4f5' }]}>
+                <Text style={[styles.unitText, { color: colors.textSecondary }]}>{unit}</Text>
+              </View>
+            ) : null}
           </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#d6cbe8' }]} />
-            <Text style={[styles.legendText, { color: colors.textSecondary }]}>PM</Text>
-          </View>
-        </View>
-      </View>
+        }
+      />
 
       {/* Chart Row: Left Y-Axis + Scrollable Paired Plot */}
       <View style={styles.chartRow}>
         {/* Y-Axis Column (Numeric Only, left-aligned, inside bounds with equal intervals) */}
-        <View style={[styles.yAxisContainer, { height: BAR_MAX_HEIGHT + PLOT_TOP }]}>
+        <View style={[styles.yAxisContainer, { width: yAxisWidth, height: BAR_MAX_HEIGHT + PLOT_TOP }]}>
           {yAxisTicks.map((tick, i) => {
             const labelTop = labelTopMin + i * labelInterval;
             return (
@@ -217,6 +232,34 @@ export default function PairedBarChart({
                   <Stop offset="0" stopColor="#d6cbe8" stopOpacity="1" />
                   <Stop offset="1" stopColor="#b9a6d6" stopOpacity="1" />
                 </LinearGradient>
+                {/* Mathematical clipping paths matching exact capsule rails for Series 1 & 2 */}
+                {data.map((_, i) => {
+                  const startX = i * columnWidth + (columnWidth - pairWidth) / 2;
+                  return (
+                    <React.Fragment key={`p-clips-${i}`}>
+                      <ClipPath id={`pClip1-${i}`}>
+                        <Rect
+                          x={startX}
+                          y={PLOT_TOP}
+                          width={singleBarWidth}
+                          height={BAR_MAX_HEIGHT}
+                          rx={singleBarWidth / 2}
+                          ry={singleBarWidth / 2}
+                        />
+                      </ClipPath>
+                      <ClipPath id={`pClip2-${i}`}>
+                        <Rect
+                          x={startX + singleBarWidth + barGap}
+                          y={PLOT_TOP}
+                          width={singleBarWidth}
+                          height={BAR_MAX_HEIGHT}
+                          rx={singleBarWidth / 2}
+                          ry={singleBarWidth / 2}
+                        />
+                      </ClipPath>
+                    </React.Fragment>
+                  );
+                })}
               </Defs>
 
               {/* Horizontal dashed grid lines (hidden on bottom baseline to prevent overlap) */}
@@ -284,7 +327,7 @@ export default function PairedBarChart({
                 );
               })}
 
-              {/* Paired thick pill bars */}
+              {/* Paired thick pill bars — strictly constrained inside rail capsule clip paths */}
               {data.map((d, i) => {
                 const startX = i * columnWidth + (columnWidth - pairWidth) / 2;
                 const h1 = Math.max((d.series1 / maxValue) * BAR_MAX_HEIGHT, 6);
@@ -294,27 +337,31 @@ export default function PairedBarChart({
                 return (
                   <React.Fragment key={`p-bars-${i}`}>
                     {/* Series 1: AM Bar */}
-                    <Rect
-                      x={startX}
-                      y={axisY - h1}
-                      width={singleBarWidth}
-                      height={h1}
-                      rx={singleBarWidth / 2}
-                      ry={singleBarWidth / 2}
-                      fill="url(#pairedGrad1)"
-                      opacity={isSelected ? 1 : 0.45}
-                    />
+                    <G clipPath={`url(#pClip1-${i})`}>
+                      <Rect
+                        x={startX}
+                        y={axisY - h1}
+                        width={singleBarWidth}
+                        height={h1}
+                        rx={singleBarWidth / 2}
+                        ry={singleBarWidth / 2}
+                        fill="url(#pairedGrad1)"
+                        opacity={isSelected ? 1 : 0.45}
+                      />
+                    </G>
                     {/* Series 2: PM Bar */}
-                    <Rect
-                      x={startX + singleBarWidth + barGap}
-                      y={axisY - h2}
-                      width={singleBarWidth}
-                      height={h2}
-                      rx={singleBarWidth / 2}
-                      ry={singleBarWidth / 2}
-                      fill="url(#pairedGrad2)"
-                      opacity={isSelected ? 1 : 0.45}
-                    />
+                    <G clipPath={`url(#pClip2-${i})`}>
+                      <Rect
+                        x={startX + singleBarWidth + barGap}
+                        y={axisY - h2}
+                        width={singleBarWidth}
+                        height={h2}
+                        rx={singleBarWidth / 2}
+                        ry={singleBarWidth / 2}
+                        fill="url(#pairedGrad2)"
+                        opacity={isSelected ? 1 : 0.45}
+                      />
+                    </G>
                   </React.Fragment>
                 );
               })}
@@ -413,23 +460,27 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
   },
   cardTitle: {
+    flex: 1,
+    marginRight: 10,
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   legendRow: {
+    flexShrink: 0,
+    marginTop: 2,
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     alignItems: 'center',
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
   },
   legendDot: {
     width: 8,
@@ -437,6 +488,15 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legendText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  unitPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  unitText: {
     fontSize: 11,
     fontWeight: '700',
   },
@@ -483,7 +543,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   tooltipText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     textAlign: 'center',
   },

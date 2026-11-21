@@ -23,7 +23,8 @@ import {
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
-import Svg, { Rect, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Rect, Line, Defs, LinearGradient, Stop, ClipPath, G } from 'react-native-svg';
+import ChartCardHeader from './ChartCardHeader';
 
 export type HorizontalBarDatum = { label: string; value: number };
 
@@ -65,11 +66,15 @@ export default function HorizontalBarChart({
 
   // Card geometry: margin 20 each side, padding 16 each side
   const cardInnerWidth = SCREEN_WIDTH - 40 - 32;
-  const visiblePlotWidth = cardInnerWidth - LABEL_W - 1.5;
 
-  // Generous unit step width (46px per day) so all 7 intervals are 100% equalized
-  // and comfortable to read, scrollable horizontally matching BarChart and PairedBarChart
-  const minPlotWidth = 7 * 46;
+  // Dynamic Label Width: adapts to longest active/product name without truncation, capped to 45% of card width
+  const maxLabelLength = Math.max(...data.map((d) => (d.label || '').length), 5);
+  const labelWidth = Math.min(Math.max(maxLabelLength * 7.5 + 12, 85), cardInnerWidth * 0.45);
+  const visiblePlotWidth = cardInnerWidth - labelWidth - 2;
+
+  // Dynamic step width per unit (adapts to maxValue so ticks don't squeeze or blow up)
+  const stepWidth = Math.max(Math.min(visiblePlotWidth / Math.max(maxValue, 1), 60), 38);
+  const minPlotWidth = maxValue * stepWidth;
   const plotWidth = Math.max(visiblePlotWidth, minPlotWidth);
   const svgHeight = data.length * ROW_H;
   const totalSvgHeight = svgHeight + 2;
@@ -78,7 +83,7 @@ export default function HorizontalBarChart({
   const [activeIndex, setActiveIndex] = useState(0);
 
   const barWidths = data.map((d) =>
-    Math.max((d.value / maxValue) * plotWidth, BAR_H)
+    Math.max((d.value / maxValue) * plotWidth, 6)
   );
 
   const selectRow = (idx: number) => {
@@ -133,20 +138,13 @@ export default function HorizontalBarChart({
         },
       ]}
     >
-      {/* Card Header */}
-      <View style={styles.cardHeader}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
-        {unit ? (
-          <View style={[styles.unitPill, { backgroundColor: isDark ? '#27272a' : '#f4f4f5' }]}>
-            <Text style={[styles.unitText, { color: colors.textSecondary }]}>{unit}</Text>
-          </View>
-        ) : null}
-      </View>
+      {/* Card Header (Dynamic single-line / multi-line with unit pill below) */}
+      <ChartCardHeader title={title} unit={unit} isDark={isDark} colors={colors} />
 
       {/* Main Chart Body: Left Labels + Plot Area */}
       <View style={styles.chartBody}>
-        {/* Left Category Labels (Real Skincare Products) */}
-        <View style={{ width: LABEL_W, height: svgHeight }}>
+        {/* Left Category Labels (Dynamic width based on content) */}
+        <View style={{ width: labelWidth, height: svgHeight }}>
           {data.map((d, i) => {
             const isSelected = i === activeIndex;
             return (
@@ -211,6 +209,19 @@ export default function HorizontalBarChart({
                     <Stop offset="0" stopColor="#937abd" stopOpacity="1" />
                     <Stop offset="1" stopColor="#d6cbe8" stopOpacity="1" />
                   </LinearGradient>
+                  {/* Mathematical ClipPath for each row matching the exact capsule rail boundary */}
+                  {data.map((_, i) => (
+                    <ClipPath key={`hClip-${i}`} id={`hClip-${i}`}>
+                      <Rect
+                        x={0}
+                        y={i * ROW_H + (ROW_H - BAR_H) / 2}
+                        width={plotWidth}
+                        height={BAR_H}
+                        rx={BAR_H / 2}
+                        ry={BAR_H / 2}
+                      />
+                    </ClipPath>
+                  ))}
                 </Defs>
 
                 {/* Vertical dashed grid lines at each day mark (1, 2, 3, 4, 5, 6, 7) */}
@@ -255,21 +266,24 @@ export default function HorizontalBarChart({
                   </React.Fragment>
                 ))}
 
-                {/* Ranked gradient extra-thick pill bars */}
+                {/* Ranked gradient extra-thick pill bars — strictly constrained inside rail capsule clip path */}
                 {data.map((_, i) => {
+                  const bw = barWidths[i];
+                  if (bw <= 0) return null;
                   const isSelected = i === activeIndex;
                   return (
-                    <Rect
-                      key={`hbar-${i}`}
-                      x={0}
-                      y={i * ROW_H + (ROW_H - BAR_H) / 2}
-                      width={barWidths[i]}
-                      height={BAR_H}
-                      rx={BAR_H / 2}
-                      ry={BAR_H / 2}
-                      fill="url(#horizontalBarGrad)"
-                      opacity={isSelected ? 1 : 0.4}
-                    />
+                    <G key={`hbar-group-${i}`} clipPath={`url(#hClip-${i})`}>
+                      <Rect
+                        x={0}
+                        y={i * ROW_H + (ROW_H - BAR_H) / 2}
+                        width={bw}
+                        height={BAR_H}
+                        rx={BAR_H / 2}
+                        ry={BAR_H / 2}
+                        fill="url(#horizontalBarGrad)"
+                        opacity={isSelected ? 1 : 0.4}
+                      />
+                    </G>
                   );
                 })}
 
@@ -382,15 +396,19 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
   },
   cardTitle: {
+    flex: 1,
+    marginRight: 10,
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   unitPill: {
+    flexShrink: 0,
+    marginTop: 2,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,

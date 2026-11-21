@@ -23,9 +23,58 @@ import HorizontalBarChart from '@/components/charts/HorizontalBarChart';
 import PairedBarChart from '@/components/charts/PairedBarChart';
 import StackedBarChart from '@/components/charts/StackedBarChart';
 import DonutChart from '@/components/charts/DonutChart';
-import HeatmapCalendar from '@/components/charts/HeatmapCalendar';
-import ScatterPlot from '@/components/charts/ScatterPlot';
 import ImageStripShowcase from '@/components/charts/ImageStrip';
+
+// ── Extreme Stress-Test Datasets (Worst-Case Scenarios) ──
+const WORST_CASE_BAR = [
+  { label: 'Mon 01', value: 2500 },
+  { label: 'Tue 02', value: 350 },
+  { label: 'Wednesday Long 03', value: 1800 },
+  { label: 'Thu 04', value: 0 },
+  { label: 'Fri 05', value: 2450 },
+  { label: 'Sat 06', value: 1200 },
+  { label: 'Sun 07', value: 900 },
+  { label: 'Mon 08', value: 2100 },
+  { label: 'Tue 09', value: 1500 },
+  { label: 'Wed 10', value: 750 },
+  { label: 'Thu 11', value: 2200 },
+  { label: 'Fri 12', value: 0 },
+];
+
+const WORST_CASE_HORIZONTAL = [
+  { label: 'Super-Concentrated Retinol 1.0% + Squalane Booster', value: 28 },
+  { label: 'Ceramide NP + AP Complex Cream', value: 30 },
+  { label: 'Niacinamide 10% + Zinc 1%', value: 18 },
+  { label: 'Hyaluronic Acid Multi-Molecular Hydrator', value: 25 },
+  { label: 'Salicylic Acid 2% Exfoliating BHA Liquid', value: 4 },
+  { label: 'Ultra Pure Vitamin C 15% Ethyl Ascorbic Acid Serum', value: 12 },
+  { label: 'Zinc Oxide SPF 50+ Broad Spectrum Mineral Sunscreen', value: 30 },
+];
+
+const WORST_CASE_PAIRED = [
+  { label: 'Mon 01', series1: 100, series2: 0 },
+  { label: 'Tuesday 02', series1: 20, series2: 100 },
+  { label: 'Wed 03', series1: 85, series2: 90 },
+  { label: 'Thu 04', series1: 0, series2: 0 },
+  { label: 'Friday Extra Long 05', series1: 100, series2: 100 },
+  { label: 'Sat 06', series1: 50, series2: 30 },
+  { label: 'Sun 07', series1: 100, series2: 80 },
+  { label: 'Mon 08', series1: 70, series2: 95 },
+  { label: 'Tue 09', series1: 40, series2: 60 },
+  { label: 'Wed 10', series1: 100, series2: 100 },
+];
+
+const WORST_CASE_STACKED = [
+  { label: 'Mon 01', layer1: 3, layer2: 4, layer3: 3 },
+  { label: 'Tuesday Long 02', layer1: 1, layer2: 0, layer3: 1 },
+  { label: 'Wed 03', layer1: 2, layer2: 3, layer3: 2 },
+  { label: 'Thu 04', layer1: 1, layer2: 1, layer3: 1 },
+  { label: 'Friday Extra Long 05', layer1: 3, layer2: 4, layer3: 3 },
+  { label: 'Sat 06', layer1: 0, layer2: 0, layer3: 0 },
+  { label: 'Sun 07', layer1: 2, layer2: 4, layer3: 2 },
+  { label: 'Mon 08', layer1: 1, layer2: 2, layer3: 1 },
+  { label: 'Tue 09', layer1: 2, layer2: 2, layer3: 0 },
+];
 
 export default function InsightDetailScreen() {
   const scheme = useColorScheme();
@@ -112,37 +161,47 @@ export default function InsightDetailScreen() {
         <Text style={[styles.sectionHeading, styles.headingSpacing, { color: colors.text }]}>
           Daily Hydration Log
         </Text>
-        <BarChart />
+        <BarChart
+          title="Extremely Super Duper Unreasonably Long Multi-Line Card Title For Daily Hydration Metric In Milliliters Over Extended Observation Period"
+          unit="milliliters (mL)"
+          maxValue={2500}
+          data={WORST_CASE_BAR}
+        />
 
         <Text style={[styles.sectionHeading, styles.headingSpacing, { color: colors.text }]}>
           Top Ingredients & Actives
         </Text>
-        <HorizontalBarChart />
+        <HorizontalBarChart
+          title="Comprehensive Actives and Ingredients Frequency Breakdown Throughout The Entire Quarterly Regimen"
+          unit="application cycles"
+          maxValue={30}
+          data={WORST_CASE_HORIZONTAL}
+        />
 
         <Text style={[styles.sectionHeading, styles.headingSpacing, { color: colors.text }]}>
           AM vs PM Routine
         </Text>
-        <PairedBarChart />
+        <PairedBarChart
+          title="AM Versus PM Routine Consistency Compliance Percentage Comparative Analysis"
+          unit="percent ratio (%)"
+          maxValue={100}
+          data={WORST_CASE_PAIRED}
+        />
 
         <Text style={[styles.sectionHeading, styles.headingSpacing, { color: colors.text }]}>
           Routine Layering
         </Text>
-        <StackedBarChart />
+        <StackedBarChart
+          title="Cumulative Daily Multi-Step Product Application Layers Stacking Tracker"
+          unit="skincare steps & serums"
+          maxSteps={10}
+          data={WORST_CASE_STACKED}
+        />
 
         <Text style={[styles.sectionHeading, styles.headingSpacing, { color: colors.text }]}>
           Composition Breakdown
         </Text>
         <DonutChart />
-
-        <Text style={[styles.sectionHeading, styles.headingSpacing, { color: colors.text }]}>
-          Weekly Consistency Grid
-        </Text>
-        <HeatmapCalendar />
-
-        <Text style={[styles.sectionHeading, styles.headingSpacing, { color: colors.text }]}>
-          Correlation Analysis
-        </Text>
-        <ScatterPlot />
 
         <Text style={[styles.sectionHeading, styles.headingSpacing, { color: colors.text }]}>
           Facial Photo Timeline
