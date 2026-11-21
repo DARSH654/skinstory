@@ -1,30 +1,131 @@
 /**
- * HeatmapCalendar — month grid, color intensity per day
+ * HeatmapCalendar — Weekly Routine Consistency Grid
  *
- * Same visual language as the other charts:
- *  - lavender brand family used as an intensity ramp
- *  - dark/light surfaces, tap a day to reveal its value
- *
- * Each day is a rounded tile whose fill steps through the lavender scale
- * (faint → saturated) based on the day's value. Tapping a day pins a
- * readout line above the grid.
+ * Real-Life Skincare Example: 7-Day Habit & Routine Consistency
+ *  - 7 prominent day boxes (1 to 7) representing days of the analysis week
+ *  - Weekday letters (S, M, T, W, T, F, S) centered directly above each box
+ *  - Lavender intensity scale reflecting completed AM/PM routines
+ *  - Selecting a day updates the uplifted detail card below with full skincare routine logs
+ *  - No random scores or top pills; clean, uplifted card architecture
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
+import { CheckCircle2 } from 'lucide-react-native';
 
-export type HeatmapDatum = { day: number; value: number }; // value 0..100
+export type DayConsistencyDatum = {
+  day: number;
+  weekday: string;
+  fullWeekday: string;
+  dateStr: string;
+  completed: boolean;
+  level: number; // 0 to 4
+  amRoutine: string;
+  pmRoutine: string;
+  hydration: string;
+  skinScore: number;
+  statusLabel: string;
+};
 
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+// 7-day routine logging data for the analyzed week
+const DEFAULT_WEEK_DATA: DayConsistencyDatum[] = [
+  {
+    day: 1,
+    weekday: 'S',
+    fullWeekday: 'Sunday',
+    dateStr: 'Jul 26',
+    completed: true,
+    level: 4,
+    amRoutine: 'Cleanser, Hyaluronic Acid, SPF 50',
+    pmRoutine: 'Double Cleanse, Ceramide Cream, Retinol 0.2%',
+    hydration: '9 glasses (2.2L)',
+    skinScore: 82,
+    statusLabel: 'AM & PM Completed',
+  },
+  {
+    day: 2,
+    weekday: 'M',
+    fullWeekday: 'Monday',
+    dateStr: 'Jul 27',
+    completed: true,
+    level: 4,
+    amRoutine: 'Gentle Wash, Vitamin C, SPF 50',
+    pmRoutine: 'Micellar Water, BHA Exfoliant, Moisturizer',
+    hydration: '11 glasses (2.7L)',
+    skinScore: 84,
+    statusLabel: 'AM & PM Completed',
+  },
+  {
+    day: 3,
+    weekday: 'T',
+    fullWeekday: 'Tuesday',
+    dateStr: 'Jul 28',
+    completed: true,
+    level: 3,
+    amRoutine: 'Cleanser, Niacinamide, SPF 50',
+    pmRoutine: 'Foam Cleanse, Night Recovery Balm',
+    hydration: '8 glasses (2.0L)',
+    skinScore: 83,
+    statusLabel: 'AM & PM Completed',
+  },
+  {
+    day: 4,
+    weekday: 'W',
+    fullWeekday: 'Wednesday',
+    dateStr: 'Jul 29',
+    completed: false,
+    level: 1,
+    amRoutine: 'Splash Water, Sunscreen SPF 50',
+    pmRoutine: 'Missed (Late Night Travel)',
+    hydration: '5 glasses (1.2L)',
+    skinScore: 80,
+    statusLabel: 'Partial • AM Only',
+  },
+  {
+    day: 5,
+    weekday: 'T',
+    fullWeekday: 'Thursday',
+    dateStr: 'Jul 30',
+    completed: true,
+    level: 4,
+    amRoutine: 'Cleanser, Hyaluronic, Vitamin C, SPF 50',
+    pmRoutine: 'Double Cleanse, Peptide Serum, Ceramide Cream',
+    hydration: '10 glasses (2.5L)',
+    skinScore: 85,
+    statusLabel: 'AM & PM Completed',
+  },
+  {
+    day: 6,
+    weekday: 'F',
+    fullWeekday: 'Friday',
+    dateStr: 'Jul 31',
+    completed: true,
+    level: 4,
+    amRoutine: 'Gentle Cleanser, Niacinamide, SPF 50',
+    pmRoutine: 'Oil Cleanse, Retinol 0.2%, Barrier Cream',
+    hydration: '10 glasses (2.5L)',
+    skinScore: 86,
+    statusLabel: 'AM & PM Completed',
+  },
+  {
+    day: 7,
+    weekday: 'S',
+    fullWeekday: 'Saturday',
+    dateStr: 'Aug 01',
+    completed: true,
+    level: 3,
+    amRoutine: 'Cleanser, Barrier Serum, SPF 50',
+    pmRoutine: 'Gentle Wash, Hydrating Mask, Night Cream',
+    hydration: '8 glasses (2.0L)',
+    skinScore: 85,
+    statusLabel: 'AM & PM Completed',
+  },
 ];
 
-// Lavender intensity ramp (level 0 → 4)
+// Lavender intensity scale
 const LIGHT_SCALE = ['rgba(0,0,0,0.04)', '#ece5f5', '#d6cbe8', '#b9a6d6', '#937abd'];
 const DARK_SCALE = [
   'rgba(255,255,255,0.06)',
@@ -34,234 +135,346 @@ const DARK_SCALE = [
   '#937abd',
 ];
 
-// ─── Geometry ─────────────────────────────────────────────────────────────────
-const H_PADDING_LEFT = 14;
-const H_PADDING_RIGHT = 20;
-const GAP = 6;
-const MAX_LEVEL = LIGHT_SCALE.length - 1;
-
-function levelFor(value: number) {
-  if (value <= 0) return 0;
-  if (value < 25) return 1;
-  if (value < 50) return 2;
-  if (value < 75) return 3;
-  return 4;
-}
-
-// Deterministic default data so the demo is stable across re-renders
-function buildDefaultData(month: number): HeatmapDatum[] {
-  const days = new Date(2026, month + 1, 0).getDate();
-  const out: HeatmapDatum[] = [];
-  for (let d = 1; d <= days; d++) {
-    if (d % 7 === 0) {
-      out.push({ day: d, value: 0 }); // a few missed days
-      continue;
-    }
-    const seed = Math.sin(d * 12.9898 + month * 78.233) * 43758.5453;
-    const noise = seed - Math.floor(seed);
-    out.push({ day: d, value: Math.round(noise * 100) });
-  }
-  return out;
-}
-
 export default function HeatmapCalendar({
-  data,
-  year,
-  month,
+  title = 'Routine Consistency',
+  data = DEFAULT_WEEK_DATA,
 }: {
-  data?: HeatmapDatum[];
-  year?: number;
-  month?: number;
+  title?: string;
+  data?: DayConsistencyDatum[];
 }) {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = isDark ? Colors.dark : Colors.light;
 
-  const now = new Date();
-  const y = year ?? now.getFullYear();
-  const m = month ?? now.getMonth();
+  // Selected day index (defaults to Friday / Day 6)
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(5);
 
-  const sourceData = useMemo(() => data ?? buildDefaultData(m), [data, m]);
-
-  const weeks = useMemo(() => {
-    const map = new Map(sourceData.map((d) => [d.day, d.value]));
-    const firstWeekday = new Date(y, m, 1).getDay();
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
-
-    const cells: (HeatmapDatum | null)[] = [];
-    for (let i = 0; i < firstWeekday; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) {
-      cells.push({ day: d, value: map.get(d) ?? 0 });
-    }
-    while (cells.length % 7 !== 0) cells.push(null);
-
-    const out: (HeatmapDatum | null)[][] = [];
-    for (let i = 0; i < cells.length; i += 7) out.push(cells.slice(i, i + 7));
-    return out;
-  }, [sourceData, y, m]);
-
-  const [activeDay, setActiveDay] = useState<number | null>(null);
-
-  const available = SCREEN_WIDTH - H_PADDING_LEFT - H_PADDING_RIGHT;
-  const cellSize = (available - GAP * 6) / 7;
+  const cardInnerWidth = SCREEN_WIDTH - 40 - 32;
+  const GAP = 8;
+  const boxWidth = Math.floor((cardInnerWidth - 6 * GAP) / 7);
   const scale = isDark ? DARK_SCALE : LIGHT_SCALE;
 
-  const activeValue =
-    activeDay != null ? sourceData.find((d) => d.day === activeDay)?.value ?? 0 : null;
+  const selectedDay = data[selectedDayIndex] || data[0];
 
   return (
-    <View style={styles.chartSection}>
-      {/* Month label + active-day readout */}
-      <View style={styles.headerRow}>
-        <Text style={[styles.monthLabel, { color: colors.text }]}>
-          {MONTH_NAMES[m]} {y}
-        </Text>
-        {activeDay != null && (
-          <View style={[styles.readoutPill, { backgroundColor: isDark ? '#27272a' : '#ffffff' }]}>
-            <Text style={[styles.readoutText, { color: colors.textSecondary }]}>
-              {MONTH_NAMES[m].slice(0, 3)} {activeDay}
-            </Text>
-            <Text style={[styles.readoutValue, { color: colors.text }]}>{activeValue}</Text>
-          </View>
-        )}
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: isDark ? '#18181b' : '#ffffff',
+          borderColor: isDark ? '#27272a' : '#e5e7eb',
+        },
+      ]}
+    >
+      {/* Card Header */}
+      <View style={styles.cardHeader}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
+        <View style={[styles.unitPill, { backgroundColor: isDark ? '#27272a' : '#f4f4f5' }]}>
+          <Text style={[styles.unitText, { color: colors.textSecondary }]}>6/7 days logged</Text>
+        </View>
       </View>
 
-      {/* Weekday header */}
-      <View style={styles.weekRow}>
-        {WEEKDAYS.map((w, i) => (
-          <View key={`${w}-${i}`} style={{ width: cellSize, alignItems: 'center' }}>
-            <Text style={[styles.weekday, { color: colors.textSecondary }]}>{w}</Text>
-          </View>
-        ))}
-      </View>
+      {/* Weekday Row + 7 Days Grid with Standardized 18px Headroom */}
+      <View style={styles.gridContainer}>
+        <View style={styles.daysRow}>
+          {data.map((item, i) => {
+            const isSelected = i === selectedDayIndex;
+            const bg = scale[item.level];
+            const isFilled = item.level >= 3;
 
-      {/* Day grid */}
-      <View style={{ gap: GAP }}>
-        {weeks.map((week, wi) => (
-          <View key={wi} style={[styles.weekRow, { gap: GAP }]}>
-            {week.map((cell, ci) => {
-              if (!cell) {
-                return <View key={`empty-${wi}-${ci}`} style={{ width: cellSize, height: cellSize }} />;
-              }
-              const level = levelFor(cell.value);
-              const isActive = activeDay === cell.day;
-              const light = level >= 3; // light text on saturated tiles
-              return (
-                <Pressable
-                  key={`day-${cell.day}`}
-                  onPress={() => setActiveDay(isActive ? null : cell.day)}
+            return (
+              <View key={`day-col-${item.day}`} style={[styles.dayCol, { width: boxWidth }]}>
+                {/* Weekday Letter Centered Above Box */}
+                <Text
                   style={[
-                    styles.cell,
+                    styles.weekdayLetter,
                     {
-                      width: cellSize,
-                      height: cellSize,
-                      backgroundColor: scale[level],
-                      borderColor: isActive
+                      color: isSelected
+                        ? isDark
+                          ? '#ffffff'
+                          : '#000000'
+                        : colors.textSecondary,
+                      fontWeight: isSelected ? '800' : '600',
+                    },
+                  ]}
+                >
+                  {item.weekday}
+                </Text>
+
+                {/* Day Box with Big, Bold Number */}
+                <Pressable
+                  onPress={() => setSelectedDayIndex(i)}
+                  style={[
+                    styles.dayBox,
+                    {
+                      width: boxWidth,
+                      height: 48,
+                      backgroundColor: bg,
+                      borderColor: isSelected
                         ? isDark
                           ? '#ffffff'
                           : '#09090b'
-                        : 'transparent',
-                      borderWidth: isActive ? 2 : 0,
+                        : isDark
+                        ? 'rgba(255,255,255,0.08)'
+                        : 'rgba(0,0,0,0.06)',
+                      borderWidth: isSelected ? 2.5 : 1,
                     },
                   ]}
                 >
                   <Text
                     style={[
-                      styles.cellText,
-                      { color: light ? '#ffffff' : colors.textSecondary },
+                      styles.dayNumber,
+                      {
+                        color: isFilled
+                          ? '#ffffff'
+                          : isDark
+                          ? '#ffffff'
+                          : '#18181b',
+                      },
                     ]}
                   >
-                    {cell.day}
+                    {item.day}
                   </Text>
                 </Pressable>
-              );
-            })}
-          </View>
-        ))}
+              </View>
+            );
+          })}
+        </View>
       </View>
 
-      {/* Intensity legend */}
-      <View style={styles.legendRow}>
-        <Text style={[styles.legendText, { color: colors.textSecondary }]}>Less</Text>
-        {scale.map((c, i) => (
-          <View
-            key={`scale-${i}`}
-            style={[styles.legendSwatch, { backgroundColor: c }]}
-          />
-        ))}
-        <Text style={[styles.legendText, { color: colors.textSecondary }]}>More</Text>
-      </View>
+      {/* Selected Day Skincare Routine Uplifted Card */}
+      {selectedDay && (
+        <View
+          style={[
+            styles.detailCard,
+            {
+              backgroundColor: isDark ? '#222226' : '#f8f8fa',
+              borderColor: isDark ? '#333338' : '#e5e7eb',
+            },
+          ]}
+        >
+          {/* Top row: Day title & status badge */}
+          <View style={styles.detailHeaderRow}>
+            <View>
+              <Text style={[styles.detailDayTitle, { color: colors.text }]}>
+                {selectedDay.fullWeekday} • Day {selectedDay.day}
+              </Text>
+              <Text style={[styles.detailDateSubtitle, { color: colors.textSecondary }]}>
+                {selectedDay.dateStr}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: selectedDay.completed
+                    ? isDark
+                      ? 'rgba(16, 185, 129, 0.18)'
+                      : '#ecfdf5'
+                    : isDark
+                    ? 'rgba(245, 158, 11, 0.18)'
+                    : '#fffbeb',
+                  borderColor: selectedDay.completed
+                    ? isDark
+                      ? 'rgba(16, 185, 129, 0.35)'
+                      : '#a7f3d0'
+                    : isDark
+                    ? 'rgba(245, 158, 11, 0.35)'
+                    : '#fde68a',
+                },
+              ]}
+            >
+              <CheckCircle2
+                size={12}
+                color={selectedDay.completed ? '#10b981' : '#f59e0b'}
+                strokeWidth={2.5}
+              />
+              <Text
+                style={[
+                  styles.statusBadgeText,
+                  { color: selectedDay.completed ? '#10b981' : '#f59e0b' },
+                ]}
+              >
+                {selectedDay.statusLabel}
+              </Text>
+            </View>
+          </View>
+
+          {/* Routine logs */}
+          <View style={styles.routineSection}>
+            <View style={styles.routineRow}>
+              <View style={[styles.routineTag, { backgroundColor: isDark ? '#2e2738' : '#f3eefb' }]}>
+                <Text style={[styles.routineTagText, { color: '#937abd' }]}>AM</Text>
+              </View>
+              <Text numberOfLines={1} style={[styles.routineText, { color: colors.text }]}>
+                {selectedDay.amRoutine}
+              </Text>
+            </View>
+            <View style={[styles.routineRow, { marginTop: 6 }]}>
+              <View style={[styles.routineTag, { backgroundColor: isDark ? '#2e2738' : '#f3eefb' }]}>
+                <Text style={[styles.routineTagText, { color: '#937abd' }]}>PM</Text>
+              </View>
+              <Text numberOfLines={1} style={[styles.routineText, { color: colors.text }]}>
+                {selectedDay.pmRoutine}
+              </Text>
+            </View>
+          </View>
+
+          {/* Quick Metrics footer */}
+          <View style={[styles.detailFooter, { borderTopColor: isDark ? '#2e2e34' : '#ebebed' }]}>
+            <View style={styles.metricItem}>
+              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Hydration</Text>
+              <Text style={[styles.metricValue, { color: colors.text }]}>{selectedDay.hydration}</Text>
+            </View>
+            <View style={styles.metricItem}>
+              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Skin Score</Text>
+              <Text style={[styles.metricValue, { color: colors.text }]}>{selectedDay.skinScore} pts</Text>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  chartSection: {
-    paddingLeft: H_PADDING_LEFT,
-    paddingRight: H_PADDING_RIGHT,
-    paddingTop: 16,
-    paddingBottom: 8,
+  card: {
+    marginHorizontal: 20,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    paddingBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  headerRow: {
+  cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  monthLabel: {
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  unitPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  unitText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  gridContainer: {
+    marginTop: 18,
+  },
+  daysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dayCol: {
+    alignItems: 'center',
+  },
+  weekdayLetter: {
+    fontSize: 12,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  dayBox: {
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayNumber: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  detailCard: {
+    marginTop: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  detailHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  detailDayTitle: {
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
-  readoutPill: {
+  detailDateSubtitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  routineSection: {
+    marginBottom: 10,
+  },
+  routineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  routineTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  routineTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  routineText: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  detailFooter: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    paddingTop: 8,
+    gap: 20,
+  },
+  metricItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
   },
-  readoutText: {
-    fontSize: 12,
+  metricLabel: {
+    fontSize: 11,
     fontWeight: '600',
   },
-  readoutValue: {
-    fontSize: 12,
+  metricValue: {
+    fontSize: 11,
     fontWeight: '800',
-  },
-  weekRow: {
-    flexDirection: 'row',
-  },
-  weekday: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  cell: {
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cellText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 5,
-    marginTop: 16,
-  },
-  legendSwatch: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
-  },
-  legendText: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginHorizontal: 2,
   },
 });

@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   chartSection: {
     paddingLeft: H_PADDING_LEFT,
     paddingRight: H_PADDING_RIGHT,
-    paddingTop: 16,
+    paddingTop: 0,
     paddingBottom: 8,
   },
   centerReadout: {

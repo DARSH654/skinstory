@@ -601,7 +601,7 @@ export default function ProgressScreen() {
 
         {/* Insight Report Section */}
         <View style={styles.insightTitleRow}>
-          <Text style={[styles.sectionTitleOutside, { color: colors.text }]}>Your Personalized Insight Reports</Text>
+          <Text style={[styles.sectionTitleOutside, { color: colors.text }]}>Your Insight Reports</Text>
         </View>
 
         {INSIGHT_CARDS.map((card) => (

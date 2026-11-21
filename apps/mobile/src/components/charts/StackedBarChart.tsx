@@ -1,20 +1,20 @@
 /**
- * StackedBarChart — composition per period
+ * StackedBarChart — Vertically Stacked Pill Capsules per Day
  *
- * Same visual language as the other charts:
- *  - lavender brand family, rounded (pill) capsules, faint chrome
- *  - bottom (horizontal) axis only — no vertical scale
- *  - tap a segment to reveal its value bubble
- *
- * Each period column is split into stacked capsules (bottom → top) using
- * three brand shades: primary → mid → secondary. A legend chips row explains
- * the composition. The tapped capsule is highlighted and pops its value.
+ * Real-Life Skincare Example: Daily Skincare Routine Layers (Base, Treatment, Protection)
+ *  - Each segment is its OWN standalone rounded pill capsule (rx={barWidth / 2})
+ *  - Stacked vertically with clean gaps between capsules
+ *  - Bar width and sizing EXACTLY matches BarChart
+ *  - Left Y-Axis: Left-aligned numeric scale (0, 1, 2, 3, 4 layers) matching SkinScoreChart
+ *  - Horizontal dashed gridlines at each Y-axis tick mark
+ *  - Enclosed in an uplifted white card (dark mode: #18181b)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
+  ScrollView,
   Pressable,
   useWindowDimensions,
   GestureResponderEvent,
@@ -22,309 +22,441 @@ import {
 import { Text } from '@/components/AppText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
-import Svg, { Rect, Line } from 'react-native-svg';
+import Svg, { Rect, Line, ClipPath, G, Defs } from 'react-native-svg';
 
 export type StackedBarDatum = {
   label: string;
-  good: number;
-  fair: number;
-  rough: number;
+  layer1: number; // Base Care
+  layer2: number; // Active Treatment
+  layer3: number; // Barrier Seal
 };
 
-// ─── Composition layers, drawn bottom → top ───────────────────────────────────
-const SEGMENTS = [
-  { key: 'good', label: 'Good', color: '#937abd' },
-  { key: 'fair', label: 'Fair', color: '#b9a6d6' },
-  { key: 'rough', label: 'Rough', color: '#d6cbe8' },
-] as const;
-
-type SegmentKey = (typeof SEGMENTS)[number]['key'];
-
-// ─── Default data: good / fair / rough days per week (7-day weeks) ────────────
-const STACKED_DATA: StackedBarDatum[] = [
-  { label: 'Wk 1', good: 3, fair: 2, rough: 2 },
-  { label: 'Wk 2', good: 4, fair: 2, rough: 1 },
-  { label: 'Wk 3', good: 5, fair: 1, rough: 1 },
-  { label: 'Wk 4', good: 6, fair: 1, rough: 0 },
+const REAL_LIFE_STACKED: StackedBarDatum[] = [
+  { label: 'Mon', layer1: 1, layer2: 1, layer3: 1 },
+  { label: 'Tue', layer1: 1, layer2: 2, layer3: 1 },
+  { label: 'Wed', layer1: 1, layer2: 1, layer3: 0 },
+  { label: 'Thu', layer1: 1, layer2: 1, layer3: 1 },
+  { label: 'Fri', layer1: 1, layer2: 2, layer3: 1 },
+  { label: 'Sat', layer1: 1, layer2: 1, layer3: 0 },
+  { label: 'Sun', layer1: 1, layer2: 2, layer3: 1 },
 ];
 
-// ─── Geometry ─────────────────────────────────────────────────────────────────
-const H_PADDING_LEFT = 14;
-const H_PADDING_RIGHT = 20;
-const PLOT_TOP = 60; // head-room so the bubble clears the tallest column
-const BAR_MAX_HEIGHT = 190;
-const SEG_GAP = 3;
-const TOOLTIP_W = 56;
-const TOOLTIP_H = 38;
+const LAYER_COLORS = ['#937abd', '#b9a6d6', '#d6cbe8'];
+
+const PLOT_TOP = 18;
+const BAR_MAX_HEIGHT = 180;
+const Y_AXIS_WIDTH = 16;
+const Y_AXIS_GAP = 4;
+const SEG_GAP = 0; // ZERO gap between stacked pills
+const TOOLTIP_WIDTH = 86;
+const TOOLTIP_H = 32;
+const TOOLTIP_GAP = 8;
 
 export default function StackedBarChart({
-  data = STACKED_DATA,
+  title = 'Daily Skincare Layers',
+  data = REAL_LIFE_STACKED,
+  maxSteps = 4,
+  unit = 'layers',
 }: {
+  title?: string;
   data?: StackedBarDatum[];
+  maxSteps?: number;
+  unit?: string;
 }) {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = isDark ? Colors.dark : Colors.light;
+  const axisStrokeColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
 
-  const plotWidth = SCREEN_WIDTH - H_PADDING_LEFT - H_PADDING_RIGHT;
-  const axisY = PLOT_TOP + BAR_MAX_HEIGHT;
-  const svgHeight = axisY + 1;
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Exact same geometry as BarChart
+  const cardInnerWidth = SCREEN_WIDTH - 40 - 32;
+  const visiblePlotWidth = cardInnerWidth - Y_AXIS_WIDTH - Y_AXIS_GAP - 2;
+
+  const minColumnWidth = 54;
+  const plotWidth =
+    data.length <= 7
+      ? visiblePlotWidth
+      : Math.max(visiblePlotWidth, data.length * minColumnWidth);
+
   const columnWidth = plotWidth / data.length;
-  const barWidth = Math.min(columnWidth * 0.5, 34);
+  // Exact same barWidth formula as BarChart
+  const barWidth = Math.min(columnWidth * 0.62, 36);
+  const axisY = PLOT_TOP + BAR_MAX_HEIGHT;
+  const svgHeight = axisY + 28;
 
-  const [active, setActive] = useState({ col: 0, seg: 0 });
+  // Vertical label bounds: max steps sits inside below top line, 0 sits inside above baseline
+  const labelTopMin = PLOT_TOP + 2;
+  const labelTopMax = axisY - 14;
+  const labelInterval = (labelTopMax - labelTopMin) / (maxSteps > 0 ? maxSteps : 1);
 
-  // Global scale so stacked columns are comparable across periods
-  const grandMax = Math.max(
-    1,
-    ...data.map((c) => SEGMENTS.reduce((sum, s) => sum + c[s.key], 0))
+  const [activeIndex, setActiveIndex] = useState(1);
+
+  // Compute total layers per day
+  const dailyTotals = data.map(
+    (d) => d.layer1 + d.layer2 + d.layer3
   );
 
-  // Pre-compute capsule rects + per-column hit-test bands
-  const columns = data.map((c, col) => {
-    const x = col * columnWidth + (columnWidth - barWidth) / 2;
-    let cumulative = 0;
-    const bars: { seg: number; y: number; h: number; color: string }[] = [];
-    const bands: { seg: number; top: number; bottom: number }[] = [];
-
-    SEGMENTS.forEach((s, seg) => {
-      const v = c[s.key];
-      const h = (v / grandMax) * BAR_MAX_HEIGHT;
-      if (h > 0) {
-        const bottom = axisY - cumulative;
-        const top = bottom - h;
-        bands.push({ seg, top, bottom });
-        if (h - SEG_GAP > 0) {
-          bars.push({
-            seg,
-            y: top + SEG_GAP / 2,
-            h: h - SEG_GAP,
-            color: s.color,
-          });
-        }
-        cumulative += h;
-      }
-    });
-
-    return { x, totalH: cumulative, bars, bands };
-  });
-
   const handleTouch = (evt: GestureResponderEvent) => {
-    const { locationX, locationY } = evt.nativeEvent;
-    const col = Math.min(
+    const { locationX } = evt.nativeEvent;
+    const idx = Math.min(
       data.length - 1,
       Math.max(0, Math.floor(locationX / columnWidth))
     );
-    const bands = columns[col].bands;
-
-    let seg = bands.length ? bands[0].seg : 0;
-    let matched = false;
-    for (const b of bands) {
-      if (locationY >= b.top && locationY <= b.bottom) {
-        seg = b.seg;
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      // Nearest band fallback (tap landed in a gap or above the column)
-      let best = Infinity;
-      for (const b of bands) {
-        const dist = Math.abs((b.top + b.bottom) / 2 - locationY);
-        if (dist < best) {
-          best = dist;
-          seg = b.seg;
-        }
-      }
-    }
-    setActive({ col, seg });
+    setActiveIndex(idx);
   };
 
-  // ─── Bubble: centred on the active column, above its stack ──────────────────
-  const bubbleLeft = Math.min(
-    Math.max(active.col * columnWidth + columnWidth / 2 - TOOLTIP_W / 2, 0),
-    plotWidth - TOOLTIP_W
-  );
-  const bubbleTop = Math.max(
-    axisY - columns[active.col].totalH - TOOLTIP_H - 12,
-    2
+  // Y-axis ticks (0, 1, 2, 3, 4)
+  const yAxisTicks = Array.from({ length: maxSteps + 1 }, (_, i) => maxSteps - i);
+
+  // Tooltip position (clamped inside bounds)
+  const activeCenterX = activeIndex * columnWidth + columnWidth / 2;
+  const activeTotal = dailyTotals[activeIndex];
+  const activeHeight = Math.max((activeTotal / maxSteps) * BAR_MAX_HEIGHT, 10);
+  const activeTopY = axisY - activeHeight;
+
+  const rawLeft = activeCenterX - TOOLTIP_WIDTH / 2;
+  const tooltipLeft = Math.min(
+    Math.max(rawLeft, 4),
+    plotWidth - TOOLTIP_WIDTH - 4
   );
 
-  const activeSegment = SEGMENTS[active.seg];
-  const activeValue = data[active.col]?.[activeSegment.key as SegmentKey] ?? 0;
-  const activeStroke = isDark ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)';
-  const edgeStroke = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)';
+  const tooltipAbove = activeTopY >= TOOLTIP_H + TOOLTIP_GAP;
+  const tooltipTop = tooltipAbove
+    ? activeTopY - TOOLTIP_H - TOOLTIP_GAP
+    : activeTopY + TOOLTIP_GAP;
+
+  const tailLeft = Math.min(
+    Math.max(activeCenterX - tooltipLeft - 5, 8),
+    TOOLTIP_WIDTH - 18
+  );
 
   return (
-    <View style={styles.chartSection}>
-      {/* Legend */}
-      <View style={styles.legendRow}>
-        {SEGMENTS.map((s) => (
-          <View key={s.key} style={styles.legendItem}>
-            <View style={[styles.legendSwatch, { backgroundColor: s.color }]} />
-            <Text style={[styles.legendText, { color: colors.textSecondary }]}>
-              {s.label}
-            </Text>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: isDark ? '#18181b' : '#ffffff',
+          borderColor: isDark ? '#27272a' : '#e5e7eb',
+        },
+      ]}
+    >
+      {/* Card Header */}
+      <View style={styles.cardHeader}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
+        {unit ? (
+          <View style={[styles.unitPill, { backgroundColor: isDark ? '#27272a' : '#f4f4f5' }]}>
+            <Text style={[styles.unitText, { color: colors.textSecondary }]}>{unit}</Text>
           </View>
-        ))}
+        ) : null}
       </View>
 
-      <View style={{ width: plotWidth, height: svgHeight, position: 'relative' }}>
-        <Pressable onPress={handleTouch} style={{ width: plotWidth, height: svgHeight }}>
-          <Svg width={plotWidth} height={svgHeight}>
-            {/* Stacked capsules */}
-            {columns.map((c, col) =>
-              c.bars.map((b) => {
-                const isActive = col === active.col && b.seg === active.seg;
-                return (
-                  <Rect
-                    key={`${col}-${b.seg}`}
-                    x={c.x}
-                    y={b.y}
-                    width={barWidth}
-                    height={b.h}
-                    rx={barWidth / 2}
-                    ry={barWidth / 2}
-                    fill={b.color}
-                    opacity={isActive ? 1 : 0.6}
-                    stroke={isActive ? activeStroke : edgeStroke}
-                    strokeWidth={isActive ? 2 : 1}
-                  />
-                );
-              })
-            )}
-
-            {/* Bottom (horizontal) axis — no vertical axis */}
-            <Line
-              x1={0}
-              y1={axisY + 0.5}
-              x2={plotWidth}
-              y2={axisY + 0.5}
-              stroke={isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.1)'}
-              strokeWidth={1}
-            />
-          </Svg>
-        </Pressable>
-
-        {/* Value bubble — coloured dot + value of the tapped segment */}
-        <View
-          pointerEvents="none"
-          style={[
-            styles.tooltipContainer,
-            {
-              left: bubbleLeft,
-              top: bubbleTop,
-              backgroundColor: isDark ? '#ffffff' : '#09090b',
-            },
-          ]}
-        >
-          <View style={[styles.tooltipDot, { backgroundColor: activeSegment.color }]} />
-          <Text style={[styles.tooltipText, { color: isDark ? '#09090b' : '#ffffff' }]}>
-            {activeValue}
-          </Text>
-          <View
-            style={{
-              position: 'absolute',
-              bottom: -3,
-              alignSelf: 'center',
-              width: 12,
-              height: 12,
-              backgroundColor: isDark ? '#ffffff' : '#09090b',
-              borderRadius: 2,
-              transform: [{ rotate: '45deg' }],
-              zIndex: -1,
-            }}
-          />
-        </View>
-      </View>
-
-      {/* X-axis period labels */}
-      <View style={styles.xAxisRow}>
-        {data.map((d, i) => {
-          const isSelected = i === active.col;
-          return (
-            <View key={`${d.label}-${i}`} style={{ width: columnWidth, alignItems: 'center' }}>
+      {/* Chart Row: Left Y-Axis + Scrollable Bar Plot */}
+      <View style={styles.chartRow}>
+        {/* Y-Axis Column (Numeric Only, left-aligned, inside bounds with equal intervals) */}
+        <View style={[styles.yAxisContainer, { height: BAR_MAX_HEIGHT + PLOT_TOP }]}>
+          {yAxisTicks.map((tick, i) => {
+            const labelTop = labelTopMin + i * labelInterval;
+            return (
               <Text
+                key={`ytick-${i}`}
                 style={[
-                  styles.xAxisLabel,
+                  styles.yAxisLabel,
                   {
-                    color: isSelected
-                      ? isDark
-                        ? '#ffffff'
-                        : '#000000'
-                      : colors.textSecondary,
-                    fontWeight: isSelected ? '800' : '600',
+                    color: colors.textSecondary,
+                    top: labelTop,
                   },
                 ]}
               >
-                {d.label}
+                {tick}
               </Text>
+            );
+          })}
+        </View>
+
+        {/* Crisp, pinned vertical axis divider line alongside the numbers — seamlessly connects with baseline */}
+        <View
+          style={{
+            width: 1.5,
+            height: BAR_MAX_HEIGHT + 1,
+            backgroundColor: axisStrokeColor,
+            marginTop: PLOT_TOP,
+            marginRight: 0,
+          }}
+        />
+
+        {/* Scrollable SVG Area */}
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          overScrollMode="never"
+          style={{ flex: 1 }}
+          contentContainerStyle={{ width: plotWidth }}
+        >
+          <Pressable
+            onPress={handleTouch}
+            style={{ width: plotWidth, height: svgHeight, position: 'relative' }}
+          >
+            <Svg width={plotWidth} height={svgHeight}>
+              <Defs>
+                {/* ClipPath for each column so the stacked layers form a unified pill with ZERO gap */}
+                {data.map((_, col) => {
+                  const x = col * columnWidth + (columnWidth - barWidth) / 2;
+                  const total = dailyTotals[col];
+                  const totalH = Math.max((total / maxSteps) * BAR_MAX_HEIGHT, 8);
+                  return (
+                    <ClipPath key={`clip-${col}`} id={`stackClip-${col}`}>
+                      <Rect
+                        x={x}
+                        y={axisY - totalH}
+                        width={barWidth}
+                        height={totalH}
+                        rx={barWidth / 2}
+                        ry={barWidth / 2}
+                      />
+                    </ClipPath>
+                  );
+                })}
+              </Defs>
+
+              {/* Horizontal dashed grid lines (hidden on bottom baseline to prevent overlap) */}
+              {yAxisTicks.map((_, index) => {
+                if (index === yAxisTicks.length - 1) return null;
+                const yVal = PLOT_TOP + (index / (yAxisTicks.length - 1)) * BAR_MAX_HEIGHT;
+                return (
+                  <Line
+                    key={`dash-${index}`}
+                    x1={0}
+                    y1={yVal}
+                    x2={plotWidth}
+                    y2={yVal}
+                    stroke={axisStrokeColor}
+                    strokeWidth={1}
+                    strokeDasharray="4 4"
+                  />
+                );
+              })}
+
+              {/* Full-height background track rails (opaque mask hides dashed lines behind bars) */}
+              {data.map((_, i) => {
+                const x = i * columnWidth + (columnWidth - barWidth) / 2;
+                return (
+                  <React.Fragment key={`s-rail-group-${i}`}>
+                    <Rect
+                      x={x}
+                      y={PLOT_TOP}
+                      width={barWidth}
+                      height={BAR_MAX_HEIGHT}
+                      rx={barWidth / 2}
+                      ry={barWidth / 2}
+                      fill={isDark ? '#18181b' : '#ffffff'}
+                    />
+                    <Rect
+                      x={x}
+                      y={PLOT_TOP}
+                      width={barWidth}
+                      height={BAR_MAX_HEIGHT}
+                      rx={barWidth / 2}
+                      ry={barWidth / 2}
+                      fill={isDark ? 'rgba(255,255,255,0.06)' : '#f0f0f3'}
+                    />
+                  </React.Fragment>
+                );
+              })}
+
+              {/* Stacked capsules: Touching seamlessly with ZERO gap inside pill clip */}
+              {data.map((d, col) => {
+                const x = col * columnWidth + (columnWidth - barWidth) / 2;
+                const isSelected = col === activeIndex;
+                const layers = [d.layer1, d.layer2, d.layer3];
+
+                let cumulativeSteps = 0;
+                return (
+                  <G key={`stacked-col-${col}`} clipPath={`url(#stackClip-${col})`}>
+                    {layers.map((val, sIdx) => {
+                      if (val <= 0) return null;
+                      const segH = (val / maxSteps) * BAR_MAX_HEIGHT;
+                      const bottomY = axisY - (cumulativeSteps / maxSteps) * BAR_MAX_HEIGHT;
+                      const topY = bottomY - segH;
+                      cumulativeSteps += val;
+
+                      return (
+                        <Rect
+                          key={`seg-${col}-${sIdx}`}
+                          x={x}
+                          y={topY}
+                          width={barWidth}
+                          height={segH + 0.5}
+                          fill={LAYER_COLORS[sIdx]}
+                          opacity={isSelected ? 1 : 0.4}
+                        />
+                      );
+                    })}
+                  </G>
+                );
+              })}
+
+              {/* Bottom baseline axis */}
+              <Line
+                x1={0}
+                y1={axisY + 0.5}
+                x2={plotWidth}
+                y2={axisY + 0.5}
+                stroke={axisStrokeColor}
+                strokeWidth={1}
+              />
+            </Svg>
+
+            {/* Tap-to-reveal tooltip (Guaranteed inside bounds) */}
+            <View
+              pointerEvents="none"
+              style={[
+                styles.tooltipContainer,
+                {
+                  left: tooltipLeft,
+                  top: tooltipTop,
+                  backgroundColor: isDark ? '#ffffff' : '#09090b',
+                },
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[styles.tooltipText, { color: isDark ? '#09090b' : '#ffffff' }]}
+              >
+                {activeTotal} / {maxSteps} {unit}
+              </Text>
+              <View
+                style={[
+                  styles.tooltipTail,
+                  {
+                    left: tailLeft,
+                    backgroundColor: isDark ? '#ffffff' : '#09090b',
+                    ...(tooltipAbove ? { bottom: -4 } : { top: -4 }),
+                  },
+                ]}
+              />
             </View>
-          );
-        })}
+
+            {/* Bottom X-Axis Days Labels */}
+            <View style={[styles.xAxisRow, { top: axisY + 8 }]}>
+              {data.map((d, i) => {
+                const isSelected = i === activeIndex;
+                return (
+                  <View key={`day-${i}`} style={{ width: columnWidth, alignItems: 'center' }}>
+                    <Text
+                      style={[
+                        styles.xAxisLabel,
+                        {
+                          color: isSelected
+                            ? isDark
+                              ? '#ffffff'
+                              : '#000000'
+                            : colors.textSecondary,
+                          fontWeight: isSelected ? '800' : '600',
+                        },
+                      ]}
+                    >
+                      {d.label}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </Pressable>
+        </ScrollView>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  chartSection: {
-    paddingLeft: H_PADDING_LEFT,
-    paddingRight: H_PADDING_RIGHT,
-    paddingTop: 16,
-    paddingBottom: 8,
+  card: {
+    marginHorizontal: 20,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    paddingBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  legendRow: {
+  cardHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 16,
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
-  legendSwatch: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  unitPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  legendText: {
-    fontSize: 12,
+  unitText: {
+    fontSize: 11,
     fontWeight: '700',
   },
-  xAxisRow: {
+  chartRow: {
     flexDirection: 'row',
-    marginTop: 10,
+    alignItems: 'stretch',
+    position: 'relative',
+  },
+  yAxisContainer: {
+    width: Y_AXIS_WIDTH,
+    position: 'relative',
+    marginRight: Y_AXIS_GAP,
+    paddingHorizontal: 0,
+    alignItems: 'center',
+  },
+  yAxisLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    position: 'absolute',
+    textAlign: 'center',
+    width: '100%',
+  },
+  xAxisRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
   },
   xAxisLabel: {
     fontSize: 12,
   },
   tooltipContainer: {
     position: 'absolute',
-    width: TOOLTIP_W,
-    paddingHorizontal: 8,
+    width: TOOLTIP_WIDTH,
+    paddingHorizontal: 4,
     paddingVertical: 6,
     borderRadius: 8,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 4,
   },
-  tooltipDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-  },
   tooltipText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '800',
+  },
+  tooltipTail: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    transform: [{ rotate: '45deg' }],
   },
 });

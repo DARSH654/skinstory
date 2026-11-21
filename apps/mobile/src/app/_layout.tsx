@@ -101,6 +101,7 @@ export default function RootLayout() {
               <Stack.Screen name="daily-journal" options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="add-journal-question" options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="new-chat" options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="chart-landscape" options={{ headerShown: false, animation: 'fade' }} />
             </Stack>
             <AuthModal
               visible={showAuthModal}

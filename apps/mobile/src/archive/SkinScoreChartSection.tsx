@@ -85,23 +85,27 @@ export default function SkinScoreChartSection() {
   const chartScrollRef = useRef<ScrollView>(null);
 
   // ── Chart geometry ──────────────────────────────────────────────────────────
-  const visiblePlotWidth = SCREEN_WIDTH - 21 - 10 - 28; // Screen width minus yAxisContainer (21) minus marginRight (10) minus left/right screen paddings (28)
+  const cardInnerWidth = SCREEN_WIDTH - 40 - 32; // 20 margin each side, 16 padding each side
+  const visiblePlotWidth = cardInnerWidth - 21 - 10; // minus yAxisContainer (21) minus marginRight (10)
   const chartWidth =
     currentChartData.length <= 5
       ? visiblePlotWidth // Few points (e.g. Month: 4 weeks) — fill the screen, no wide gaps
       : Math.max(visiblePlotWidth * 1.3, currentChartData.length * 60); // Many points — scrollable wide chart
-  const chartHeight = 340; // Taller chart so 100 is near top with proper spacing
+  const chartHeight = 310;
   const paddingX = 40; // Starts 40px from the left edge to make the starting line segment longer
-  const paddingY = 16; // Small top/bottom padding — 100 sits just below the title
+  const paddingTop = 18; // Reduced to 18px matching BarChart, PairedBarChart & StackedBarChart
+  const paddingBottom = 16;
   const plotWidth = chartWidth - paddingX * 2;
-  const plotHeight = chartHeight - paddingY * 2;
+  const plotHeight = chartHeight - paddingTop - paddingBottom;
+  const baselineY = paddingTop + plotHeight; // tick 0 baseline
+  const totalChartHeight = baselineY + 24; // compact height containing labels without extra bottom gap
   const minVal = 0;
   const maxVal = 100;
   const valRange = maxVal - minVal;
 
   const points = currentChartData.map((d, index) => {
     const x = paddingX + (index / (currentChartData.length - 1)) * plotWidth;
-    const y = chartHeight - paddingY - ((d.value - minVal) / valRange) * plotHeight;
+    const y = baselineY - ((d.value - minVal) / valRange) * plotHeight;
     return { x, y };
   });
 
@@ -135,17 +139,8 @@ export default function SkinScoreChartSection() {
       linePath += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${next.x} ${next.y}`;
     }
     linePath += ` L ${chartWidth} ${points[points.length - 1].y}`;
-    areaPath = `${linePath} L ${chartWidth} ${chartHeight - paddingY} L 0 ${chartHeight - paddingY} Z`;
+    areaPath = `${linePath} L ${chartWidth} ${baselineY} L 0 ${baselineY} Z`;
   }
-
-  // Stats
-  const getStats = () => {
-    const values = currentChartData.map((d) => d.value);
-    const avg = (values.reduce((sum, v) => sum + v, 0) / values.length).toFixed(1);
-    const max = Math.max(...values);
-    return { avg, max, total: values.length };
-  };
-  const stats = getStats();
 
   // Y-axis labels from 100 down to 0
   const yAxisTicks = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
@@ -162,14 +157,23 @@ export default function SkinScoreChartSection() {
     : 0;
 
   return (
-    <View style={styles.chartSection}>
+    <View
+      style={[
+        styles.chartSection,
+        {
+          backgroundColor: isDark ? '#18181b' : '#ffffff',
+          borderColor: isDark ? '#27272a' : '#e5e7eb',
+        },
+      ]}
+    >
       {/* Title & Tabs Row */}
       <View style={styles.chartHeader}>
         <View style={styles.titleWithIcon}>
           <Text style={[styles.chartTitle, { color: colors.text }]}>Skin Score</Text>
         </View>
 
-        {/* Period selector tabs */}
+        {/* Period selector tabs (commented out per user request) */}
+        {/*
         <View style={[styles.tabsContainer, { backgroundColor: isDark ? '#18181b' : '#e4e4e7' }]}>
           {(['week', 'month', 'year'] as const).map((period) => (
             <Pressable
@@ -202,15 +206,15 @@ export default function SkinScoreChartSection() {
             </Pressable>
           ))}
         </View>
+        */}
       </View>
 
       {/* SVG Line Chart with Left Y-Axis */}
-      <View style={styles.chartWrapperRow}>
+      <View style={[styles.chartWrapperRow, { height: totalChartHeight }]}>
         {/* Y-Axis Column */}
         <View style={[styles.yAxisContainer, { height: chartHeight }]}>
           {yAxisTicks.map((tick, index) => {
-            const usableHeight = chartHeight - paddingY * 2;
-            const topPosition = paddingY + (index / (yAxisTicks.length - 1)) * usableHeight;
+            const topPosition = paddingTop + (index / (yAxisTicks.length - 1)) * plotHeight;
             return (
               <Text
                 key={tick}
@@ -239,14 +243,14 @@ export default function SkinScoreChartSection() {
           showsHorizontalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
-          style={{ flex: 1 }}
-          contentContainerStyle={{ width: chartWidth }}
+          style={{ flex: 1, height: totalChartHeight }}
+          contentContainerStyle={{ width: chartWidth, height: totalChartHeight }}
         >
           <Pressable
             onPress={handleChartTouch}
-            style={[styles.chartContainer, { height: chartHeight, width: chartWidth }]}
+            style={[styles.chartContainer, { height: totalChartHeight, width: chartWidth }]}
           >
-            <Svg width={chartWidth} height={chartHeight}>
+            <Svg width={chartWidth} height={totalChartHeight}>
               <Defs>
                 <LinearGradient id="chartAreaGrad" x1="0" y1="0" x2="0" y2="1">
                   <Stop offset="0" stopColor="#937abd" stopOpacity="0.25" />
@@ -256,8 +260,7 @@ export default function SkinScoreChartSection() {
 
               {/* Horizontal grid lines at each Y-axis tick */}
               {yAxisTicks.map((tick, index) => {
-                const usableH = chartHeight - paddingY * 2;
-                const yVal = paddingY + (index / (yAxisTicks.length - 1)) * usableH;
+                const yVal = paddingTop + (index / (yAxisTicks.length - 1)) * plotHeight;
                 return (
                   <Path
                     key={`grid-${tick}`}
@@ -322,8 +325,8 @@ export default function SkinScoreChartSection() {
               </View>
             )}
 
-            {/* X Axis labels */}
-            <View style={styles.xAxisContainerInner}>
+            {/* X Axis labels — placed cleanly below baseline without expanding bottom card gap */}
+            <View style={[styles.xAxisContainerInner, { top: baselineY + 5 }]}>
               {currentChartData.map((d, i) => {
                 const p = points[i] || { x: 0 };
                 const isSelected = i === activePointIndex;
@@ -353,46 +356,6 @@ export default function SkinScoreChartSection() {
           </Pressable>
         </ScrollView>
       </View>
-
-      {/* Stats Row */}
-      <View style={styles.statsGridRow}>
-        <View
-          style={[
-            styles.statGridBox,
-            {
-              backgroundColor: isDark ? '#000000' : '#ffffff',
-              borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-            },
-          ]}
-        >
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Avg Score</Text>
-          <Text style={[styles.statValue, { color: colors.text }]}>{stats.avg}</Text>
-        </View>
-        <View
-          style={[
-            styles.statGridBox,
-            {
-              backgroundColor: isDark ? '#000000' : '#ffffff',
-              borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-            },
-          ]}
-        >
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Max Score</Text>
-          <Text style={[styles.statValue, { color: colors.text }]}>{stats.max}</Text>
-        </View>
-        <View
-          style={[
-            styles.statGridBox,
-            {
-              backgroundColor: isDark ? '#000000' : '#ffffff',
-              borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-            },
-          ]}
-        >
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Scans</Text>
-          <Text style={[styles.statValue, { color: colors.text }]}>{stats.total}</Text>
-        </View>
-      </View>
     </View>
   );
 }
@@ -401,16 +364,22 @@ export default function SkinScoreChartSection() {
 
 const styles = StyleSheet.create({
   chartSection: {
-    paddingLeft: 14,
-    paddingRight: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
+    marginHorizontal: 20,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    paddingBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   chartHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
   },
   titleWithIcon: {
     flexDirection: 'row',
@@ -439,7 +408,7 @@ const styles = StyleSheet.create({
   chartWrapperRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    marginTop: 8,
+    marginTop: 0,
     position: 'relative',
   },
   yAxisContainer: {
@@ -447,11 +416,12 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginRight: 10,
     paddingHorizontal: 0,
+    alignItems: 'center',
   },
   yAxisLabel: {
     fontSize: 12,
     fontWeight: '700',
-    textAlign: 'left',
+    textAlign: 'center',
     width: '100%',
   },
   chartContainer: {
@@ -459,10 +429,9 @@ const styles = StyleSheet.create({
   },
   xAxisContainerInner: {
     position: 'absolute',
-    bottom: -4,
     left: 0,
     right: 0,
-    height: 22,
+    height: 18,
   },
   xAxisLabelWrapper: {
     position: 'absolute',
@@ -489,36 +458,6 @@ const styles = StyleSheet.create({
   },
   tooltipText: {
     fontSize: 13,
-    fontWeight: '800',
-  },
-  statsGridRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginTop: 20,
-    marginBottom: 16,
-  },
-  statGridBox: {
-    flex: 1,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 18,
     fontWeight: '800',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -17,7 +17,7 @@ import { Text } from '@/components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import Svg, { Defs, LinearGradient, Stop, Rect, Path, Circle } from 'react-native-svg';
-import { Flame, ChevronLeft, ChevronRight, Sparkles, Moon, Sun, CalendarDays, Calendar, User, Plus, ScanFace, Clock, BookOpen, Check, X } from 'lucide-react-native';
+import { Flame, ChevronLeft, ChevronRight, Sparkles, Moon, Sun, CalendarDays, Calendar, User, Plus, ScanFace, Clock, BookOpen, Check, X, Pencil, Shield, RefreshCw } from 'lucide-react-native';
 import FutureLockModal from '@/components/home/FutureLockModal';
 import {
   useForecastStore,
@@ -40,6 +40,7 @@ import fireAnimation from '../../../assets/animations/fire.json';
 import { BlurView } from 'expo-blur';
 import { useScanStore } from '@/store/scanStore';
 import { useJournalStore } from '@/store/journalStore';
+import { useEnvironmentalStore } from '@/store/environmentalStore';
 import * as Clipboard from 'expo-clipboard';
 import { JournalQuestionSheet, JournalQuestionSheetRef } from '@/components/journal/JournalQuestionSheet';
 import { MOCK_SCANS } from '@/constants/mockScans';
@@ -521,6 +522,7 @@ export default function HomeScreen() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
+  const primaryColor = Colors.light.primary;
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation<any>();
@@ -643,6 +645,18 @@ export default function HomeScreen() {
   // Journal Question Sheet ref for live daily tracking
   const journalSheetRef = useRef<JournalQuestionSheetRef>(null);
 
+  // DO NOT USE UNTIL PERMITTED BY USER: Preserved for future integration with Forecast engine.
+  // const envTitle = useEnvironmentalStore((state) => state.title);
+  // const envAdvice = useEnvironmentalStore((state) => state.advice);
+  // const lastUpdated = useEnvironmentalStore((state) => state.lastUpdated);
+  // const isEnvUpdating = useEnvironmentalStore((state) => state.isUpdating);
+  // const [showUpdateAction, setShowUpdateAction] = useState(false);
+
+  // DO NOT USE UNTIL PERMITTED BY USER: Environmental defense auto-sync on app open
+  // useEffect(() => {
+  //   useEnvironmentalStore.getState().refreshEnvironmentalData(false);
+  // }, []);
+
   // Analyzing transition state & shared values (0 = Normal Hero, 1 = Fully Analyzing)
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const analyzingTransition = useSharedValue(0);
@@ -696,8 +710,6 @@ export default function HomeScreen() {
       analyzingTimerRef.current = null;
     }, 720);
   }, [questions, historyRecords]);
-
-  const triggerAnalyzing = runForecastWithAnalyzing;
 
   // Subtle living wave animations for the 3 background curves
   const waveBreath1 = useSharedValue(0);
@@ -1313,47 +1325,200 @@ export default function HomeScreen() {
               )}
             </View>
 
-            {/* ── Your Daily Insights Section ───────────────────── */}
+            {/* DO NOT USE UNTIL PERMITTED BY USER: Climate / Environmental Defense section commented out until merged with Forecast engine.
             <View style={{ marginTop: 10, paddingHorizontal: 0 }}>
-              <Text style={{
-                fontSize: 20,
-                fontWeight: '800',
-                color: isDark ? '#ffffff' : '#1a1a1a',
-                marginBottom: 14,
-              }}>Your Insights</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <Text style={{
+                  fontSize: 20,
+                  fontWeight: '800',
+                  color: isDark ? '#ffffff' : '#1a1a1a',
+                  letterSpacing: -0.4,
+                }}>Climate</Text>
 
-              {/* Insight Card: Tapping triggers 3-sec analyzing demo */}
+                {isEnvUpdating || !lastUpdated || (Date.now() - (lastUpdated || 0) > 20 * 60 * 60 * 1000) || showUpdateAction ? (
+                  <Pressable
+                    onPress={async () => {
+                      await useEnvironmentalStore.getState().refreshEnvironmentalData(true);
+                      setShowUpdateAction(false);
+                    }}
+                    disabled={isEnvUpdating}
+                    style={({ pressed }) => [
+                      styles.upliftedViewAllBtn,
+                      {
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        backgroundColor: pressed 
+                          ? (isDark ? '#27272a' : '#f0f0f2') 
+                          : (isDark ? '#18181b' : '#ffffff'),
+                        borderColor: isDark ? '#27272a' : '#e5e7eb',
+                        opacity: isEnvUpdating ? 0.7 : 1,
+                      },
+                    ]}
+                  >
+                    <RefreshCw size={12} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.8} />
+                    <Text style={[styles.upliftedViewAllText, { color: isDark ? '#ffffff' : '#111827' }]}>
+                      {isEnvUpdating ? 'Updating...' : 'Update'}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    onPress={() => setShowUpdateAction(true)}
+                    style={({ pressed }) => [
+                      styles.upliftedViewAllBtn,
+                      {
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        backgroundColor: pressed 
+                          ? (isDark ? '#27272a' : '#f0f0f2') 
+                          : (isDark ? '#18181b' : '#ffffff'),
+                        borderColor: isDark ? '#27272a' : '#e5e7eb',
+                      },
+                    ]}
+                  >
+                    <Pencil size={12} color={isDark ? '#ffffff' : '#111827'} strokeWidth={2.8} />
+                    <Text style={[styles.upliftedViewAllText, { color: isDark ? '#ffffff' : '#111827' }]}>Edit</Text>
+                  </Pressable>
+                )}
+              </View>
+
               <Pressable 
-                onPress={triggerAnalyzing}
+                onPress={() => setShowUpdateAction(true)}
                 style={({ pressed }) => [
                   styles.upliftedCardBox,
                   isDark ? styles.historyCardBoxDark : styles.historyCardBoxLight,
-                  { marginBottom: 4, opacity: pressed ? 0.85 : 1 }
+                  { marginBottom: 4, opacity: pressed ? 0.9 : 1 }
                 ]}
               >
                 <View style={[styles.emptyIconCircle, isDark ? styles.iconBgDark : styles.iconBgLight]}>
-                  <Sparkles size={24} color={isDark ? "#a1a1aa" : "#6b7280"} />
+                  <Shield size={22} color={isDark ? "#a1a1aa" : "#6b7280"} strokeWidth={2.4} />
                 </View>
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={[styles.emptyRoutineTitle, { color: isDark ? '#ffffff' : '#111827' }]}>
-                    Insight overview
+                    {envTitle || 'Climate Defense'}
                   </Text>
                   <Text style={{
                     fontSize: moderateScale(13, 0.3),
-                    fontWeight: '700',
+                    fontWeight: '400',
                     lineHeight: 18,
                     color: isDark ? '#d4d4d8' : '#374151',
                     marginTop: verticalScale(2),
                   }}>
-                    {`Your skin has shown consistent improvement over the past week. Hydration levels are up and redness has visibly reduced — keep up your evening routine.`}
+                    {envAdvice}
                   </Text>
                 </View>
               </Pressable>
             </View>
+            */}
+
+            {/* ── 7-Day Pattern Progress Section (Pattern Engine / Trigger Unlock) ───────────────────── */}
+            <View style={{ marginTop: 10, paddingHorizontal: 0 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <Text style={{
+                  fontSize: 20,
+                  fontWeight: '800',
+                  color: isDark ? '#ffffff' : '#1a1a1a',
+                  letterSpacing: -0.4,
+                }}>7-Day Pattern Progress</Text>
+              </View>
+
+              {/* Uplifted 7-Day Pattern Progress Card */}
+              <View 
+                style={[
+                  styles.upliftedCardBox,
+                  isDark ? styles.historyCardBoxDark : styles.historyCardBoxLight,
+                  {
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    paddingVertical: 18,
+                    paddingHorizontal: 20,
+                    marginBottom: 4,
+                  }
+                ]}
+              >
+                {/* Header Row: Title & Status Pill (Consistent with Daily Journal) */}
+                <View style={styles.journalTopRow}>
+                  <Text style={[styles.journalDateText, { color: isDark ? '#ffffff' : '#111827' }]}>
+                    Pattern Engine
+                  </Text>
+                  <View
+                    style={[
+                      styles.journalStatusPill,
+                      {
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6',
+                        borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.journalStatusPillText,
+                        { color: isDark ? '#a1a1aa' : '#6b7280' },
+                      ]}
+                    >
+                      in progress
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Subtitle Meta Row (Exact match of journal day & count) */}
+                <View style={[styles.journalMetaRow, { marginBottom: 16 }]}>
+                  <Text style={[styles.journalDayText, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
+                    Week 1
+                  </Text>
+                  <View style={[styles.journalDotSeparator, { backgroundColor: isDark ? '#52525b' : '#d1d5db' }]} />
+                  <Text style={[styles.journalAnswersCount, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
+                    5 of 7 days logged
+                  </Text>
+                </View>
+
+                {/* Progress Bar (Thick Bar with Primary Brand Color) */}
+                <View style={{
+                  width: '100%',
+                  height: 10,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6',
+                  borderRadius: 999,
+                  overflow: 'hidden',
+                  marginBottom: 16,
+                }}>
+                  <View style={{
+                    width: `${(5 / 7) * 100}%`,
+                    height: '100%',
+                    backgroundColor: primaryColor,
+                    borderRadius: 999,
+                  }} />
+                </View>
+
+                {/* Bottom row: 7 dots on left, days remaining on right */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                    {/* Dot 1: Logged (Primary) */}
+                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: primaryColor }} />
+                    {/* Dot 2: Logged (Primary) */}
+                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: primaryColor }} />
+                    {/* Dot 3: Unlogged */}
+                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : '#e5e7eb' }} />
+                    {/* Dot 4: Unlogged */}
+                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : '#e5e7eb' }} />
+                    {/* Dot 5: Logged (Primary) */}
+                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: primaryColor }} />
+                    {/* Dot 6: Logged (Primary) */}
+                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: primaryColor }} />
+                    {/* Dot 7: Upcoming */}
+                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : '#e5e7eb' }} />
+                  </View>
+
+                  <Text style={[styles.journalAnswersCount, { color: isDark ? '#a1a1aa' : '#6b7280' }]}>
+                    2 more days until first report
+                  </Text>
+                </View>
+              </View>
+            </View>
 
             {/* ── Your Daily Journal Section ───────────────────── */}
 
-            <View style={{ marginTop: 10, paddingHorizontal: 0 }}>
+            <View style={{ marginTop: 24, paddingHorizontal: 0 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <Text style={{
                   fontSize: 20,

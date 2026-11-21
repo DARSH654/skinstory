@@ -2,18 +2,20 @@
  * ImageStrip — image display (no chart)
  *
  * A horizontally scrollable strip of rounded progress photos with a small
- * caption chip on each tile. Drop-in for scan galleries / before-after sets.
+ * caption chip on each tile. When clicked, the image pops out into a
+ * fullscreen zoomable modal.
  *
  * `ImageStrip` is the reusable primitive (named export).
  * The default export is a demo strip for the insight page.
  */
 
-import React from 'react';
-import { View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, ScrollView, useWindowDimensions, Pressable } from 'react-native';
 import { Text } from '@/components/AppText';
 import { Image } from 'expo-image';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
+import ZoomableImageModal from '@/components/ui/ZoomableImageModal';
 
 export type ImageStripItem = { uri: string; caption: string };
 
@@ -44,38 +46,63 @@ export function ImageStrip({
   const isDark = scheme === 'dark';
   const colors = isDark ? Colors.dark : Colors.light;
 
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.strip}
-      decelerationRate="fast"
-    >
-      {items.map((item, i) => (
-        <View
-          key={`${item.caption}-${i}`}
-          style={[
-            styles.tile,
-            {
-              width: tileWidth,
-              height: tileHeight,
-              backgroundColor: isDark ? '#18181b' : '#ffffff',
-              borderColor: isDark ? '#27272a' : '#e5e7eb',
-            },
-          ]}
-        >
-          <Image
-            source={{ uri: item.uri }}
-            style={[styles.image, { width: tileWidth, height: tileHeight }]}
-            contentFit="cover"
-            transition={250}
-          />
-          <View style={styles.captionChip}>
-            <Text style={styles.captionText}>{item.caption}</Text>
-          </View>
-        </View>
-      ))}
-    </ScrollView>
+    <>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.strip}
+        decelerationRate="fast"
+      >
+        {items.map((item, i) => (
+          <Pressable
+            key={`${item.caption}-${i}`}
+            onPress={() => setSelectedImageIndex(i)}
+            style={({ pressed }) => [
+              styles.tile,
+              {
+                width: tileWidth,
+                height: tileHeight,
+                backgroundColor: isDark ? '#18181b' : '#ffffff',
+                borderColor: isDark ? '#27272a' : '#e5e7eb',
+                opacity: pressed ? 0.92 : 1,
+              },
+            ]}
+          >
+            <Image
+              source={{ uri: item.uri }}
+              style={[styles.image, { width: tileWidth, height: tileHeight }]}
+              contentFit="cover"
+              transition={250}
+            />
+            <View style={styles.captionChip}>
+              <Text style={styles.captionText}>{item.caption}</Text>
+            </View>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {/* Pop out modal on image click */}
+      <ZoomableImageModal
+        visible={selectedImageIndex !== null}
+        onClose={() => setSelectedImageIndex(null)}
+        imageSource={selectedImageIndex !== null ? { uri: items[selectedImageIndex].uri } : ''}
+        isDark={isDark}
+        badgeLabel={selectedImageIndex !== null ? items[selectedImageIndex].caption : undefined}
+        hasPrevious={selectedImageIndex !== null && selectedImageIndex > 0}
+        hasNext={selectedImageIndex !== null && selectedImageIndex < items.length - 1}
+        onPrevious={() =>
+          setSelectedImageIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : prev))
+        }
+        onNext={() =>
+          setSelectedImageIndex((prev) =>
+            prev !== null && prev < items.length - 1 ? prev + 1 : prev
+          )
+        }
+      />
+    </>
   );
 }
 
@@ -91,11 +118,11 @@ export default function ImageStripShowcase() {
 
 const styles = StyleSheet.create({
   section: {
-    paddingTop: 16,
+    paddingTop: 0,
     paddingBottom: 8,
   },
   strip: {
-    paddingLeft: 14,
+    paddingLeft: 20,
     paddingRight: 20,
     gap: 12,
   },
